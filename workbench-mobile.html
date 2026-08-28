@@ -3,7 +3,11 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="format-detection" content="telephone=no" />
+<meta name="theme-color" content="#f3ecd9" />
 <title>猫咪生活报 · 手机版</title>
 <style>
   /* ============================================================
@@ -67,10 +71,12 @@
     --font-sans: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     --nav-h: 62px;                   /* 底部导航栏高度 */
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent;
+       touch-action: manipulation; -webkit-text-size-adjust: 100%; }
   :focus-visible { outline: 2px solid var(--module-2); outline-offset: 2px; border-radius: 4px; }
   button { -webkit-focus-ring-color: var(--module-2); }
-  html, body { height: 100%; }
+  html, body { height: 100%; touch-action: pan-y; overscroll-behavior-y: contain; }
+  html { touch-action: manipulation; }
   body {
     background: var(--page-bg);
     color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5;
@@ -255,11 +261,14 @@
   .rec.rec-layout-quote .quote-meta { margin-top:8px; font-size:12px; color:var(--text-tertiary); }
 
   /* ---------- bottom nav ---------- */
-  .nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: 100%; max-width: 480px; height: var(--nav-h);
-    background: rgba(252,251,248,.92); backdrop-filter: blur(14px); border-top: 1px solid var(--border);
-    display: grid; grid-template-columns: repeat(3,1fr); align-items: center; z-index: 30; padding-bottom: env(safe-area-inset-bottom); }
-  .nav .n { display:flex; flex-direction:column; align-items:center; gap: 4px; cursor:pointer; color: var(--text-tertiary); font-size: 10px; font-weight: 500; }
+  .nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: 100%; max-width: 480px; height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom); padding-top: 8px;
+    background: color-mix(in srgb, var(--surface-card) 92%, transparent); backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border); z-index: 30;
+    display: grid; grid-template-columns: repeat(3,1fr); align-items: start; }
+  .nav .n { display:flex; flex-direction:column; align-items:center; gap: 4px; cursor:pointer; color: var(--text-tertiary); font-size: 10px; font-weight: 500; transition: all .18s; }
   .nav .n.active { color: var(--accent); font-weight: 700; }
+  .nav .n:active { transform: scale(0.92); }
 
   /* ---------- drawer ---------- */
   .scrim { position: fixed; inset: 0; background: color-mix(in srgb, var(--text) 42%, transparent); backdrop-filter: blur(2px); z-index: 40; opacity:0; pointer-events:none; transition: opacity .22s; }
@@ -298,8 +307,9 @@
   .modal .sub { color: var(--text-secondary); font-size: 13px; margin: 4px 0 16px; }
   .field { margin-bottom: 13px; }
   .field label { display:block; color: var(--text-secondary); font-size: 12px; margin-bottom: 6px; }
-  input, select, textarea { font-family: var(--font); font-size: 15px; border: 1px solid var(--border-input); border-radius: var(--radius-tile);
-    padding: 11px 12px; background: var(--surface-card); color: var(--text); outline:none; width: 100%; transition: border-color .15s, box-shadow .15s; }
+  input, select, textarea { font-family: var(--font); font-size: 16px; border: 1px solid var(--border-input); border-radius: var(--radius-tile);
+    padding: 11px 12px; background: var(--surface-card); color: var(--text); outline:none; width: 100%; transition: border-color .15s, box-shadow .15s;
+    -webkit-appearance: none; appearance: none; }
   textarea { resize: vertical; min-height: 74px; }
   input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-muted); }
   .frow { display:flex; gap: 10px; }
@@ -366,6 +376,56 @@
   .cal-foot { margin-top:12px; font-size:12px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; }
   .cal-foot svg { color:var(--module-3); }
 
+  /* ---------- 移动端触摸与动画 ---------- */
+  .app { transition: opacity .25s ease, transform .25s ease; }
+  .card, .rec, .btn, .chip, .ring, .quick-btn, .step-btn, .cal-day, .cal-nav, .tab, .field input, .field textarea, .field select, .pill, .pin-tile { transition: transform .15s ease, box-shadow .2s ease, background .15s ease, border-color .15s ease; }
+  .card:active, .rec:active, .pin-tile:active { transform: scale(0.98); }
+  .btn:active { transform: scale(0.95); }
+  .btn.ghost:active { background: var(--surface-nested); }
+  .quick-btn:active { transform: scale(0.92); }
+  .cal-day:active { background: var(--accent-muted); }
+  .chip:active { transform: scale(0.95); }
+  
+  /* 页面切换淡入 */
+  .page-enter { animation: pageFadeIn .28s ease both; }
+  @keyframes pageFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* 列表项依次出现 */
+  .rec { animation: recFadeIn .28s ease both; }
+  .rec:nth-child(1) { animation-delay: .02s; }
+  .rec:nth-child(2) { animation-delay: .05s; }
+  .rec:nth-child(3) { animation-delay: .08s; }
+  .rec:nth-child(4) { animation-delay: .11s; }
+  .rec:nth-child(5) { animation-delay: .14s; }
+  .rec:nth-child(6) { animation-delay: .17s; }
+  .rec:nth-child(n+7) { animation-delay: .2s; }
+  @keyframes recFadeIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  /* 滚动到顶部按钮 */
+  .scroll-top { position: fixed; right: 20px; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 20px);
+    width: 42px; height: 42px; border-radius: 50%; background: var(--surface-card); border: 1px solid var(--border-input);
+    box-shadow: var(--shadow-overlay); display: grid; place-items: center; cursor: pointer; z-index: 25;
+    color: var(--text-secondary); opacity: 0; pointer-events: none; transform: translateY(10px); transition: all .25s ease; }
+  .scroll-top.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  .scroll-top:active { transform: scale(0.9); }
+  
+  /* 禁用选择 */
+  .nav .n, .quick-btn, .cal-day, .btn, .chip, .tab { user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; }
+  
+  /* 隐藏滚动条但保留滚动 */
+  .drawer::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; display: none; }
+  .drawer, body { scrollbar-width: none; -ms-overflow-style: none; }
+  
+  /* 安全区适配：底部 app padding */
+  .app { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 26px); }
+  
   .hidden { display: none !important; }
 
   /* ============================================================
@@ -1136,7 +1196,15 @@ function confirmDelete(key,id){
 }
 
 /* ---------- router / nav ---------- */
-function go(v){ view=v; closeDrawer(); render(); window.scrollTo({top:0}); }
+function go(v){ view=v; closeDrawer();
+  const app=document.getElementById("screen");
+  if(app){ app.style.opacity="0"; app.style.transform="translateY(6px)"; }
+  setTimeout(()=>{
+    render(); window.scrollTo({top:0});
+    if(app){ app.classList.remove("page-enter"); void app.offsetWidth; app.classList.add("page-enter");
+      app.style.opacity=""; app.style.transform=""; }
+  }, 80);
+}
 function render(){
   // top title
   if(view==="home"){ $("#topTitle").firstChild.textContent="我的工作台"; $("#topSub").textContent=CONFIG.slogan; }
@@ -1260,6 +1328,71 @@ onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAu
     }
     if(user && !user.is_anonymous) maybeGenerateWeeklyReport(false);
   }
+})();
+
+/* ---------- 滑动手势 ---------- */
+(function initSwipe(){
+  let startX=0, startY=0, startT=0, dx=0, dy=0, swiping=false;
+  const THRESHOLD_X = 60;   // 横向滑动阈值
+  const THRESHOLD_Y = 80;   // 下拉阈值
+  const MAX_VERT = 50;      // 纵向偏移上限（横向滑动时）
+
+  document.addEventListener("touchstart", e=>{
+    if(e.touches.length!==1) return;
+    const t=e.touches[0]; startX=t.clientX; startY=t.clientY; startT=Date.now();
+    dx=0; dy=0; swiping=false;
+  }, {passive:true});
+
+  document.addEventListener("touchmove", e=>{
+    if(e.touches.length!==1) return;
+    const t=e.touches[0];
+    dx=t.clientX-startX; dy=t.clientY-startY;
+    // 接近顶部且下拉中
+    if(!swiping && dy>30 && Math.abs(dx)<30 && window.scrollY<=2) swiping="pull";
+  }, {passive:true});
+
+  document.addEventListener("touchend", e=>{
+    const dt=Date.now()-startT;
+    // 左滑/右滑切换底部 tab
+    if(Math.abs(dx)>THRESHOLD_X && Math.abs(dy)<MAX_VERT && dt<600){
+      const tabs=["home","drawer","insight"];
+      const navs=document.querySelectorAll('#nav .n[data-nav]');
+      let current=0;
+      navs.forEach((n,i)=>{ if(n.classList.contains("active")) current=i; });
+      if(dx<0 && current<navs.length-1){ // 左滑→下一个
+        const next=navs[current+1]?.dataset.nav; if(next) go(next);
+      } else if(dx>0 && current>0){ // 右滑→上一个
+        const prev=navs[current-1]?.dataset.nav; if(prev) go(prev);
+      }
+      return;
+    }
+    // 右滑从左边缘 → 打开抽屉
+    if(dx>80 && startX<30 && Math.abs(dy)<80){
+      const drawer=document.getElementById("drawer");
+      const scrim=document.querySelector(".scrim");
+      if(drawer && !drawer.classList.contains("show")){ openDrawer(); }
+      return;
+    }
+  }, {passive:true});
+})();
+
+/* ---------- 滚动到顶部按钮 ---------- */
+(function initScrollTop(){
+  const btn=document.createElement("div");
+  btn.className="scroll-top"; btn.innerHTML=icon("chevron", 18, 2);
+  btn.style.transform="rotate(-90deg)";
+  btn.onclick=()=>window.scrollTo({top:0, behavior:"smooth"});
+  document.body.appendChild(btn);
+  let ticking=false;
+  window.addEventListener("scroll",()=>{
+    if(ticking) return;
+    ticking=true;
+    requestAnimationFrame(()=>{
+      if(window.scrollY>300) btn.classList.add("show");
+      else btn.classList.remove("show");
+      ticking=false;
+    });
+  },{passive:true});
 })();
 
 buildDrawer();
