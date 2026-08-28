@@ -207,9 +207,15 @@ function setupRealtime() {
     .subscribe();
 }
 
-// 邮箱注册
-async function signUp(email, password) {
+// 用户名转内部邮箱（Supabase 底层需 email 字段，用户无感知）
+function usernameToEmail(username) {
+  return `${username}@cat-newsroom.local`;
+}
+
+// 用户名+密码注册
+async function signUp(username, password) {
   if (!sb) return { error: "Supabase 未初始化" };
+  const email = usernameToEmail(username);
   const { data, error } = await sb.auth.signUp({ email, password });
   if (!error && data.user) {
     currentUser = data.user;
@@ -219,9 +225,10 @@ async function signUp(email, password) {
   return { data, error };
 }
 
-// 邮箱登录
-async function signIn(email, password) {
+// 用户名+密码登录
+async function signIn(username, password) {
   if (!sb) return { error: "Supabase 未初始化" };
+  const email = usernameToEmail(username);
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (!error && data.user) {
     currentUser = data.user;

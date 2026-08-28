@@ -1459,7 +1459,7 @@ function openAuthModal(mode){
   overlay.innerHTML=`<div class="modal auth-modal"><h3>${isLogin?'登录账号':'注册账号'}</h3>
     <div class="sub">登录后数据自动云端同步，多设备共享</div>
     <div class="auth-tabs"><div class="auth-tab ${isLogin?'':'on'}" data-t="signup">注册</div><div class="auth-tab ${isLogin?'on':''}" data-t="login">登录</div></div>
-    <div class="field"><label>邮箱</label><input id="auth-email" type="email" placeholder="your@email.com" autocomplete="email"/></div>
+    <div class="field"><label>用户名</label><input id="auth-email" type="text" placeholder="输入用户名" autocomplete="username"/></div>
     <div class="field"><label>密码</label><input id="auth-pass" type="password" placeholder="至少 6 位" autocomplete="current-password"/></div>
     <div class="modal-actions"><div class="spacer"></div><button class="btn ghost" id="auth-cancel">取消</button><button class="btn" id="auth-submit">${isLogin?'登录':'注册'}</button></div>
     <div class="auth-hint"><b>匿名模式</b>：不登录也能用，数据存在本机。登录后自动同步到云端，换设备也不丢。</div></div>`;
@@ -1471,13 +1471,13 @@ function openAuthModal(mode){
   });
   overlay.querySelector("#auth-cancel").onclick=close;
   overlay.querySelector("#auth-submit").onclick=async()=>{
-    const email=overlay.querySelector("#auth-email").value.trim();
+    const username=overlay.querySelector("#auth-email").value.trim();
     const pass=overlay.querySelector("#auth-pass").value;
-    if(!email||!pass) return;
+    if(!username||!pass) return;
     const btn=overlay.querySelector("#auth-submit");
     btn.textContent="处理中…"; btn.disabled=true;
     const fn = isLogin ? signIn : signUp;
-    const { error } = await fn(email, pass);
+    const { error } = await fn(username, pass);
     if(error){
       btn.textContent=isLogin?'登录':'注册'; btn.disabled=false;
       const sub=overlay.querySelector(".sub");
@@ -1511,7 +1511,8 @@ function updateAuthUI(){
   const user=getCurrentUser();
   const emailEl=document.getElementById("syncEmail");
   if(user && user.email){
-    emailEl.textContent=user.email;
+    const username=user.email.split("@")[0];
+    emailEl.textContent=username;
   } else if(user && user.is_anonymous){
     emailEl.textContent="匿名用户 · 点击登录升级";
   } else {
