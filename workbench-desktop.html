@@ -897,7 +897,7 @@ function weeklyReportTileHTML(){
   const days=(weeklyReport.daily||[]).map(function(day){ return `<details class="report-day"><summary>${esc(day.date||'本日')} · ${esc(day.title||'生活记录')}</summary><div class="report-text">${esc(day.summary||'')} ${esc(day.quote||'')}</div></details>`; }).join('');
   const review=weeklyReport.review||{};
   const metaText=weeklyReportMeta?.generated_at ? `生成于 ${new Date(weeklyReportMeta.generated_at).toLocaleString()}${weeklyReportMeta.model?' · '+weeklyReportMeta.model:''}` : 'AI 主编';
-  return `<div class="report-card"><div class="report-head"><h3>本周生活报</h3><span class="report-meta">${esc(metaText)}</span></div><div class="report-text">${esc(weeklyReport.editor_note||review.overview||'')}</div>${days}<details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：${esc((review.highlights||[]).join('、'))}<br>未完成：${esc((review.unfinished||[]).join('、'))}<br>下周建议：${esc((review.suggestions||[]).join('、'))}</div></details><div class="report-actions"><button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div></div>`;
+  return `<div class="report-card"><div class="report-head"><h3>本周生活报</h3><span class="report-meta">${esc(metaText)}</span></div><div class="report-text">${esc(weeklyReport.editor_note||review.overview||'')}</div>${days}<details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：${esc((review.highlights||[]).join('、'))}<br>未完成：${esc((review.unfinished||[]).join('、'))}<br>下周建议：${esc((review.suggestions||[]).join('、'))}</div></details><div class="report-actions"><button id="report-refresh" class="primary">重新生成</button><button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div></div>`;
 }
 
 async function maybeGenerateWeeklyReport(force){
@@ -1119,10 +1119,11 @@ function renderInsight(){
   $("#screen").innerHTML=`<div class="header"><div><h2>洞察</h2><p>各模块进展一览 · 记录—执行—统计—反馈</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar",14)} ${dateStr()}</span></div>
     <div class="sec-title">模块概况</div><div class="pin-list" style="grid-template-columns:repeat(3,1fr)">${cards}</div>`;
   $("#screen").querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go(el.dataset.open));
-  $("#screen").insertAdjacentHTML("beforeend", weeklyReportTileHTML()+"<div class=\"report-actions\"><button id=\"report-refresh\" class=\"primary\">"+(weeklyReport?'重新生成':'生成本周生活报')+"</button></div>");
-  const reportRefresh=$("#report-refresh"); if(reportRefresh) reportRefresh.onclick=()=>maybeGenerateWeeklyReport(true);
-  const reportMd=$("#report-export-md"); if(reportMd) reportMd.onclick=()=>exportWeeklyReport('md');
-  const reportJson=$("#report-export-json"); if(reportJson) reportJson.onclick=()=>exportWeeklyReport('json');
+  $("#screen").insertAdjacentHTML("beforeend", weeklyReportTileHTML());
+  $("#report-generate")?.addEventListener("click",()=>maybeGenerateWeeklyReport(true));
+  $("#report-refresh")?.addEventListener("click",()=>maybeGenerateWeeklyReport(true));
+  $("#report-export-md")?.addEventListener("click",()=>exportWeeklyReport('md'));
+  $("#report-export-json")?.addEventListener("click",()=>exportWeeklyReport('json'));
 }
 
 /* ---------- MODULE VIEW ---------- */
