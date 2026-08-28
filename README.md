@@ -11,7 +11,7 @@
 3. 进入 **Authentication > Providers**，开启 **Anonymous** 认证（即开即用）
 4. 进入 **Project Settings > API**，记下：
    - **Project URL**（如 `https://xxxxx.supabase.co`）
-   - **anon key**（一长串 eyJ... 开头的字符串）
+   - **Publishable key**（`sb_publishable_...`，旧项目也可能显示为 anon key）
 
 ### 第 2 步：配置同步模块
 
@@ -20,7 +20,7 @@
 ```js
 const SUPABASE_CONFIG = {
   url: "https://xxxxx.supabase.co",    // 替换为你的 Project URL
-  anonKey: "eyJhbGciOi..."             // 替换为你的 anon key
+  anonKey: "sb_publishable_..."        // 替换为你的 Publishable key
 };
 ```
 
@@ -45,10 +45,20 @@ const SUPABASE_CONFIG = {
 5. **Branch** 选 `main`，文件夹选 `/ (root)`
 6. 保存后等待 1-2 分钟，访问 `https://你的用户名.github.io/cat-newsroom/workbench-desktop.html`
 
+### 第 4 步：部署 AI 周报（可选）
+
+1. 在 Supabase SQL Editor 执行更新后的 `supabase-schema.sql`，会升级记录主键并创建 `weekly_reports`。
+2. 使用 Supabase CLI 部署 `supabase/functions/generate-weekly-report/index.ts`。
+3. 在 Edge Function Secrets 中配置 `AIXLUV_API_KEY`，可选配置 `AIXLUV_MODEL`。
+4. AI 密钥只保存在 Edge Function，前端不会直接暴露密钥。
+
+命令行部署方式：`supabase link --project-ref <project-ref>`、`supabase db push`、`supabase functions deploy generate-weekly-report`。
+
 ## 使用方式
 
 - **未配置 Supabase 时**：纯本地模式，数据存在浏览器 localStorage
 - **配置 Supabase 后**：打开页面自动匿名登录，数据静默同步到云端
+- **正式账号后**：每周首次访问首页会生成或读取本周 AI 生活报，洞察页可手动重生成
 - **点击侧栏底部同步指示器**：
   - 匿名用户 → 弹出登录/注册弹窗，升级为正式账号
   - 已登录用户 → 可登出
@@ -67,6 +77,7 @@ GitHub Pages（静态托管）
        ↓
   workbench_records 表（JSONB 存储所有模块数据）
   workbench_meta 表（头像/番茄钟/趋势等元数据）
+  weekly_reports 表（按用户和周保存 AI 生活报）
 ```
 
 ### 数据表结构
@@ -75,6 +86,7 @@ GitHub Pages（静态托管）
 |------|------|---------|
 | `workbench_records` | 所有模块的记录 | `id`, `user_id`, `module_key`, `data`(JSONB) |
 | `workbench_meta` | 用户元数据 | `user_id`, `avatar`, `pomo_stats`, `trend_data` |
+| `weekly_reports` | AI 周报缓存 | `user_id`, `week_start`, `payload`, `source_snapshot` |
 
 每个用户的记录通过 `user_id` 隔离，RLS 策略确保用户只能读写自己的数据。
 

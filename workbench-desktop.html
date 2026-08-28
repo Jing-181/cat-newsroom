@@ -616,6 +616,18 @@
   .sidebar .sync-area .sync-off { color: var(--drawer-text-mute); }
   .sidebar .sync-area .sync-off::before { background: var(--drawer-text-mute); }
   .sync-user-email { font-size:10.5px; color: var(--drawer-text-mute); font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sync-now { border:1px solid var(--drawer-active); background:transparent; color:var(--drawer-text-mute); border-radius:6px; padding:5px 8px; cursor:pointer; font-size:11px; }
+  .sync-now:hover { color:var(--drawer-text); background:var(--drawer-hover); }
+  .report-card { margin-top:16px; padding:18px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); box-shadow:var(--shadow-card); }
+  .report-card .report-head { display:flex; align-items:center; gap:10px; }
+  .report-card .report-head h3 { flex:1; font-size:18px; }
+  .report-card .report-meta { color:var(--text-tertiary); font-size:12px; margin-top:4px; }
+  .report-card .report-actions { display:flex; gap:8px; margin-top:14px; }
+  .report-card .report-actions button { border:1px solid var(--border-input); background:var(--surface-card); color:var(--text); border-radius:6px; padding:7px 10px; cursor:pointer; }
+  .report-card .report-actions button.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .report-day { padding:10px 0; border-top:1px dashed var(--border); }
+  .report-day summary { cursor:pointer; font-weight:700; }
+  .report-text { color:var(--text-secondary); margin-top:6px; line-height:1.7; }
 
   /* 登录弹窗 */
   .auth-modal { width:380px; }
@@ -640,6 +652,7 @@
     <div class="sync-area" id="syncArea">
       <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
       <span class="sync-user-email" id="syncEmail"></span>
+      <button class="sync-now" id="sync-now" type="button">立即同步</button>
     </div>
     <div class="foot" id="foot">猫咪编辑部 · 云端同步版</div>
   </aside>
@@ -661,7 +674,7 @@
    图标用 icon 字段（取自下方 ICONS 图标库，全部为单色线性图标）。
    ============================================================ */
 const CONFIG = {
-  storageKey: "cat-newsroom-desktop-v1",   // 换 key 可强制重置
+  storageKey: "cat-newsroom-data-v2",   // 桌面与手机版共享数据
   owner: "猫咪生活报",                  // 侧栏顶部标题
   slogan: "Cat Life Daily",
 
@@ -767,7 +780,7 @@ function icon(name, size=22, sw=1.7){
 /* ============================================================
    ENGINE — 一般无需改动
    ============================================================ */
-function isoToday(){ return new Date().toISOString().slice(0,10); }
+function isoToday(){ return localDateKey(); }
 function today(){ return isoToday(); }
 function avgProgress(list){
   if(!list||!list.length) return { value:0, sub:"0" };
@@ -779,18 +792,20 @@ const $ = s => document.querySelector(s);
 
 const store = {
   load(){
-    const raw = localStorage.getItem(CONFIG.storageKey);
-    if(raw){ try { return JSON.parse(raw); } catch(e){} }
+    try { const raw=localStorage.getItem(CONFIG.storageKey); if(raw) return JSON.parse(raw); } catch(e){}
     const d={}; CONFIG.modules.forEach(m=>d[m.key]=structuredClone(m.seed||[])); return d;
   },
   save(){
+    touchDataForSync();
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
     if(getSyncStatus() === "online") schedulePush();
   },
 };
 let data = store.load();
+resetRecordSnapshot();
 let view = "home";
 let searchQ = "";
+let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false;
 let pomo = { running:false, remain:25*60, total:25*60 };   // 番茄钟状态（内存态，跨渲染保留）
 let clockTimer = null;                                       // 全局秒级心跳（时钟 + 番茄钟）
 function persist(){ store.save(); render(); }
@@ -799,7 +814,7 @@ function pad2(n){ return String(n).padStart(2,"0"); }
 /* 本周（周一起）7 天的 ISO 日期 */
 function weekDates(){
   const n=new Date(); const dow=(n.getDay()+6)%7; const mon=new Date(n); mon.setDate(n.getDate()-dow);
-  const arr=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); arr.push(d.toISOString().slice(0,10)); }
+  const arr=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); arr.push(localDateKey(d)); }
   return arr;
 }
 function weekNum(){ const n=new Date(); const s=new Date(n.getFullYear(),0,1);
@@ -874,6 +889,30 @@ function focusTileHTML(){
     : `<div class="focus-empty">在任意模块点击 <span style="display:inline-flex;color:var(--module-3);vertical-align:-2px">${icon("star",13)}</span> 即可把要事置顶到这里。</div>`;
   return `<div class="tile b4"><div class="tile-h"><span class="tic">${icon("star",16)}</span><div class="tt"><span class="en">TODAY'S FOCUS</span><span class="zh">今日聚焦</span></div><span class="r">${pins.length} 项</span></div>
     <div class="focus-list">${rows}</div></div>`;
+}
+
+// 展示 AI 周报，逐日内容可折叠查看。
+function weeklyReportTileHTML(){
+  if(weeklyReportLoading || weeklyReportWaiting) return `<div class="report-card"><h3>本周生活报</h3><div class="report-text">正在生成，完成后会自动显示…</div></div>`;
+  if(!weeklyReport) return `<div class="report-card"><h3>本周生活报</h3><div class="report-text">登录正式账号后生成本周生活报。</div><div class="report-actions"><button class="primary" id="report-generate">生成本周生活报</button></div></div>`;
+  const days=(weeklyReport.daily||[]).map(function(day){ return `<details class="report-day"><summary>${esc(day.date||'本日')} · ${esc(day.title||'生活记录')}</summary><div class="report-text">${esc(day.summary||'')} ${esc(day.quote||'')}</div></details>`; }).join('');
+  const review=weeklyReport.review||{};
+  const metaText=weeklyReportMeta?.generated_at ? `生成于 ${new Date(weeklyReportMeta.generated_at).toLocaleString()}${weeklyReportMeta.model?' · '+weeklyReportMeta.model:''}` : 'AI 主编';
+  return `<div class="report-card"><div class="report-head"><h3>本周生活报</h3><span class="report-meta">${esc(metaText)}</span></div><div class="report-text">${esc(weeklyReport.editor_note||review.overview||'')}</div>${days}<details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：${esc((review.highlights||[]).join('、'))}<br>未完成：${esc((review.unfinished||[]).join('、'))}<br>下周建议：${esc((review.suggestions||[]).join('、'))}</div></details><div class="report-actions"><button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div></div>`;
+}
+
+async function maybeGenerateWeeklyReport(force){
+  const user=getCurrentUser(); if(!user || user.is_anonymous || weeklyReportLoading) return;
+  weeklyReportLoading=true; render();
+  try { const result=await generateWeeklyReport({force:!!force}); weeklyReportMeta=result.meta||weeklyReportMeta; weeklyReportWaiting=result.status==='generating'&&!result.report; if(weeklyReportWaiting) setTimeout(()=>maybeGenerateWeeklyReport(false),3000); else weeklyReport=result.report||null; }
+  catch(e){ weeklyReportWaiting=false; if(force) alert(e.message||'AI 生活报生成失败'); }
+  finally { weeklyReportLoading=false; render(); }
+}
+
+function exportWeeklyReport(format){
+  if(!weeklyReport) return;
+  const text=format==='json'?JSON.stringify(weeklyReport,null,2):[weeklyReport.editor_note||'',...(weeklyReport.daily||[]).map(d=>`## ${d.date||''} ${d.title||''}\n${d.summary||''}\n${d.quote||''}`),`## 本周复盘\n${weeklyReport.review?.overview||''}`].join('\n\n');
+  const blob=new Blob([text],{type:format==='json'?'application/json':'text/markdown'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`cat-life-weekly-report.${format==='json'?'json':'md'}`; a.click(); URL.revokeObjectURL(a.href);
 }
 
 /* 快速记录 */
@@ -1034,6 +1073,10 @@ function renderHome(){
     ${grp("收支与成长","MONEY&nbsp;&nbsp;&&nbsp;&nbsp;GROWTH")}
     <div class="bento">${spendTileHTML()}${booksTileHTML()}${goalsTileHTML()}</div>`;
   wireHome();
+  $("#screen").insertAdjacentHTML("beforeend", weeklyReportTileHTML());
+  const reportButton=$("#report-generate"); if(reportButton) reportButton.onclick=()=>maybeGenerateWeeklyReport(true);
+  const md=$("#report-export-md"); if(md) md.onclick=()=>exportWeeklyReport('md');
+  const js=$("#report-export-json"); if(js) js.onclick=()=>exportWeeklyReport('json');
   startClock();
 }
 
@@ -1077,6 +1120,10 @@ function renderInsight(){
   $("#screen").innerHTML=`<div class="header"><div><h2>洞察</h2><p>各模块进展一览 · 记录—执行—统计—反馈</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar",14)} ${dateStr()}</span></div>
     <div class="sec-title">模块概况</div><div class="pin-list" style="grid-template-columns:repeat(3,1fr)">${cards}</div>`;
   $("#screen").querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go(el.dataset.open));
+  $("#screen").insertAdjacentHTML("beforeend", weeklyReportTileHTML()+"<div class=\"report-actions\"><button id=\"report-refresh\" class=\"primary\">"+(weeklyReport?'重新生成':'生成本周生活报')+"</button></div>");
+  const reportRefresh=$("#report-refresh"); if(reportRefresh) reportRefresh.onclick=()=>maybeGenerateWeeklyReport(true);
+  const reportMd=$("#report-export-md"); if(reportMd) reportMd.onclick=()=>exportWeeklyReport('md');
+  const reportJson=$("#report-export-json"); if(reportJson) reportJson.onclick=()=>exportWeeklyReport('json');
 }
 
 /* ---------- MODULE VIEW ---------- */
@@ -1293,7 +1340,7 @@ function recHTML(m,x){
 }
 
 function streak(log){ if(!log) return 0; let n=0; const d=new Date();
-  for(;;){ const k=d.toISOString().slice(0,10); if(log[k]){ n++; d.setDate(d.getDate()-1);} else break; } return n; }
+  for(;;){ const k=localDateKey(d); if(log[k]){ n++; d.setDate(d.getDate()-1);} else break; } return n; }
 
 function wireModule(key){ const m=modOf(key);
   $("#screen").querySelectorAll(".js-chk").forEach(el=>el.onclick=e=>{ e.stopPropagation();
@@ -1401,7 +1448,7 @@ function confirmDelete(key,id){ const item=(data[key]||[]).find(i=>i.id==id); if
   const close=()=>overlay.remove();
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
   overlay.querySelector("#c-cancel").onclick=close;
-  overlay.querySelector("#c-ok").onclick=()=>{ data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
+  overlay.querySelector("#c-ok").onclick=()=>{ addDeletedTombstone(key,id); data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
 }
 
 /* ---------- router / sidebar ---------- */
@@ -1475,22 +1522,14 @@ function openAuthModal(mode){
         const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); render(); }
       }
       updateAuthUI();
+      if(isLogin) maybeGenerateWeeklyReport(false);
     }
   };
 }
 
 // 合并云端数据到本地（保留本地较新的记录）
 function mergeCloudData(cloudData){
-  CONFIG.modules.forEach(m=>{
-    if(cloudData[m.key] && cloudData[m.key].length){
-      const localIds=new Set((data[m.key]||[]).map(x=>x.id));
-      cloudData[m.key].forEach(r=>{ if(!localIds.has(r.id)) (data[m.key]=data[m.key]||[]).push(r); });
-    }
-  });
-  if(cloudData.__avatar) data.__avatar=cloudData.__avatar;
-  if(cloudData.__pomo) data.__pomo=cloudData.__pomo;
-  if(cloudData.__trend) data.__trend=cloudData.__trend;
-  localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
+  return mergeDataWithCloud(cloudData);
 }
 
 // 更新认证相关 UI
@@ -1514,25 +1553,22 @@ document.getElementById("sync-indicator").onclick=()=>{
     const user=getCurrentUser();
     if(user && user.is_anonymous) openAuthModal("login");
     else if(user && user.email) { if(confirm("确定登出？")) signOut().then(()=>{ updateAuthUI(); }); }
-  } else if(s==="offline"||s==="error"){
-    initSupabase().then(ok=>{ if(ok){ loadFromCloud().then(cd=>{ if(cd){ mergeCloudData(cd); render(); updateAuthUI(); } }); } });
-  }
+  } else if(s==="offline"||s==="error") initSupabase().then(ok=>{ if(ok) syncNow(); });
 };
 
-// 设置云端数据加载回调
-onSyncReady = function(cloudData){ mergeCloudData(cloudData); };
+document.getElementById("sync-now").onclick=()=>syncNow();
+async function syncNow(){
+  const cd=await loadFromCloud();
+  if(cd){ mergeCloudData(cd); await pushAllLocalToCloud(); render(); updateAuthUI(); }
+}
 
-// 启动时初始化云端
+// 设置云端数据加载回调
+onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAuthUI(); };
+
+// 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
 (async function initSync(){
   const ok=await initSupabase();
-  if(ok){
-    const cd=await loadFromCloud();
-    if(cd){
-      mergeCloudData(cd);
-      updateAuthUI();
-      render();
-    }
-  }
+  if(ok){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); render(); updateAuthUI(); } if(getCurrentUser()&&!getCurrentUser().is_anonymous) maybeGenerateWeeklyReport(false); }
 })();
 
 buildNav();

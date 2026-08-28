@@ -410,6 +410,18 @@
   .sync-area .sync-off { color: var(--drawer-text-mute); }
   .sync-area .sync-off::before { background: var(--drawer-text-mute); }
   .sync-user-email { font-size:10.5px; color: var(--drawer-text-mute); font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sync-now { border:1px solid var(--drawer-active); background:transparent; color:var(--drawer-text-mute); border-radius:6px; padding:5px 8px; cursor:pointer; font-size:11px; }
+  .sync-now:hover { color:var(--drawer-text); background:var(--drawer-hover); }
+  .report-card { margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); box-shadow:var(--shadow-card); }
+  .report-card .report-head { display:flex; align-items:center; gap:8px; }
+  .report-card .report-head h3 { flex:1; font-size:17px; }
+  .report-card .report-meta { color:var(--text-tertiary); font-size:11px; margin-top:4px; }
+  .report-card .report-actions { display:flex; gap:8px; margin-top:12px; }
+  .report-card .report-actions button { border:1px solid var(--border-input); background:var(--surface-card); color:var(--text); border-radius:6px; padding:7px 9px; cursor:pointer; }
+  .report-card .report-actions button.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .report-day { padding:9px 0; border-top:1px dashed var(--border); }
+  .report-day summary { cursor:pointer; font-weight:700; }
+  .report-text { color:var(--text-secondary); margin-top:5px; line-height:1.65; }
   .auth-modal .auth-tabs { display:flex; gap:0; margin-bottom:18px; border-bottom:1px solid var(--border); }
   .auth-modal .auth-tab { flex:1; text-align:center; padding:10px; font-size:14px; font-weight:700; cursor:pointer;
     border-bottom:2px solid transparent; color:var(--text-secondary); transition:all .15s; }
@@ -450,6 +462,7 @@
   <div class="sync-area" id="syncArea">
     <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
     <span class="sync-user-email" id="syncEmail"></span>
+    <button class="sync-now" id="sync-now" type="button">立即同步</button>
   </div>
   <div class="dsep"></div>
   <div class="dfoot" id="drawerFoot">猫咪编辑部 · 云端同步版</div>
@@ -469,7 +482,7 @@
    图标用 icon 字段（取自下方 ICONS 图标库，全部为单色线性图标）。
    ============================================================ */
 const CONFIG = {
-  storageKey: "cat-newsroom-mobile-v1",
+  storageKey: "cat-newsroom-data-v2", // 桌面与手机版共享数据
   owner: "猫咪生活报",
   slogan: "Cat Life Daily",
   brand: "猫",
@@ -566,7 +579,7 @@ function icon(name, size=22, sw=1.7){
 /* ============================================================
    ENGINE — 一般无需改动
    ============================================================ */
-function isoToday(){ return new Date().toISOString().slice(0,10); }
+function isoToday(){ return localDateKey(); }
 function today(){ return isoToday(); }
 function avgProgress(list){
   if(!list||!list.length) return { value: 0, sub: "0" };
@@ -576,21 +589,45 @@ function avgProgress(list){
 const modOf = k => CONFIG.modules.find(m=>m.key===k);
 const $ = s => document.querySelector(s);
 
+// 展示 AI 周报，逐日内容可折叠查看。
+function weeklyReportTileHTML(){
+  if(weeklyReportLoading || weeklyReportWaiting) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">正在生成，完成后会自动显示…</div></div>';
+  if(!weeklyReport) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">登录正式账号后生成本周生活报。</div><div class="report-actions"><button class="primary" id="report-generate">生成本周生活报</button></div></div>';
+  const days=(weeklyReport.daily||[]).map(function(day){ return '<details class="report-day"><summary>'+esc(day.date||'本日')+' · '+esc(day.title||'生活记录')+'</summary><div class="report-text">'+esc(day.summary||'')+' '+esc(day.quote||'')+'</div></details>'; }).join('');
+  const review=weeklyReport.review||{};
+  const metaText=weeklyReportMeta?.generated_at ? '生成于 '+new Date(weeklyReportMeta.generated_at).toLocaleString()+(weeklyReportMeta.model?' · '+weeklyReportMeta.model:'') : 'AI 主编';
+  return '<div class="report-card"><div class="report-head"><h3>本周生活报</h3><span class="report-meta">'+esc(metaText)+'</span></div><div class="report-text">'+esc(weeklyReport.editor_note||review.overview||'')+'</div>'+days+'<details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：'+esc((review.highlights||[]).join('、'))+'<br>未完成：'+esc((review.unfinished||[]).join('、'))+'<br>下周建议：'+esc((review.suggestions||[]).join('、'))+'</div></details><div class="report-actions"><button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div></div>';
+}
+
+async function maybeGenerateWeeklyReport(force){
+  const user=getCurrentUser(); if(!user || user.is_anonymous || weeklyReportLoading) return;
+  weeklyReportLoading=true; render();
+  try { const result=await generateWeeklyReport({force:!!force}); weeklyReportMeta=result.meta||weeklyReportMeta; weeklyReportWaiting=result.status==='generating'&&!result.report; if(weeklyReportWaiting) setTimeout(()=>maybeGenerateWeeklyReport(false),3000); else weeklyReport=result.report||null; }
+  catch(e){ weeklyReportWaiting=false; if(force) alert(e.message||'AI 生活报生成失败'); }
+  finally { weeklyReportLoading=false; render(); }
+}
+
+function exportWeeklyReport(format){
+  if(!weeklyReport) return;
+  const text=format==='json'?JSON.stringify(weeklyReport,null,2):[weeklyReport.editor_note||'',...(weeklyReport.daily||[]).map(d=>'## '+(d.date||'')+' '+(d.title||'')+'\n'+(d.summary||'')+'\n'+(d.quote||'')),'## 本周复盘\n'+(weeklyReport.review?.overview||'')].join('\n\n');
+  const blob=new Blob([text],{type:format==='json'?'application/json':'text/markdown'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='cat-life-weekly-report.'+(format==='json'?'json':'md'); a.click(); URL.revokeObjectURL(a.href);
+}
+
 const store = {
   load(){
-    const raw = localStorage.getItem(CONFIG.storageKey);
-    if(raw){ try { return JSON.parse(raw); } catch(e){} }
-    const d = {};
-    CONFIG.modules.forEach(m => d[m.key] = structuredClone(m.seed||[]));
-    return d;
+    try { const raw=localStorage.getItem(CONFIG.storageKey); if(raw) return JSON.parse(raw); } catch(e){}
+    const d = {}; CONFIG.modules.forEach(m => d[m.key] = structuredClone(m.seed||[])); return d;
   },
   save(){
+    touchDataForSync();
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
     if(getSyncStatus() === "online") schedulePush();
   },
 };
 let data = store.load();
+resetRecordSnapshot();
 let view = "home";
+let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false;
 function persist(){ store.save(); render(); }
 
 /* ---------- chrome icons ---------- */
@@ -674,6 +711,10 @@ function renderHome(){
       ${trend}${hasTrend?`<div class="trend-x"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>`:''}</div>`;
 
   wireHome();
+  $("#screen").insertAdjacentHTML("beforeend", weeklyReportTileHTML());
+  const reportButton=$("#report-generate"); if(reportButton) reportButton.onclick=()=>maybeGenerateWeeklyReport(true);
+  const md=$("#report-export-md"); if(md) md.onclick=()=>exportWeeklyReport('md');
+  const js=$("#report-export-json"); if(js) js.onclick=()=>exportWeeklyReport('json');
 }
 
 function trendSVG(series){
@@ -843,6 +884,10 @@ function renderInsight(){
       <div class="donut-wrap"><div class="donut">${donut}${segs.length?`<span class="donut-mid">¥${totalExp}</span>`:''}</div>
         <div class="donut-legend">${legend}</div></div></div>`;
   $("#screen").querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go(el.dataset.open));
+  $("#screen").insertAdjacentHTML("beforeend", weeklyReportTileHTML());
+  const reportRefresh=$("#report-generate"); if(reportRefresh) reportRefresh.onclick=()=>maybeGenerateWeeklyReport(true);
+  const reportMd=$("#report-export-md"); if(reportMd) reportMd.onclick=()=>exportWeeklyReport('md');
+  const reportJson=$("#report-export-json"); if(reportJson) reportJson.onclick=()=>exportWeeklyReport('json');
 }
 
 /* ---------- MODULE VIEW ---------- */
@@ -960,7 +1005,7 @@ function recHTML(m,x){
 
 function streak(log){
   if(!log) return 0; let n=0; const d=new Date();
-  for(;;){ const key=d.toISOString().slice(0,10); if(log[key]){ n++; d.setDate(d.getDate()-1); } else break; }
+  for(;;){ const key=localDateKey(d); if(log[key]){ n++; d.setDate(d.getDate()-1); } else break; }
   return n;
 }
 
@@ -1088,7 +1133,7 @@ function confirmDelete(key,id){
   const close=()=>overlay.remove();
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
   overlay.querySelector("#c-cancel").onclick=close;
-  overlay.querySelector("#c-ok").onclick=()=>{ data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
+  overlay.querySelector("#c-ok").onclick=()=>{ addDeletedTombstone(key,id); data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
 }
 
 /* ---------- router / nav ---------- */
@@ -1175,21 +1220,12 @@ function openAuthModal(mode){
     const { error } = await fn(username, pass);
     if(error){ btn.textContent=isLogin?'登录':'注册'; btn.disabled=false;
       const sub=overlay.querySelector(".sub"); sub.textContent=error.message||"操作失败"; sub.style.color="var(--danger)"; }
-    else { close(); if(!isLogin){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); render(); } } updateAuthUI(); }
+    else { close(); if(!isLogin){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); render(); } } updateAuthUI(); if(isLogin) maybeGenerateWeeklyReport(false); }
   };
 }
 
 function mergeCloudData(cloudData){
-  CONFIG.modules.forEach(m=>{
-    if(cloudData[m.key] && cloudData[m.key].length){
-      const localIds=new Set((data[m.key]||[]).map(x=>x.id));
-      cloudData[m.key].forEach(r=>{ if(!localIds.has(r.id)) (data[m.key]=data[m.key]||[]).push(r); });
-    }
-  });
-  if(cloudData.__avatar) data.__avatar=cloudData.__avatar;
-  if(cloudData.__pomo) data.__pomo=cloudData.__pomo;
-  if(cloudData.__trend) data.__trend=cloudData.__trend;
-  localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
+  return mergeDataWithCloud(cloudData);
 }
 
 function updateAuthUI(){
@@ -1204,16 +1240,18 @@ document.getElementById("sync-indicator").onclick=()=>{
   if(s==="online"){ const user=getCurrentUser();
     if(user && user.is_anonymous) openAuthModal("login");
     else if(user && user.email) { if(confirm("确定登出？")) signOut().then(()=>{ updateAuthUI(); }); }
-  } else if(s==="offline"||s==="error"){
-    initSupabase().then(ok=>{ if(ok){ loadFromCloud().then(cd=>{ if(cd){ mergeCloudData(cd); render(); updateAuthUI(); } }); } });
-  }
+  } else if(s==="offline"||s==="error") initSupabase().then(ok=>{ if(ok) syncNow(); });
 };
 
-onSyncReady = function(cloudData){ mergeCloudData(cloudData); };
+document.getElementById("sync-now").onclick=()=>syncNow();
+async function syncNow(){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); await pushAllLocalToCloud(); render(); updateAuthUI(); } }
 
+onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAuthUI(); };
+
+// 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
 (async function initSync(){
   const ok=await initSupabase();
-  if(ok){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); updateAuthUI(); render(); } }
+  if(ok){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); updateAuthUI(); render(); } if(getCurrentUser()&&!getCurrentUser().is_anonymous) maybeGenerateWeeklyReport(false); }
 })();
 
 buildDrawer();
