@@ -1568,7 +1568,18 @@ onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAu
 // 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
 (async function initSync(){
   const ok=await initSupabase();
-  if(ok){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); render(); updateAuthUI(); } if(getCurrentUser()&&!getCurrentUser().is_anonymous) maybeGenerateWeeklyReport(false); }
+  if(ok){
+    const cd=await loadFromCloud();
+    const user=getCurrentUser();
+    if(cd){
+      // 已登录正式账号：以服务端数据为准
+      if(user && !user.is_anonymous) replaceLocalWithCloud(cd);
+      // 匿名用户：合并云端数据到本地
+      else mergeCloudData(cd);
+      render(); updateAuthUI();
+    }
+    if(user && !user.is_anonymous) maybeGenerateWeeklyReport(false);
+  }
 })();
 
 buildNav();

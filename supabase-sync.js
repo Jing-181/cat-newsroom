@@ -312,9 +312,9 @@ async function signUp(username, password) {
   const { data: authData, error } = await sb.auth.signUp({ email: usernameToEmail(username), password });
   if (!error && authData.user) {
     currentUser = authData.user; syncStatus = "online"; updateSyncIndicator(); setupRealtime();
-    // 注册后把当前本地数据推上去（增量）
-    scanDirtyRecords();
-    await flushPush(false);
+    // 注册后把所有本地数据推到新账号（force=true 全量扫描）
+    recordSnapshot.clear();
+    await flushPush(true);
   }
   return { data: authData, error };
 }
@@ -324,11 +324,30 @@ async function signIn(username, password) {
   const { data: authData, error } = await sb.auth.signInWithPassword({ email: usernameToEmail(username), password });
   if (!error && authData.user) {
     currentUser = authData.user; syncStatus = "online"; updateSyncIndicator(); setupRealtime();
-    // 登录后用云端数据替换本地
+    // 登录后以服务端数据为准，完全替换本地
     const cloudData = await loadFromCloud();
-    if (cloudData) { mergeDataWithCloud(cloudData); if (onSyncReady) onSyncReady(cloudData); }
+    if (cloudData) { replaceLocalWithCloud(cloudData); if (onSyncReady) onSyncReady(cloudData); }
   }
   return { data: authData, error };
+}
+
+// 用云端数据完全替换本地（服务端为准）
+function replaceLocalWithCloud(cloudData) {
+  const local = getLocalData();
+  if (!local || !cloudData || typeof CONFIG === "undefined") return;
+  CONFIG.modules.forEach(m => {
+    local[m.key] = Array.isArray(cloudData[m.key]) ? cloudData[m.key] : [];
+  });
+  if (cloudData.__deleted) local.__deleted = cloudData.__deleted;
+  else if (local.__deleted) delete local.__deleted;
+  if (cloudData.__avatar) local.__avatar = cloudData.__avatar;
+  else if (local.__avatar) delete local.__avatar;
+  if (cloudData.__pomo) local.__pomo = cloudData.__pomo;
+  else if (local.__pomo) delete local.__pomo;
+  if (cloudData.__trend) local.__trend = cloudData.__trend;
+  else if (local.__trend) delete local.__trend;
+  resetRecordSnapshot();
+  localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
 }
 
 async function signOut() {

@@ -1250,7 +1250,16 @@ onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAu
 // 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
 (async function initSync(){
   const ok=await initSupabase();
-  if(ok){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); updateAuthUI(); render(); } if(getCurrentUser()&&!getCurrentUser().is_anonymous) maybeGenerateWeeklyReport(false); }
+  if(ok){
+    const cd=await loadFromCloud();
+    const user=getCurrentUser();
+    if(cd){
+      if(user && !user.is_anonymous) replaceLocalWithCloud(cd);
+      else mergeCloudData(cd);
+      updateAuthUI(); render();
+    }
+    if(user && !user.is_anonymous) maybeGenerateWeeklyReport(false);
+  }
 })();
 
 buildDrawer();
