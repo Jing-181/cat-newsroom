@@ -619,7 +619,6 @@ const store = {
     const d = {}; CONFIG.modules.forEach(m => d[m.key] = structuredClone(m.seed||[])); return d;
   },
   save(){
-    touchDataForSync();
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
     if(getSyncStatus() === "online") schedulePush();
   },
@@ -1133,7 +1132,7 @@ function confirmDelete(key,id){
   const close=()=>overlay.remove();
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
   overlay.querySelector("#c-cancel").onclick=close;
-  overlay.querySelector("#c-ok").onclick=()=>{ addDeletedTombstone(key,id); data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
+  overlay.querySelector("#c-ok").onclick=()=>{ markRecordDeleted(key,id); data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
 }
 
 /* ---------- router / nav ---------- */

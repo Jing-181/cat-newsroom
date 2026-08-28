@@ -1,6 +1,6 @@
 /* ============================================================
-   supabase-sync.js - 猫咪生活报同步与 AI 接口
-   说明：浏览器只保存 Supabase anon key，AI key 只在 Edge Function。
+   supabase-sync.js — 猫咪生活报同步模块 v3
+   增量同步：只推送变更的那条记录，不全量推送
    ============================================================ */
 
 const SUPABASE_CONFIG = {
@@ -18,15 +18,18 @@ let syncChannel = null;
 let pushTimer = null;
 let retryTimer = null;
 let remoteTimer = null;
-let pendingPush = false;
 let pushInFlight = false;
 let lastSyncAt = null;
-let recordSnapshot = new Map();
+
+// 增量同步：记录快照 + 脏标记
+let recordSnapshot = new Map();   // 上次同步时的记录内容快照
+let dirtyRecords = new Set();     // 变更的记录 key: "moduleKey:recordId"
+let dirtyMeta = false;            // 元数据是否变更
+let pendingDeletes = [];          // 待推送的删除操作
 
 const isoNow = () => new Date().toISOString();
 const recordKey = (moduleKey, id) => `${moduleKey}:${id}`;
 
-// 使用浏览器本地日期，避免东八区凌晨被 UTC 日期带偏。
 function localDateKey(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -51,13 +54,14 @@ function loadScript(src) {
 
 function getLocalData() { return typeof data === "undefined" ? null : data; }
 
-// 去掉时间字段后比较内容，避免同步自身触发无限更新。
+// 去掉时间字段后比较内容
 function recordBody(record) {
   const copy = { ...record };
   delete copy.updated_at;
   return JSON.stringify(copy);
 }
 
+// 初始化快照：记录当前所有记录的内容
 function resetRecordSnapshot() {
   const local = getLocalData();
   recordSnapshot = new Map();
@@ -67,76 +71,72 @@ function resetRecordSnapshot() {
   }));
 }
 
-// 在本地保存前给新增或已修改记录打时间戳。
-function touchDataForSync() {
-  const local = getLocalData();
-  if (!local || typeof CONFIG === "undefined") return;
-  CONFIG.modules.forEach(m => (local[m.key] || []).forEach(record => {
-    const key = recordKey(m.key, record.id);
-    const body = recordBody(record);
-    if (!record.updated_at || !recordSnapshot.has(key) || recordSnapshot.get(key) !== body) record.updated_at = isoNow();
-    recordSnapshot.set(key, recordBody(record));
-  }));
+// 标记单条记录为脏（变更或新增）
+function markRecordDirty(moduleKey, recordId) {
+  dirtyRecords.add(recordKey(moduleKey, recordId));
+  schedulePush();
 }
 
-function addDeletedTombstone(moduleKey, id) {
+// 标记记录删除
+function markRecordDeleted(moduleKey, recordId) {
   const local = getLocalData();
   if (!local) return;
-  local.__deleted = Array.isArray(local.__deleted) ? local.__deleted : [];
-  local.__deleted = local.__deleted.filter(x => !(x.module_key === moduleKey && String(x.record_id) === String(id)));
-  local.__deleted.push({ module_key: moduleKey, record_id: id, deleted_at: isoNow() });
+  pendingDeletes.push({ module_key: moduleKey, record_id: recordId, deleted_at: isoNow() });
+  // 从快照中移除，避免被当作变更推送
+  dirtyRecords.delete(recordKey(moduleKey, recordId));
+  schedulePush();
 }
 
-// 将本地与云端按更新时间合并，冲突时保留副本。
+// 扫描本地数据，找出与快照不同的记录
+function scanDirtyRecords() {
+  const local = getLocalData();
+  if (!local || typeof CONFIG === "undefined") return;
+  CONFIG.modules.forEach(m => {
+    (local[m.key] || []).forEach(record => {
+      const key = recordKey(m.key, record.id);
+      const snapshot = recordSnapshot.get(key);
+      const body = recordBody(record);
+      if (snapshot !== body) {
+        dirtyRecords.add(key);
+        if (!record.updated_at) record.updated_at = isoNow();
+      }
+    });
+  });
+}
+
+// 云端数据合并到本地：如果云端有该模块数据，整体替换本地（不追加）
 function mergeDataWithCloud(cloudData) {
   const local = getLocalData();
   if (!local || !cloudData || typeof CONFIG === "undefined") return { added: 0, conflicts: 0 };
-  let added = 0, conflicts = 0;
-  const tombstones = Array.isArray(local.__deleted) ? local.__deleted : [];
-  const remoteTombstones = Array.isArray(cloudData.__deleted) ? cloudData.__deleted : [];
+  let added = 0;
   CONFIG.modules.forEach(m => {
-    const localList = Array.isArray(local[m.key]) ? local[m.key] : [];
     const cloudList = Array.isArray(cloudData[m.key]) ? cloudData[m.key] : [];
-    const byId = new Map(localList.map(r => [String(r.id), r]));
-    // 云端软删除时间更新时，清理本地旧记录并保留 tombstone。
-    remoteTombstones.filter(t => t.module_key === m.key).forEach(tomb => {
-      const id = String(tomb.record_id);
-      const localRecord = byId.get(id);
-      const deletedAt = new Date(tomb.deleted_at || 0).getTime();
-      if (localRecord && deletedAt >= new Date(localRecord.updated_at || 0).getTime()) {
-        const index = localList.indexOf(localRecord);
-        if (index >= 0) localList.splice(index, 1);
-        byId.delete(id);
-      }
-      if (!tombstones.some(x => x.module_key === m.key && String(x.record_id) === id && x.deleted_at === tomb.deleted_at)) tombstones.push(tomb);
-    });
-    cloudList.forEach(remote => {
-      const id = String(remote.id);
-      const tomb = tombstones.find(t => t.module_key === m.key && String(t.record_id) === id);
-      if (tomb && new Date(tomb.deleted_at) >= new Date(remote.updated_at || 0)) return;
-      const localRecord = byId.get(id);
-      if (!localRecord) {
-        localList.push(remote); byId.set(id, remote); added++; return;
-      }
-      const localTime = new Date(localRecord.updated_at || 0).getTime();
-      const remoteTime = new Date(remote.updated_at || 0).getTime();
-      if (remoteTime > localTime) Object.assign(localRecord, remote);
-      else if (remoteTime === localTime && recordBody(localRecord) !== recordBody(remote)) {
-        localList.push({ ...remote, id: `${remote.id}-conflict-${Date.now()}`, conflict_of: remote.id, updated_at: isoNow() });
-        conflicts++;
-      }
-    });
-    local[m.key] = localList;
+    if (cloudList.length > 0) {
+      // 云端有数据 → 整体替换本地，避免种子数据叠加
+      const localList = Array.isArray(local[m.key]) ? local[m.key] : [];
+      const localIds = new Set(localList.map(r => String(r.id)));
+      cloudList.forEach(remote => { if (!localIds.has(String(remote.id))) added++; });
+      local[m.key] = cloudList;
+    }
   });
+  // 合并 tombstones
+  if (Array.isArray(cloudData.__deleted)) {
+    local.__deleted = Array.isArray(local.__deleted) ? local.__deleted : [];
+    cloudData.__deleted.forEach(tomb => {
+      if (!local.__deleted.some(x => x.module_key === tomb.module_key && String(x.record_id) === String(tomb.record_id))) {
+        local.__deleted.push(tomb);
+      }
+    });
+  }
   if (cloudData.__avatar) local.__avatar = cloudData.__avatar;
   if (cloudData.__pomo) local.__pomo = cloudData.__pomo;
   if (cloudData.__trend) local.__trend = cloudData.__trend;
   resetRecordSnapshot();
   localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
-  return { added, conflicts };
+  return { added, conflicts: 0 };
 }
 
-// 初始化 Supabase 并恢复同站点登录会话。
+// 初始化
 async function initSupabase() {
   if (!SUPABASE_CONFIG.url || !SUPABASE_CONFIG.anonKey) { syncStatus = "offline"; updateSyncIndicator(); return false; }
   syncStatus = "connecting"; updateSyncIndicator();
@@ -156,7 +156,7 @@ async function initSupabase() {
   }
 }
 
-// 从云端读取记录和元数据。
+// 从云端加载全部数据
 async function loadFromCloud() {
   if (!sb || !currentUser) return null;
   try {
@@ -188,59 +188,103 @@ async function loadFromCloud() {
   }
 }
 
+// 防抖调度：先扫描变更再推送
 function schedulePush() {
   if (!sb || !currentUser || syncStatus !== "online") return;
-  pendingPush = true; clearTimeout(pushTimer); pushTimer = setTimeout(() => flushPush(), 1500);
+  scanDirtyRecords();
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => flushPush(), 1200);
 }
 
-// 全量上传当前快照，并删除本地明确标记的云端记录。
+// 增量推送：只推送变更的记录 + 删除操作
 async function flushPush(force = false) {
-  if (!sb || !currentUser || pushInFlight || (!force && !pendingPush)) return false;
-  pushInFlight = true; pendingPush = false;
+  if (!sb || !currentUser || pushInFlight) return false;
+  pushInFlight = true;
   try {
-    const local = getLocalData(); touchDataForSync();
-    const rows = [];
-    CONFIG.modules.forEach(m => (local?.[m.key] || []).forEach(record => rows.push({ id: record.id, user_id: currentUser.id, module_key: m.key, data: record, updated_at: record.updated_at || isoNow(), deleted_at: null })));
-    const tombstones = Array.isArray(local?.__deleted) ? local.__deleted : [];
-    // tombstone 作为软删除行上传，避免离线设备重新上传旧记录。
-    const deletedRows = tombstones.map(tomb => ({
-      id: tomb.record_id,
-      user_id: currentUser.id,
-      module_key: tomb.module_key,
-      data: {},
-      updated_at: tomb.deleted_at || isoNow(),
-      deleted_at: tomb.deleted_at || isoNow(),
-    }));
-    if (deletedRows.length) {
-      const { error } = await sb.from("workbench_records").upsert(deletedRows, { onConflict: "user_id,id" });
-      if (error) throw error;
+    const local = getLocalData();
+    if (!local || typeof CONFIG === "undefined") return false;
+
+    // force=true 时扫描全部记录找出差异（网络恢复后的补发）
+    if (force) scanDirtyRecords();
+
+    // 1. 推送删除操作
+    if (pendingDeletes.length) {
+      const deleteRows = pendingDeletes.map(tomb => ({
+        id: tomb.record_id,
+        user_id: currentUser.id,
+        module_key: tomb.module_key,
+        data: {},
+        updated_at: tomb.deleted_at,
+        deleted_at: tomb.deleted_at,
+      }));
+      const { error: delErr } = await sb.from("workbench_records").upsert(deleteRows, { onConflict: "user_id,id" });
+      if (delErr) throw delErr;
+      pendingDeletes = [];
     }
-    if (rows.length) {
-      const { error } = await sb.from("workbench_records").upsert(rows, { onConflict: "user_id,id" });
-      if (error) throw error;
+
+    // 2. 推送变更的记录（增量）
+    if (dirtyRecords.size > 0) {
+      const rows = [];
+      for (const key of dirtyRecords) {
+        const [moduleKey, ...idParts] = key.split(":");
+        const recordId = idParts.join(":");
+        const record = (local[moduleKey] || []).find(r => String(r.id) === recordId);
+        if (record) {
+          if (!record.updated_at) record.updated_at = isoNow();
+          rows.push({
+            id: record.id,
+            user_id: currentUser.id,
+            module_key: moduleKey,
+            data: record,
+            updated_at: record.updated_at,
+            deleted_at: null,
+          });
+        }
+      }
+      if (rows.length) {
+        const { error: upsertErr } = await sb.from("workbench_records").upsert(rows, { onConflict: "user_id,id" });
+        if (upsertErr) throw upsertErr;
+      }
     }
-    const meta = {};
-    if (local?.__avatar) meta.avatar = local.__avatar;
-    if (local?.__pomo) meta.pomo_stats = local.__pomo;
-    if (local?.__trend) meta.trend_data = local.__trend;
-    if (Object.keys(meta).length) {
-      const { error } = await sb.from("workbench_meta").upsert({ user_id: currentUser.id, ...meta, updated_at: isoNow() }, { onConflict: "user_id" });
-      if (error) throw error;
+
+    // 3. 推送元数据
+    if (dirtyMeta || force) {
+      const meta = {};
+      if (local.__avatar) meta.avatar = local.__avatar;
+      if (local.__pomo) meta.pomo_stats = local.__pomo;
+      if (local.__trend) meta.trend_data = local.__trend;
+      if (Object.keys(meta).length) {
+        const { error: metaErr } = await sb.from("workbench_meta").upsert({ user_id: currentUser.id, ...meta, updated_at: isoNow() }, { onConflict: "user_id" });
+        if (metaErr) throw metaErr;
+      }
+      dirtyMeta = false;
     }
-    if (local) { local.__deleted = []; localStorage.setItem(CONFIG.storageKey, JSON.stringify(local)); }
+
+    // 4. 清理脏标记 + 更新快照
+    dirtyRecords.clear();
+    if (local.__deleted) local.__deleted = [];
+    resetRecordSnapshot();
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
+
     lastSyncAt = isoNow(); syncStatus = "online"; updateSyncIndicator(); return true;
   } catch (e) {
-    console.error("[sync] 推送失败:", e); syncStatus = "error"; pendingPush = true; updateSyncIndicator();
+    console.error("[sync] 推送失败:", e); syncStatus = "error"; updateSyncIndicator();
     clearTimeout(retryTimer); retryTimer = setTimeout(() => { syncStatus = "online"; updateSyncIndicator(); flushPush(true); }, 5000);
     return false;
   } finally { pushInFlight = false; }
 }
 
-// 登录、注册或手动同步时强制执行上传。
-async function pushAllLocalToCloud() { clearTimeout(pushTimer); pendingPush = true; return flushPush(true); }
-function deleteRecordCloud() { schedulePush(); }
-function saveMetaCloud() { schedulePush(); }
-function saveRecordCloud() { schedulePush(); }
+// 注册/登录后推送（只推变更，不强制全量）
+async function pushAllLocalToCloud() {
+  // 扫描差异后增量推送
+  scanDirtyRecords();
+  return flushPush(false);
+}
+
+// 兼容旧接口
+function deleteRecordCloud(moduleKey, recordId) { markRecordDeleted(moduleKey, recordId); }
+function saveMetaCloud() { dirtyMeta = true; schedulePush(); }
+function saveRecordCloud(moduleKey, recordId) { markRecordDirty(moduleKey, recordId); }
 
 function setupRealtime() {
   if (!sb || !currentUser) return;
@@ -266,7 +310,12 @@ function usernameToEmail(username) { return `${String(username || "").trim()}@ca
 async function signUp(username, password) {
   if (!sb) return { error: new Error("Supabase 未初始化") };
   const { data: authData, error } = await sb.auth.signUp({ email: usernameToEmail(username), password });
-  if (!error && authData.user) { currentUser = authData.user; syncStatus = "online"; updateSyncIndicator(); setupRealtime(); await pushAllLocalToCloud(); }
+  if (!error && authData.user) {
+    currentUser = authData.user; syncStatus = "online"; updateSyncIndicator(); setupRealtime();
+    // 注册后把当前本地数据推上去（增量）
+    scanDirtyRecords();
+    await flushPush(false);
+  }
   return { data: authData, error };
 }
 
@@ -275,9 +324,9 @@ async function signIn(username, password) {
   const { data: authData, error } = await sb.auth.signInWithPassword({ email: usernameToEmail(username), password });
   if (!error && authData.user) {
     currentUser = authData.user; syncStatus = "online"; updateSyncIndicator(); setupRealtime();
+    // 登录后用云端数据替换本地
     const cloudData = await loadFromCloud();
     if (cloudData) { mergeDataWithCloud(cloudData); if (onSyncReady) onSyncReady(cloudData); }
-    await pushAllLocalToCloud();
   }
   return { data: authData, error };
 }
@@ -294,7 +343,6 @@ async function getAccessToken() {
   return session?.access_token || null;
 }
 
-// 调用 Edge Function 生成本周 AI 生活报。
 async function generateWeeklyReport(options = {}) {
   if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成 AI 生活报");
   const token = await getAccessToken();
