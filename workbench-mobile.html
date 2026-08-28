@@ -586,18 +586,12 @@ const store = {
   },
   save(){
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
-    if(getSyncStatus() === "online") syncToCloud();
+    if(getSyncStatus() === "online") schedulePush();
   },
 };
 let data = store.load();
 let view = "home";
 function persist(){ store.save(); render(); }
-
-function syncToCloud(){
-  if(getSyncStatus() !== "online") return;
-  CONFIG.modules.forEach(m=>{ (data[m.key]||[]).forEach(record => saveRecordCloud(m.key, record)); });
-}
-function syncDeleteCloud(moduleKey, recordId){ if(getSyncStatus()==="online") deleteRecordCloud(moduleKey, recordId); }
 
 /* ---------- chrome icons ---------- */
 $("#btn-menu").innerHTML = icon("menu", 20);
@@ -1147,8 +1141,7 @@ $("#avatarInput").onchange = e => {
   const f = e.target.files && e.target.files[0];
   if(!f) return;
   const reader = new FileReader();
-  reader.onload = () => { data.__avatar = reader.result; $("#brandImg").src = reader.result; store.save();
-    if(getSyncStatus()==="online") saveMetaCloud("__avatar", reader.result); };
+  reader.onload = () => { data.__avatar = reader.result; $("#brandImg").src = reader.result; store.save(); };
   reader.readAsDataURL(f);
   e.target.value = "";
 };

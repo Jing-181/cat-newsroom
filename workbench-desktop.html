@@ -785,7 +785,7 @@ const store = {
   },
   save(){
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
-    if(getSyncStatus() === "online") syncToCloud();
+    if(getSyncStatus() === "online") schedulePush();
   },
 };
 let data = store.load();
@@ -794,19 +794,6 @@ let searchQ = "";
 let pomo = { running:false, remain:25*60, total:25*60 };   // 番茄钟状态（内存态，跨渲染保留）
 let clockTimer = null;                                       // 全局秒级心跳（时钟 + 番茄钟）
 function persist(){ store.save(); render(); }
-
-// 云端同步：将当前 data 的所有模块推送到云端
-function syncToCloud(){
-  if(getSyncStatus() !== "online") return;
-  CONFIG.modules.forEach(m=>{
-    (data[m.key]||[]).forEach(record => saveRecordCloud(m.key, record));
-  });
-}
-
-// 云端删除同步
-function syncDeleteCloud(moduleKey, recordId){
-  if(getSyncStatus() === "online") deleteRecordCloud(moduleKey, recordId);
-}
 function pad2(n){ return String(n).padStart(2,"0"); }
 
 /* 本周（周一起）7 天的 ISO 日期 */
@@ -1414,7 +1401,7 @@ function confirmDelete(key,id){ const item=(data[key]||[]).find(i=>i.id==id); if
   const close=()=>overlay.remove();
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
   overlay.querySelector("#c-cancel").onclick=close;
-  overlay.querySelector("#c-ok").onclick=()=>{ data[key]=data[key].filter(i=>i.id!=id); syncDeleteCloud(key, id); persist(); close(); };
+  overlay.querySelector("#c-ok").onclick=()=>{ data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
 }
 
 /* ---------- router / sidebar ---------- */
