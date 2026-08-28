@@ -221,6 +221,8 @@ async function signUp(username, password) {
     currentUser = data.user;
     syncStatus = "online";
     updateSyncIndicator();
+    // 注册后立即把本地数据全部推到新账号
+    await pushAllLocalToCloud();
   }
   return { data, error };
 }
@@ -234,11 +236,50 @@ async function signIn(username, password) {
     currentUser = data.user;
     syncStatus = "online";
     updateSyncIndicator();
-    // 登录后重新加载云端数据
+    // 登录后加载云端数据并推送本地新数据
     const cloudData = await loadFromCloud();
     if (cloudData && onSyncReady) onSyncReady(cloudData);
+    // 同时把本地数据推上去（合并场景）
+    await pushAllLocalToCloud();
   }
   return { data, error };
+}
+
+// 把本地全部数据推送到云端（注册/登录后同步）
+async function pushAllLocalToCloud() {
+  if (!sb || !currentUser || syncStatus !== "online") return;
+  if (typeof CONFIG === "undefined" || typeof data === "undefined") return;
+  try {
+    const rows = [];
+    CONFIG.modules.forEach(m => {
+      (data[m.key] || []).forEach(record => {
+        rows.push({
+          id: record.id,
+          user_id: currentUser.id,
+          module_key: m.key,
+          data: record,
+          updated_at: new Date().toISOString(),
+        });
+      });
+    });
+    if (rows.length) {
+      await sb.from("workbench_records").upsert(rows, { onConflict: "id" });
+    }
+    // 推送元数据
+    const meta = {};
+    if (data.__avatar) meta.avatar = data.__avatar;
+    if (data.__pomo) meta.pomo_stats = data.__pomo;
+    if (data.__trend) meta.trend_data = data.__trend;
+    if (Object.keys(meta).length) {
+      await sb.from("workbench_meta").upsert({
+        user_id: currentUser.id,
+        ...meta,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+    }
+  } catch (e) {
+    console.error("[sync] 推送本地数据失败:", e);
+  }
 }
 
 // 登出

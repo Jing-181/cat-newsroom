@@ -1216,6 +1216,8 @@ document.getElementById("sync-indicator").onclick=()=>{
   }
 };
 
+onSyncReady = function(cloudData){ mergeCloudData(cloudData); };
+
 (async function initSync(){
   const ok=await initSupabase();
   if(ok){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); updateAuthUI(); render(); } }

@@ -1532,6 +1532,9 @@ document.getElementById("sync-indicator").onclick=()=>{
   }
 };
 
+// 设置云端数据加载回调
+onSyncReady = function(cloudData){ mergeCloudData(cloudData); };
+
 // 启动时初始化云端
 (async function initSync(){
   const ok=await initSupabase();
