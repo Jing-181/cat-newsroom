@@ -488,7 +488,13 @@
   .auth-modal .auth-tab.on { color:var(--accent); border-bottom-color:var(--accent); }
   .auth-modal .auth-hint { font-size:12px; color:var(--text-tertiary); margin-top:14px; line-height:1.6; }
   .auth-modal .auth-hint b { color:var(--text-secondary); }
+  .device-switcher { padding:6px 0; }
+  .device-switcher-label { display:block; margin-bottom:7px; color:var(--drawer-text-mute); font-size:11px; }
+  .device-switcher-options { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+  .device-switcher-options button { min-height:34px; border:1px solid rgba(240,232,213,.16); border-radius:6px; color:var(--drawer-text-mute); background:transparent; font-size:11px; }
+  .device-switcher-options button.on { color:var(--drawer-text); border-color:rgba(240,232,213,.38); background:var(--drawer-active); }
 </style>
+<link rel="stylesheet" href="css/workout-ui.css">
 </head>
 <body>
 <div class="app">
@@ -520,6 +526,7 @@
   <div id="drawerList"></div>
   <div class="dsep"></div>
   <div class="sync-area" id="syncArea">
+    <div id="device-switcher"></div>
     <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
     <span class="sync-user-email" id="syncEmail"></span>
     <button class="sync-now" id="sync-now" type="button">立即同步</button>
@@ -528,6 +535,14 @@
   <div class="dfoot" id="drawerFoot">猫咪编辑部 · 云端同步版</div>
 </aside>
 
+<script src="js/device-mode.js"></script>
+<script src="js/workbench-core.js"></script>
+<script src="js/sync-core.js"></script>
+<script src="js/pomodoro.js"></script>
+<script src="js/workout-catalog.js"></script>
+<script src="js/workout.js"></script>
+<script src="js/workout-view.js"></script>
+<script src="js/workout-ui.js"></script>
 <script src="supabase-sync.js"></script>
 <script>
 /* ============================================================
@@ -643,8 +658,11 @@ function isoToday(){ return localDateKey(); }
 function today(){ return isoToday(); }
 function avgProgress(list){
   if(!list||!list.length) return { value: 0, sub: "0" };
-  const v = Math.round(list.reduce((s,x)=>s+Math.min(100,(x.current/x.target)*100||0),0)/list.length);
-  return { value: v, sub: `${list.length} 项` };
+  const sessions=typeof Workout!=="undefined"?list.filter(Workout.isSession):[];
+  if(sessions.length) return {value:100,sub:`${sessions.length} 次训练`};
+  const progress=list.filter(x=>x.target!=null);
+  const v=progress.length?Math.round(progress.reduce((s,x)=>s+Math.min(100,(x.current/x.target)*100||0),0)/progress.length):0;
+  return {value:v,sub:`${progress.length} 项`};
 }
 const modOf = k => CONFIG.modules.find(m=>m.key===k);
 const $ = s => document.querySelector(s);
@@ -652,6 +670,7 @@ const $ = s => document.querySelector(s);
 // 展示 AI 周报，逐日内容可折叠查看。
 function weeklyReportTileHTML(){
   if(weeklyReportLoading || weeklyReportWaiting) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">正在生成，完成后会自动显示…</div></div>';
+  if(weeklyReportError) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">'+esc(weeklyReportError)+'</div><div class="report-actions"><button class="primary" id="report-generate">重新生成</button></div></div>';
   if(!weeklyReport) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">登录正式账号后生成本周生活报。</div><div class="report-actions"><button class="primary" id="report-generate">生成本周生活报</button></div></div>';
   const days=(weeklyReport.daily||[]).map(function(day){ return '<details class="report-day"><summary>'+esc(day.date||'本日')+' · '+esc(day.title||'生活记录')+'</summary><div class="report-text">'+esc(day.summary||'')+' '+esc(day.quote||'')+'</div></details>'; }).join('');
   const review=weeklyReport.review||{};
@@ -661,9 +680,10 @@ function weeklyReportTileHTML(){
 
 async function maybeGenerateWeeklyReport(force){
   const user=getCurrentUser(); if(!user || user.is_anonymous || weeklyReportLoading) return;
+  if(force){ weeklyReportPolls=0; weeklyReportError=""; }
   weeklyReportLoading=true; render();
-  try { const result=await generateWeeklyReport({force:!!force}); weeklyReportMeta=result.meta||weeklyReportMeta; weeklyReportWaiting=result.status==='generating'&&!result.report; if(weeklyReportWaiting) setTimeout(()=>maybeGenerateWeeklyReport(false),3000); else weeklyReport=result.report||null; }
-  catch(e){ weeklyReportWaiting=false; if(force) alert(e.message||'AI 生活报生成失败'); }
+  try { const result=await generateWeeklyReport({force:!!force}); weeklyReportMeta=result.meta||weeklyReportMeta; weeklyReportWaiting=result.status==='generating'&&!result.report; if(weeklyReportWaiting&&weeklyReportPolls<8){ weeklyReportPolls++; setTimeout(()=>maybeGenerateWeeklyReport(false),Math.min(10000,3000+weeklyReportPolls*750)); } else if(weeklyReportWaiting){ weeklyReportWaiting=false; weeklyReportError='生成时间较长，请稍后手动重试。'; } else { weeklyReportPolls=0; weeklyReportError=""; weeklyReport=result.report||null; } }
+  catch(e){ weeklyReportWaiting=false; weeklyReportError=e.message||'AI 生活报生成失败'; if(force) alert(weeklyReportError); }
   finally { weeklyReportLoading=false; render(); }
 }
 
@@ -680,14 +700,17 @@ const store = {
   },
   save(){
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
-    if(getSyncStatus() === "online") schedulePush();
   },
 };
 let data = store.load();
-resetRecordSnapshot();
-let view = "home";
-let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false;
-function persist(){ store.save(); render(); }
+let view = ["home","insight",...CONFIG.modules.map(m=>m.key)].includes(DeviceMode.restoreView()) ? DeviceMode.restoreView() : "home";
+let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false, weeklyReportError = "", weeklyReportPolls = 0;
+let pomodoroController = null;
+function persist(moduleKey, record){
+  store.save();
+  if(moduleKey && record) syncRecord({moduleKey, record});
+  render();
+}
 
 /* ---------- chrome icons ---------- */
 $("#btn-menu").innerHTML = icon("menu", 20);
@@ -856,7 +879,7 @@ function wireCalendar(key, it){
       return;
     }
     if(wasOn) delete item.log[ds]; else item.log[ds]=true;
-    persist();
+    persist(key,item);
     if(wasOn) showCalUndo(item, ds);
   });
 }
@@ -866,7 +889,7 @@ function showCalUndo(item, ds){
   if(!t){ t=document.createElement("div"); t.id="calToast"; t.className="cal-toast"; document.body.appendChild(t); }
   t.innerHTML=`已取消 ${ds.slice(5)} 打卡<button type="button" id="calUndo">撤销</button>`;
   t.classList.add("show");
-  const undo=$("#calUndo"); if(undo) undo.onclick=()=>{ item.log=item.log||{}; item.log[ds]=true; persist(); hideCalToast(); };
+  const undo=$("#calUndo"); if(undo) undo.onclick=()=>{ item.log=item.log||{}; item.log[ds]=true; persist("checkin",item); hideCalToast(); };
   clearTimeout(calToastTimer);
   calToastTimer=setTimeout(hideCalToast, 4000);
 }
@@ -880,23 +903,23 @@ function confirmCalUncheck(item, ds){
   const close=()=>overlay.remove();
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
   overlay.querySelector("#cu-cancel").onclick=close;
-  overlay.querySelector("#cu-ok").onclick=()=>{ delete item.log[ds]; persist(); close(); showCalUndo(item, ds); };
+  overlay.querySelector("#cu-ok").onclick=()=>{ delete item.log[ds]; persist("checkin",item); close(); showCalUndo(item, ds); };
 }
 
 function wireHome(){
   $("#screen").querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>go(el.dataset.open));
-  $("#screen").querySelectorAll("[data-quick]").forEach(el=>el.onclick=()=>{ go(el.dataset.quick); openEditor(el.dataset.quick,null); });
+  $("#screen").querySelectorAll("[data-quick]").forEach(el=>el.onclick=()=>{ go(el.dataset.quick); if(el.dataset.quick!=="sport") openEditor(el.dataset.quick,null); });
   const find=el=>(data[el.dataset.mkey]||[]).find(i=>i.id==el.dataset.id);
   // 置顶卡：就地打卡 / 完成
   $("#screen").querySelectorAll(".js-pin-chk").forEach(el=>el.onclick=e=>{
     e.stopPropagation(); const m=modOf(el.dataset.mkey), x=find(el); if(!x) return;
     if(m.type==="todo"){ x.done=!x.done; }
     else if(m.type==="checkin"){ x.log=x.log||{}; const t=today(); x.log[t]?delete x.log[t]:x.log[t]=true; }
-    persist();
+    persist(el.dataset.mkey,x);
   });
   // 置顶卡：就地改数字
-  $("#screen").querySelectorAll(".js-pin-inc").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=find(el); if(!x) return; x.current=(+x.current||0)+1; persist(); });
-  $("#screen").querySelectorAll(".js-pin-dec").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=find(el); if(!x) return; x.current=Math.max(0,(+x.current||0)-1); persist(); });
+  $("#screen").querySelectorAll(".js-pin-inc").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=find(el); if(!x) return; x.current=(+x.current||0)+1; persist(el.dataset.mkey,x); });
+  $("#screen").querySelectorAll(".js-pin-dec").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=find(el); if(!x) return; x.current=Math.max(0,(+x.current||0)-1); persist(el.dataset.mkey,x); });
   // 置顶卡：点标题区查看详情 / 改状态
   $("#screen").querySelectorAll(".js-pin-open").forEach(el=>el.onclick=()=>openEditor(el.dataset.mkey, find(el)));
 }
@@ -1074,11 +1097,11 @@ function wireModule(key){
     e.stopPropagation(); const x=(data[key]).find(i=>i.id==el.dataset.id);
     if(m.type==="todo"){ x.done=!x.done; }
     else if(m.type==="checkin"){ x.log=x.log||{}; const t=today(); x.log[t]?delete x.log[t]:x.log[t]=true; }
-    persist();
+    persist(key,x);
   });
   $("#screen").querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openEditor(key,(data[key]).find(i=>i.id==el.dataset.edit)));
   $("#screen").querySelectorAll(".js-del").forEach(el=>el.onclick=e=>{ e.stopPropagation(); confirmDelete(key, el.dataset.id); });
-  $("#screen").querySelectorAll(".js-pin").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=(data[key]).find(i=>i.id==el.dataset.id); x.pinned=!x.pinned; persist(); });
+  $("#screen").querySelectorAll(".js-pin").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=(data[key]).find(i=>i.id==el.dataset.id); x.pinned=!x.pinned; persist(key,x); });
   const add=$("#btn-add"); if(add) add.onclick=()=>openEditor(key,null);
   if(m.type==="checkin") wireCalendar(key, data[key]||[]);
 }
@@ -1164,7 +1187,7 @@ function openEditor(key, item){
     // save image
     d.image=(val("#f-image")||"").trim();
     if(!editing) (data[key]=data[key]||[]).unshift(d);
-    persist(); close();
+    persist(key,d); close();
   };
 }
 
@@ -1192,11 +1215,11 @@ function confirmDelete(key,id){
   const close=()=>overlay.remove();
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
   overlay.querySelector("#c-cancel").onclick=close;
-  overlay.querySelector("#c-ok").onclick=()=>{ markRecordDeleted(key,id); data[key]=data[key].filter(i=>i.id!=id); persist(); close(); };
+  overlay.querySelector("#c-ok").onclick=()=>{ markRecordDeleted(key,id); data[key]=data[key].filter(i=>i.id!=id); store.save(); render(); close(); };
 }
 
 /* ---------- router / nav ---------- */
-function go(v){ view=v; closeDrawer();
+function go(v){ view=v; DeviceMode.saveView(view); closeDrawer();
   const app=document.getElementById("screen");
   if(app){ app.style.opacity="0"; app.style.transform="translateY(6px)"; }
   setTimeout(()=>{
@@ -1214,9 +1237,25 @@ function render(){
   $("#nav").querySelector('[data-nav="home"]').classList.toggle("active", view==="home");
   $("#nav").querySelector('[data-nav="insight"]').classList.toggle("active", view==="insight");
   // render body
-  if(view==="home") renderHome();
+  if(view==="home") { renderHome(); mountMobilePomo(); }
   else if(view==="insight") renderInsight();
+  else if(view==="sport") renderWorkout();
   else renderModule(view);
+}
+
+function mountMobilePomo(){
+  const target=$("#screen"); if(!target || target.querySelector("#mobile-pomo")) return;
+  target.insertAdjacentHTML("beforeend", `<div class="panel" id="mobile-pomo" style="margin-top:16px;display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-weight:800">专注番茄钟</div><div style="font-size:12px;color:var(--text-secondary);margin-top:3px">25 分钟全页面专注模式</div></div><button class="btn" id="mobile-pomo-start">开始专注</button></div>`);
+  $("#mobile-pomo-start").onclick=()=>pomodoroController?.toggle();
+}
+
+function renderWorkout(){
+  $("#screen").innerHTML='<div id="workout-root"></div>';
+  WorkoutUI.mount($("#workout-root"), {
+    records:data.sport||[],
+    onSave:record=>{ store.save(); syncRecord({moduleKey:"sport",record}); },
+    onDelete:record=>{ store.save(); syncDelete({moduleKey:"sport",recordId:record.id}); }
+  });
 }
 
 /* ---------- drawer ---------- */
@@ -1253,7 +1292,7 @@ $("#avatarInput").onchange = e => {
   const f = e.target.files && e.target.files[0];
   if(!f) return;
   const reader = new FileReader();
-  reader.onload = () => { data.__avatar = reader.result; $("#brandImg").src = reader.result; store.save(); };
+  reader.onload = () => { data.__avatar = reader.result; $("#brandImg").src = reader.result; WorkbenchCore.saveMeta(CONFIG.storageKey,data,"__avatar",reader.result); };
   reader.readAsDataURL(f);
   e.target.value = "";
 };
@@ -1287,7 +1326,7 @@ function openAuthModal(mode){
     const { error } = await fn(username, pass);
     if(error){ btn.textContent=isLogin?'登录':'注册'; btn.disabled=false;
       const sub=overlay.querySelector(".sub"); sub.textContent=error.message||"操作失败"; sub.style.color="var(--danger)"; }
-    else { close(); if(!isLogin){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); render(); } } updateAuthUI(); if(isLogin) maybeGenerateWeeklyReport(false); }
+    else { close(); }
   };
 }
 
@@ -1311,21 +1350,18 @@ document.getElementById("sync-indicator").onclick=()=>{
 };
 
 document.getElementById("sync-now").onclick=()=>syncNow();
-async function syncNow(){ const cd=await loadFromCloud(); if(cd){ mergeCloudData(cd); await pushAllLocalToCloud(); render(); updateAuthUI(); } }
+async function syncNow(){ await runFullSync({reason:"manual"}); render(); updateAuthUI(); }
 
 onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAuthUI(); };
+onRemoteUpdate = function(){ render(); updateAuthUI(); };
 
 // 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
 (async function initSync(){
   const ok=await initSupabase();
   if(ok){
-    const cd=await loadFromCloud();
+    const cd=await runFullSync({reason:"page_init"});
     const user=getCurrentUser();
-    if(cd){
-      if(user && !user.is_anonymous) replaceLocalWithCloud(cd);
-      else mergeCloudData(cd);
-      updateAuthUI(); render();
-    }
+    if(cd){ updateAuthUI(); render(); }
     if(user && !user.is_anonymous) maybeGenerateWeeklyReport(false);
   }
 })();
@@ -1396,6 +1432,16 @@ onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAu
 })();
 
 buildDrawer();
+DeviceMode.redirectIfNeeded("mobile");
+DeviceMode.mountSwitcher(document.getElementById("device-switcher"), "mobile", ()=>view);
+pomodoroController=Pomodoro.mount({
+  onComplete:async durationSec=>{
+    data.__pomo=data.__pomo||{count:0,min:0};
+    data.__pomo.count++; data.__pomo.min+=Math.round(durationSec/60);
+    WorkbenchCore.saveMeta(CONFIG.storageKey,data,"__pomo",data.__pomo);
+    render();
+  }
+});
 render();
 </script>
 </body>

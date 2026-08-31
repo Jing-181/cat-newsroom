@@ -30,6 +30,18 @@ function weekStartFor(iso: string) {
 }
 
 function trimRecord(value: Record<string, unknown>) {
+  const exercises = Array.isArray(value.exercises) ? value.exercises as Array<Record<string, unknown>> : [];
+  const completedSets = exercises.flatMap(exercise => Array.isArray(exercise.sets) ? exercise.sets as Array<Record<string, unknown>> : [])
+    .filter(set => set.completed === true);
+  const workout = value.kind === "workout_session" ? {
+    training_day: value.training_day,
+    duration_min: value.duration_min,
+    exercise_count: exercises.length,
+    exercise_names: exercises.map(exercise => String(exercise.name || "")).filter(Boolean),
+    set_count: completedSets.length,
+    reps: completedSets.reduce((sum, set) => sum + Number(set.reps || 0), 0),
+    volume_kg: completedSets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0),
+  } : undefined;
   return {
     id: value.id,
     title: String(value.title || ""),
@@ -45,12 +57,14 @@ function trimRecord(value: Record<string, unknown>) {
     note: String(value.note || "").slice(0, 500),
     content: String(value.content || "").slice(0, 800),
     log: value.log,
+    workout,
   };
 }
 
-function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, unknown> }>, start: string, end: string) {
+function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, unknown>; deleted_at?: string | null }>, start: string, end: string) {
   const modules: Record<string, unknown[]> = {};
   rows.forEach(row => {
+    if (row.deleted_at || row.data?.status === "draft") return;
     const item = trimRecord(row.data || {});
     const date = typeof item.date === "string" ? item.date : "";
     const inRange = !date || (date >= start && date <= end);
@@ -133,6 +147,7 @@ Deno.serve(async (request) => {
     const { data: existing } = await supabase.from("weekly_reports").select("*").eq("user_id", user.id).eq("week_start", start).maybeSingle();
     if (existing && !force && existing.status === "ready") return json({ report: existing.payload, meta: existing });
     if (existing && !force && existing.status === "generating") return json({ status: "generating", meta: existing }, 202);
+    if (existing && !force && existing.status === "error") return json({ status: "error", error: existing.error || "上次生成失败", meta: existing }, 409);
     // 非强制生成使用忽略冲突插入，只有真正插入的一方负责调用模型。
     if (!force) {
       const { data: claimed, error: claimError } = await supabase.from("weekly_reports")
@@ -148,7 +163,7 @@ Deno.serve(async (request) => {
       if (lockError) throw lockError;
     }
 
-    const { data: rows, error: rowsError } = await supabase.from("workbench_records").select("module_key,data").eq("user_id", user.id);
+    const { data: rows, error: rowsError } = await supabase.from("workbench_records").select("module_key,data,deleted_at").eq("user_id", user.id);
     if (rowsError) throw rowsError;
     const snapshot = buildSnapshot(rows || [], start, end);
     const apiKey = Deno.env.get("AIXLUV_API_KEY");

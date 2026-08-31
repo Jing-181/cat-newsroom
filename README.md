@@ -1,112 +1,121 @@
-# 猫咪生活报 · 云端同步版
+# 猫咪生活报
 
-卡通小猫 × 复古报刊编辑部风格的个人工作台，支持 GitHub Pages 托管 + Supabase 云端数据同步。
+复古报刊风格的个人生活工作台，提供桌面版和移动版布局，并通过 Supabase 在同一正式账号下同步数据。
 
-## 快速部署（3 步）
+## 功能概览
 
-### 第 1 步：创建 Supabase 项目
+- 统一入口自动识别桌面或移动布局，也可手动选择 `自动 / 桌面 / 移动`；偏好保存在当前浏览器。
+- 切换布局时保留当前业务模块，同源页面共享一份本地数据。
+- 番茄钟启动后进入全页面专注模式，支持暂停、继续、提前结束、刷新恢复和 5 分钟休息。
+- 运动模块按胸、背、肩、腿、手臂、全身和有氧恢复日提供快捷动作。
+- 每个动作可记录重量、次数、RPE、完成组、训练日期、训练时长和备注，支持补录历史训练。
+- 训练历史支持查看完整动作与组次详情，也可原地修改日期、重量、次数和备注。
+- H5 快捷动作区可折叠并记住本地状态，训练保存栏针对窄屏重新排版。
+- 旧版运动目标继续兼容展示；新训练以 Session 形式保存和同步。
+- AI 周报支持汇总新训练数据，并排除草稿和已删除记录。
 
-1. 打开 [supabase.com](https://supabase.com) 注册并创建新项目
-2. 进入 **SQL Editor**，粘贴 `supabase-schema.sql` 的内容并执行
-3. 进入 **Authentication > Providers**，开启 **Anonymous** 认证（即开即用）
-4. 进入 **Project Settings > API**，记下：
-   - **Project URL**（如 `https://xxxxx.supabase.co`）
-   - **Publishable key**（`sb_publishable_...`，旧项目也可能显示为 anon key）
+## 本地运行
 
-### 第 2 步：配置同步模块
+项目是静态页面，需要通过 HTTP 服务运行，避免直接打开文件时产生不同 Origin：
 
-打开 `supabase-sync.js`，在顶部填入你的配置：
+```bash
+python3 -m http.server 8765
+```
+
+访问 `http://127.0.0.1:8765/`。默认入口 [index.html](index.html) 会根据当前视口和输入能力进入合适页面。
+
+开发校验：
+
+```bash
+npm test
+npm run check
+```
+
+`npm test` 执行设备模式、番茄钟、训练模型和同步核心测试；`npm run check` 额外检查同步脚本语法。
+
+## 端模式与数据互通
+
+端模式偏好保存在 `cat-newsroom-ui-mode-v1`：
+
+| 模式 | 行为 |
+| --- | --- |
+| `auto` | 宽度不超过 820px，或粗指针设备宽度不超过 1024px 时使用移动版 |
+| `desktop` | 始终进入桌面版 |
+| `mobile` | 始终进入移动版 |
+
+当前模块保存在 `cat-newsroom-last-view-v1`，手动切换后会恢复该模块。桌面版和移动版在同一域名、协议和端口下共享 `cat-newsroom-data-v2`；不同浏览器或物理设备需登录同一正式账号后通过 Supabase 互通。
+
+## 同步约束
+
+同步层严格区分全量同步和原子同步：
+
+| 入口 | 允许场景 | 行为 |
+| --- | --- | --- |
+| `runFullSync({ reason: "page_init" })` | 页面每次重新进入后的首次初始化 | 处理 outbox，再拉取 records/meta 并合并 |
+| `runFullSync({ reason: "manual" })` | 用户点击“立即同步” | 处理 outbox，再执行一次全量冲突合并 |
+| `syncRecord({ moduleKey, record })` | 新增或编辑一条记录 | 只 upsert 对应记录 |
+| `syncDelete({ moduleKey, recordId })` | 删除一条记录 | 只写对应 tombstone |
+| `syncMetaField({ field, value })` | 头像、番茄统计或趋势变化 | 只更新对应 meta 字段 |
+
+普通业务操作、自动重试和 Realtime 事件不会触发全量回拉。失败操作保存在 `cat-newsroom-sync-outbox-v1`，恢复连接后只重试对应单项操作。完整训练 Session 作为一条 JSONB 记录原子 upsert。
+
+## Supabase 配置
+
+1. 创建 Supabase 项目。
+2. 在 SQL Editor 执行 [supabase-schema.sql](supabase-schema.sql)。
+3. 在 Authentication 中开启 Anonymous 认证。
+4. 在 [supabase-sync.js](supabase-sync.js) 顶部配置 Project URL 和 Publishable key。
 
 ```js
 const SUPABASE_CONFIG = {
-  url: "https://xxxxx.supabase.co",    // 替换为你的 Project URL
-  anonKey: "sb_publishable_..."        // 替换为你的 Publishable key
+  url: "https://xxxxx.supabase.co", // Supabase Project URL
+  anonKey: "sb_publishable_...", // 仅使用 Publishable/anon key
+  reportFunction: "generate-weekly-report",
 };
 ```
 
-> anon key 是公开密钥，配合 RLS 行级安全策略使用，可以安全地放在前端代码中。
-> 永远不要把 service_role key 放到前端。
+Publishable/anon key 可放在前端，并由 RLS 限制数据访问；不要把 `service_role` key 写入仓库或前端代码。
 
-### 第 3 步：部署到 GitHub Pages
+### AI 周报
 
-1. 在 GitHub 创建新仓库（如 `cat-newsroom`）
-2. 将以下文件上传到仓库根目录：
-   ```
-   workbench-desktop.html
-   supabase-sync.js
-   supabase-schema.sql
-   assets/
-     greet-banner.jpg
-     paper-texture.jpg
-     avatar.jpg
-   ```
-3. 进入仓库 **Settings > Pages**
-4. **Source** 选择 `Deploy from a branch`
-5. **Branch** 选 `main`，文件夹选 `/ (root)`
-6. 保存后等待 1-2 分钟，访问 `https://你的用户名.github.io/cat-newsroom/workbench-desktop.html`
+执行数据库脚本后，使用 Supabase CLI 部署 Edge Function：
 
-### 第 4 步：部署 AI 周报（可选）
-
-1. 在 Supabase SQL Editor 执行更新后的 `supabase-schema.sql`，会升级记录主键并创建 `weekly_reports`。
-2. 使用 Supabase CLI 部署 `supabase/functions/generate-weekly-report/index.ts`。
-3. 在 Edge Function Secrets 中配置 `AIXLUV_API_KEY`，可选配置 `AIXLUV_MODEL`。
-4. AI 密钥只保存在 Edge Function，前端不会直接暴露密钥。
-
-命令行部署方式：`supabase link --project-ref <project-ref>`、`supabase db push`、`supabase functions deploy generate-weekly-report`。
-
-## 使用方式
-
-- **未配置 Supabase 时**：纯本地模式，数据存在浏览器 localStorage
-- **配置 Supabase 后**：打开页面自动匿名登录，数据静默同步到云端
-- **正式账号后**：每周首次访问首页会生成或读取本周 AI 生活报，洞察页可手动重生成
-- **点击侧栏底部同步指示器**：
-  - 匿名用户 → 弹出登录/注册弹窗，升级为正式账号
-  - 已登录用户 → 可登出
-  - 离线状态 → 重新连接云端
-
-## 数据架构
-
-```
-GitHub Pages（静态托管）
-       ↓
-  workbench-desktop.html（前端 UI）
-       ↓
-  supabase-sync.js（同步层）
-       ↓
-  Supabase（PostgreSQL + Auth + Realtime）
-       ↓
-  workbench_records 表（JSONB 存储所有模块数据）
-  workbench_meta 表（头像/番茄钟/趋势等元数据）
-  weekly_reports 表（按用户和周保存 AI 生活报）
+```bash
+supabase link --project-ref <project-ref>
+supabase db push
+supabase functions deploy generate-weekly-report
 ```
 
-### 数据表结构
+在 Edge Function Secrets 中配置 `AIXLUV_API_KEY`，可选配置 `AIXLUV_MODEL`。AI 密钥只存在服务端。
 
-| 表名 | 用途 | 关键字段 |
-|------|------|---------|
-| `workbench_records` | 所有模块的记录 | `id`, `user_id`, `module_key`, `data`(JSONB) |
-| `workbench_meta` | 用户元数据 | `user_id`, `avatar`, `pomo_stats`, `trend_data` |
-| `weekly_reports` | AI 周报缓存 | `user_id`, `week_start`, `payload`, `source_snapshot` |
+## 部署
 
-每个用户的记录通过 `user_id` 隔离，RLS 策略确保用户只能读写自己的数据。
+将仓库完整部署到 GitHub Pages，并让站点默认打开根目录的 `index.html`。保留 `workbench-desktop.html` 和 `workbench-mobile.html`，旧书签仍可访问，页面会根据已保存的端模式偏好纠正布局。
 
-## 本地开发
+## 项目结构
 
-直接用浏览器打开 `workbench-desktop.html` 即可。如果 `supabase-sync.js` 中的配置为空，会自动降级为纯本地模式。
+| 路径 | 说明 |
+| --- | --- |
+| `index.html` | 统一入口和端模式解析 |
+| `workbench-desktop.html` | 桌面端页面与 DOM 适配 |
+| `workbench-mobile.html` | 移动端页面与 DOM 适配 |
+| `js/device-mode.js` | 自动识别、模式偏好和模块恢复 |
+| `js/pomodoro.js` | 番茄钟状态机与全页面专注层 |
+| `js/workout-catalog.js` | 训练日与动作目录 |
+| `js/workout.js` | 训练 Session 模型与统计 |
+| `js/workout-ui.js` | 两端共享的训练状态、事件和原子保存控制器 |
+| `js/workout-view.js` | 训练编辑器、历史卡片与详情弹窗视图 |
+| `css/workout-ui.css` | 训练模块两端响应式样式与轻量动效 |
+| `js/workbench-core.js` | 本地记录和元数据保存入口 |
+| `js/sync-core.js` | 全量合并、Realtime 应用和 outbox 去重 |
+| `supabase-sync.js` | Supabase 认证、原子同步和手动/初始化全量同步 |
+| `supabase/functions/generate-weekly-report/` | AI 周报 Edge Function |
+| `tests/` | Node 核心逻辑测试 |
+| `docs/implementation-plan-v3.md` | V3 需求、架构和验收依据 |
 
-## 文件说明
+## 数据安全
 
-| 文件 | 说明 |
-|------|------|
-| `workbench-desktop.html` | 主应用（单文件，含全部 UI 和逻辑） |
-| `supabase-sync.js` | 云端同步模块（SDK 加载 + 认证 + CRUD + 实时） |
-| `supabase-schema.sql` | 数据库建表脚本（含 RLS 策略） |
-| `assets/` | 首页横幅、纸张纹理、默认头像 |
-
-## 安全说明
-
-- **anon key** 可安全暴露在前端代码中（Supabase 设计如此），它只拥有 anon 权限
-- **service_role key** 永远不要放到前端
-- 数据隔离靠 RLS 行级安全策略，每个用户只能访问 `user_id = auth.uid()` 的记录
-- 匿名用户也有 `auth.uid()`，数据同样被隔离保护
-- 匿名用户升级为正式账号后，数据不丢失（同一 user_id）
+- `workbench_records` 按记录存储各模块 JSONB 数据，训练 Session 也是其中一条记录。
+- `workbench_meta` 存储头像、番茄统计和趋势数据；番茄运行倒计时只保存在本机。
+- `weekly_reports` 按用户和周缓存生活周报。
+- 所有表使用 RLS 按 `auth.uid()` 隔离，匿名用户也拥有独立用户 ID。
