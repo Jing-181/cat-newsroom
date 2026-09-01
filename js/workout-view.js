@@ -49,8 +49,7 @@
     </tr>`).join("");
   }
 
-  function editorHtml(session, selectedDay, libraryCollapsed) {
-    const library = root.WorkoutCatalog.forDay(selectedDay);
+  function editorHtml(session, selectedDay) {
     const stats = root.Workout.calculateStats(session);
     const editing = Boolean(session._editing_record_id);
     return `<section class="workout-app">
@@ -58,11 +57,7 @@
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       ${statsHtml(stats)}
       <div class="workout-layout">
-        <aside class="workout-panel workout-library-panel ${libraryCollapsed ? "is-collapsed" : ""}">
-          <div class="workout-panel-title"><span>快捷动作</span><button type="button" class="icon-action library-toggle" id="workout-library-toggle" aria-expanded="${!libraryCollapsed}" title="${libraryCollapsed ? "展开快捷动作" : "收起快捷动作"}">${libraryCollapsed ? "+" : "−"}</button></div>
-          <div class="exercise-library" id="exercise-library">${library.map(item => `<div class="exercise-option"><div class="info"><div class="name">${escapeHtml(item.name)}</div><div class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}</div></div><button type="button" class="icon-action" data-add-exercise="${item.id}" title="加入训练" aria-label="加入${escapeHtml(item.name)}">+</button></div>`).join("")}</div>
-        </aside>
-        <main class="workout-panel"><div class="workout-panel-title">当前训练</div><div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => `<article class="session-exercise"><div class="session-exercise-head"><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)}</span><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div><div class="set-table-scroll"><table class="set-table"><thead><tr><th>组</th><th>kg</th><th>次数</th><th>RPE</th><th>完成</th><th></th></tr></thead><tbody>${setRows(exercise, exerciseIndex)}</tbody></table></div><div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><button type="button" data-set-copy="${exerciseIndex}">复制上一组</button></div></article>`).join("") : `<div class="session-empty">从快捷动作中加入本次训练。</div>`}</div></main>
+        <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => `<article class="session-exercise"><div class="session-exercise-head"><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)}</span><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div><div class="set-table-scroll"><table class="set-table"><thead><tr><th>组</th><th>kg</th><th>次数</th><th>RPE</th><th>完成</th><th></th></tr></thead><tbody>${setRows(exercise, exerciseIndex)}</tbody></table></div><div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><button type="button" data-set-copy="${exerciseIndex}">复制上一组</button></div></article>`).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
       </div>
       <section class="workout-completion" aria-label="完成训练">
         <div class="workout-fields">
@@ -102,11 +97,21 @@
       ${record.note ? `<p class="record-note">${escapeHtml(record.note)}</p>` : ""}`;
   }
 
+  function exerciseLibraryHtml(selectedDay, selectedExercises) {
+    const selectedIds = new Set((selectedExercises || []).map(item => item.exercise_id));
+    const library = root.WorkoutCatalog.forDay(selectedDay);
+    return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+      <div class="exercise-library dialog-library">${library.map(item => {
+        const added = selectedIds.has(item.id);
+        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
+      }).join("")}</div>`;
+  }
+
   function legacyEditHtml(record) {
     return `<form id="legacy-edit-form"><div class="dialog-head"><div><span class="dialog-kicker">编辑旧版记录</span><h3>${escapeHtml(record.title || "运动记录")}</h3></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <div class="legacy-fields"><div class="workout-field"><label for="legacy-title">名称</label><input id="legacy-title" name="title" required value="${escapeHtml(record.title || "")}"></div><div class="workout-field"><label for="legacy-date">日期</label><input id="legacy-date" name="date" type="date" value="${escapeHtml(record.date || "")}"></div><div class="workout-field"><label for="legacy-current">当前</label><input id="legacy-current" name="current" type="number" min="0" value="${escapeHtml(record.current || 0)}"></div><div class="workout-field"><label for="legacy-target">目标</label><input id="legacy-target" name="target" type="number" min="0" value="${escapeHtml(record.target || 0)}"></div><div class="workout-field"><label for="legacy-unit">单位</label><input id="legacy-unit" name="unit" value="${escapeHtml(record.unit || "")}"></div><div class="workout-field note"><label for="legacy-note">备注</label><input id="legacy-note" name="note" value="${escapeHtml(record.note || "")}"></div></div>
       <div class="dialog-actions"><button type="button" class="workout-btn" data-dialog-close>取消</button><button type="submit" class="workout-btn primary">保存修改</button></div></form>`;
   }
 
-  root.WorkoutView = { editorHtml, idleHtml, detailHtml, legacyEditHtml };
+  root.WorkoutView = { editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, legacyEditHtml };
 })(typeof window !== "undefined" ? window : null);

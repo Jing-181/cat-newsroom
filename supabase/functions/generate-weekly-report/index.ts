@@ -56,6 +56,8 @@ function trimRecord(value: Record<string, unknown>) {
     date: value.date,
     note: String(value.note || "").slice(0, 500),
     content: String(value.content || "").slice(0, 800),
+    image: String(value.image || "").slice(0, 500),
+    image_preset: String(value.image_preset || "").slice(0, 100),
     log: value.log,
     workout,
   };
@@ -75,6 +77,9 @@ function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, un
   const income = all.filter(x => x.type === "income").reduce((sum, x) => sum + Number(x.amount || 0), 0);
   const todos = (modules.todo || []) as Array<Record<string, unknown>>;
   const done = todos.filter(x => x.done).length;
+  const notes = (modules.note || []) as Array<Record<string, unknown>>;
+  const checkins = (modules.checkin || []) as Array<Record<string, unknown>>;
+  const workouts = Object.values(modules).flatMap(items => (items as Array<Record<string, unknown>>).filter(item => item.workout));
   return {
     week_start: start,
     week_end: end,
@@ -86,6 +91,9 @@ function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, un
       income,
       expenses,
       balance: income - expenses,
+      note_count: notes.length,
+      checkin_count: checkins.length,
+      workout_count: workouts.length,
     },
   };
 }
@@ -108,8 +116,8 @@ async function generateWithAI(apiKey: string, model: string, snapshot: unknown) 
       model,
       temperature: 0.6,
       messages: [
-        { role: "system", content: "你是温柔、具体、克制的生活报主编。只返回合法 JSON，不要 Markdown。输出字段必须是 daily、review、editor_note。daily 是 7 项数组，每项包含 date、title、summary、quote、reminder。review 包含 overview、highlights、unfinished、suggestions。" },
-        { role: "user", content: `请根据以下本周数据生成七日生活报和周复盘。不要编造数据；没有数据的日期写成轻量的鼓励。数据：${JSON.stringify(snapshot)}` },
+        { role: "system", content: "你是温柔、具体、克制的生活报主编与分析师。只返回合法 JSON，不要 Markdown。输出字段必须是 daily、review、insight、editor_note。daily 是 7 项数组，每项包含 date、title、summary、quote、reminder。review 包含 overview、highlights、unfinished、suggestions。insight 包含 patterns、risks、next_actions。所有结论都必须基于输入数据，不要编造。" },
+        { role: "user", content: `请根据以下本周数据生成七日生活报、周复盘和分析洞察。不要编造数据；没有数据的日期写成轻量的鼓励。数据：${JSON.stringify(snapshot)}` },
       ],
     }),
   });
@@ -118,7 +126,12 @@ async function generateWithAI(apiKey: string, model: string, snapshot: unknown) 
   const content = body.choices?.[0]?.message?.content;
   if (!content) throw new Error("AI 返回为空");
   const clean = String(content).replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-  return JSON.parse(clean);
+  const parsed = JSON.parse(clean);
+  parsed.insight ||= { patterns: [], risks: [], next_actions: [] };
+  parsed.review ||= { overview: "", highlights: [], unfinished: [], suggestions: [] };
+  parsed.daily ||= [];
+  parsed.editor_note ||= parsed.review.overview || "";
+  return parsed;
 }
 
 Deno.serve(async (request) => {
@@ -156,6 +169,7 @@ Deno.serve(async (request) => {
       if (claimError) throw claimError;
       if (!claimed) {
         const { data: locked } = await supabase.from("weekly_reports").select("*").eq("user_id", user.id).eq("week_start", start).maybeSingle();
+        if (locked?.status === "error") return json({ status: "error", error: locked.error || "上次生成失败", meta: locked }, 409);
         return json({ status: "generating", meta: locked }, 202);
       }
     } else {

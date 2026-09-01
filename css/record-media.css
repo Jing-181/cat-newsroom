@@ -1,0 +1,56 @@
+.media-field { display:grid; gap:8px; }
+.media-compact {
+  display:grid;
+  gap:8px;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-tile);
+  background:var(--surface-nested);
+}
+.media-summary { display:flex; align-items:center; gap:8px; min-width:0; }
+.media-summary .media-chip {
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:var(--surface-card);
+  border:1px solid var(--border-input);
+  color:var(--text-secondary);
+  font-size:11px;
+  font-weight:600;
+}
+.media-summary .media-desc { min-width:0; color:var(--text-tertiary); font-size:12px; line-height:1.35; }
+.media-preview { width:100%; aspect-ratio:16/9; border:1px dashed var(--border-input); border-radius:var(--radius-tile); overflow:hidden; background:var(--surface-nested); }
+.media-preview img { width:100%; height:100%; object-fit:cover; display:block; }
+.media-row { display:flex; gap:8px; align-items:center; }
+.media-row input { flex:1; min-width:0; }
+.media-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.media-actions .btn,
+.media-actions .btn.ghost { min-height:32px; padding:6px 10px; font-size:12px; }
+.media-toggle {
+  appearance:none;
+  border:0;
+  background:none;
+  color:var(--accent);
+  font-size:12px;
+  font-weight:600;
+  padding:0;
+  cursor:pointer;
+}
+.media-advanced { display:grid; gap:8px; }
+.media-advanced[hidden] { display:none; }
+.preset-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.preset-card { border:1px solid var(--border); border-radius:var(--radius-tile); overflow:hidden; padding:0; color:var(--text-secondary); background:var(--surface-card); cursor:pointer; text-align:left; }
+.preset-card.on { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-muted); color:var(--text); }
+.preset-card img { width:100%; aspect-ratio:16/10; object-fit:cover; display:block; }
+.preset-card span { display:block; padding:6px 7px; font-size:11px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.upload-note { color:var(--text-tertiary); font-size:11.5px; line-height:1.45; }
+.media-preset-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.media-preset-head strong { font-size:12px; }
+.media-fallback { color:var(--text-tertiary); font-size:11px; }
+
+@media (max-width: 640px) {
+  .preset-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

@@ -495,8 +495,9 @@
   .device-switcher-options button.on { color:var(--drawer-text); border-color:rgba(240,232,213,.38); background:var(--drawer-active); }
 </style>
 <link rel="stylesheet" href="css/workout-ui.css">
+<link rel="stylesheet" href="css/record-media.css">
 </head>
-<body>
+<body class="mobile-shell">
 <div class="app">
   <div class="topbar">
     <button class="menu-btn" id="btn-menu"></button>
@@ -543,6 +544,7 @@
 <script src="js/workout.js"></script>
 <script src="js/workout-view.js"></script>
 <script src="js/workout-ui.js"></script>
+<script src="js/record-media.js"></script>
 <script src="supabase-sync.js"></script>
 <script>
 /* ============================================================
@@ -674,8 +676,10 @@ function weeklyReportTileHTML(){
   if(!weeklyReport) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">登录正式账号后生成本周生活报。</div><div class="report-actions"><button class="primary" id="report-generate">生成本周生活报</button></div></div>';
   const days=(weeklyReport.daily||[]).map(function(day){ return '<details class="report-day"><summary>'+esc(day.date||'本日')+' · '+esc(day.title||'生活记录')+'</summary><div class="report-text">'+esc(day.summary||'')+' '+esc(day.quote||'')+'</div></details>'; }).join('');
   const review=weeklyReport.review||{};
+  const insight=weeklyReport.insight||{};
+  const list=items=>(items||[]).length?'<ul class="report-text">'+(items||[]).map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul>':'<div class="report-text">暂无足够数据。</div>';
   const metaText=weeklyReportMeta?.generated_at ? '生成于 '+new Date(weeklyReportMeta.generated_at).toLocaleString()+(weeklyReportMeta.model?' · '+weeklyReportMeta.model:'') : 'AI 主编';
-  return '<div class="report-card"><div class="report-head"><h3>本周生活报</h3><span class="report-meta">'+esc(metaText)+'</span></div><div class="report-text">'+esc(weeklyReport.editor_note||review.overview||'')+'</div>'+days+'<details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：'+esc((review.highlights||[]).join('、'))+'<br>未完成：'+esc((review.unfinished||[]).join('、'))+'<br>下周建议：'+esc((review.suggestions||[]).join('、'))+'</div></details><div class="report-actions"><button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div></div>';
+  return '<div class="report-card"><div class="report-head"><h3>本周生活报</h3><span class="report-meta">'+esc(metaText)+'</span></div><div class="report-text">'+esc(weeklyReport.editor_note||review.overview||'')+'</div>'+days+'<details class="report-day" open><summary>AI 分析洞察</summary><div class="report-text"><b>行为模式</b></div>'+list(insight.patterns)+'<div class="report-text"><b>风险提示</b></div>'+list(insight.risks)+'<div class="report-text"><b>下一步行动</b></div>'+list(insight.next_actions)+'</details><details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：'+esc((review.highlights||[]).join('、'))+'<br>未完成：'+esc((review.unfinished||[]).join('、'))+'<br>下周建议：'+esc((review.suggestions||[]).join('、'))+'</div></details><div class="report-actions"><button id="report-refresh" class="primary">重新生成</button><button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div></div>';
 }
 
 async function maybeGenerateWeeklyReport(force){
@@ -689,7 +693,8 @@ async function maybeGenerateWeeklyReport(force){
 
 function exportWeeklyReport(format){
   if(!weeklyReport) return;
-  const text=format==='json'?JSON.stringify(weeklyReport,null,2):[weeklyReport.editor_note||'',...(weeklyReport.daily||[]).map(d=>'## '+(d.date||'')+' '+(d.title||'')+'\n'+(d.summary||'')+'\n'+(d.quote||'')),'## 本周复盘\n'+(weeklyReport.review?.overview||'')].join('\n\n');
+  const insight=weeklyReport.insight||{};
+  const text=format==='json'?JSON.stringify(weeklyReport,null,2):[weeklyReport.editor_note||'',...(weeklyReport.daily||[]).map(d=>'## '+(d.date||'')+' '+(d.title||'')+'\n'+(d.summary||'')+'\n'+(d.quote||'')),'## AI 分析洞察\n行为模式：'+(insight.patterns||[]).join('、')+'\n风险提示：'+(insight.risks||[]).join('、')+'\n下一步行动：'+(insight.next_actions||[]).join('、'),'## 本周复盘\n'+(weeklyReport.review?.overview||'')].join('\n\n');
   const blob=new Blob([text],{type:format==='json'?'application/json':'text/markdown'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='cat-life-weekly-report.'+(format==='json'?'json':'md'); a.click(); URL.revokeObjectURL(a.href);
 }
 
@@ -794,7 +799,8 @@ function renderHome(){
 
   wireHome();
   $("#screen").insertAdjacentHTML("beforeend", weeklyReportTileHTML());
-  const reportButton=$("#report-generate"); if(reportButton) reportButton.onclick=()=>maybeGenerateWeeklyReport(true);
+  // 首页周报按钮按当前状态绑定生成或刷新。
+  const reportButton=$("#report-generate")||$("#report-refresh"); if(reportButton) reportButton.onclick=()=>maybeGenerateWeeklyReport(true);
   const md=$("#report-export-md"); if(md) md.onclick=()=>exportWeeklyReport('md');
   const js=$("#report-export-json"); if(js) js.onclick=()=>exportWeeklyReport('json');
 }
@@ -1021,14 +1027,16 @@ function recHTML(m,x){
   const del=`<button class="del js-del" data-id="${x.id}" title="删除">${icon("trash",16)}</button>`;
   const acts=`<div class="acts">${pin}${del}</div>`;
   const chkMark=icon("check",14,2.4);
-  const thumb=x.image?`<img class="thumb" src="${attr(x.image)}" alt="">`:'';
   const customMeta=(m.fields||[]).filter(f=>x[f.key]).map(f=>`<span class="meta-tag">${esc(x[f.key])}</span>`).join("");
   const customBlock=customMeta?`<div class="meta-line">${customMeta}</div>`:'';
   const layout=x.layout||'default';
   const layoutCls=`rec-layout-${layout}`;
+  // 没有上传图时也按模块/样式补一张默认配图。
+  const imageSrc=x.image||(typeof RecordMedia!=="undefined"?RecordMedia.resolveRecordImage(x,m.key,layout):"");
+  const thumb=imageSrc?`<img class="thumb" src="${attr(imageSrc)}" alt="">`:'';
 
   // feature layout: 大图在上 + 标题 + 正文 (适合有图记录)
-  if(layout==='feature' && x.image){
+  if(layout==='feature' && imageSrc){
     const body=(x.content||x.note||'').trim();
     return `<div class="rec ${layoutCls}">${acts}<div class="top" data-edit="${x.id}" style="flex-direction:column">
       ${thumb}
@@ -1106,6 +1114,96 @@ function wireModule(key){
   if(m.type==="checkin") wireCalendar(key, data[key]||[]);
 }
 
+function mediaFieldHTML(key,d){
+  if(typeof RecordMedia==="undefined") return `<div class="field"><label>图片 URL（可选）</label><input id="f-image" value="${attr(d.image||'')}" placeholder="https://..."/></div>`;
+  const layout=d.layout||"default";
+  const preset=d.image_preset||RecordMedia.defaultPresetId(key,layout);
+  const preview=d.image||(RecordMedia.getPreset(preset)?.src||"");
+  return `<div class="field media-field"><label>图片</label>
+    <div class="media-compact">
+      <div class="media-summary">
+        <span class="media-chip">${icon("camera",12)} ${d.image?"已填图":"默认图"}</span>
+        <div class="media-desc">先把最常用的放前面，更多配图需要时再展开。</div>
+      </div>
+      <div class="media-preview"><img id="f-image-preview" src="${attr(preview)}" alt=""></div>
+      <div class="media-row"><input id="f-image" value="${attr(d.image||'')}" placeholder="粘贴图片地址"/>
+        <button type="button" class="btn ghost" id="f-image-upload">${icon("camera",14)}上传</button>
+        <input id="f-image-file" type="file" accept="image/*" hidden></div>
+      <div class="media-actions">
+        <button type="button" class="btn ghost" id="f-image-clear">清空</button>
+        <button type="button" class="media-toggle" id="f-media-toggle">更多配图</button>
+      </div>
+      <div class="media-advanced" id="f-media-advanced" hidden>
+        <div class="media-preset-head"><strong>默认配图</strong><span class="media-fallback">不上传也能直接选</span></div>
+        <div class="preset-grid" id="f-image-preset">${mediaPresetChoicesHTML(key,layout,preset)}</div>
+        <div class="upload-note">不上传时会使用选中的默认配图；上传后会自动填入图片 URL。</div>
+      </div>
+    </div></div>`;
+}
+
+function mediaPresetChoicesHTML(key,layout,preset){
+  return RecordMedia.getChoices(key,layout).map(p=>`<button type="button" class="preset-card ${p.id===preset?'on':''}" data-v="${attr(p.id)}" title="${attr(p.description)}"><img src="${attr(p.src)}" alt=""><span>${esc(p.label)}</span></button>`).join("");
+}
+
+function selectedImagePreset(overlay){
+  return overlay.querySelector("#f-image-preset .preset-card.on")?.dataset.v || "";
+}
+
+function updateImagePreview(overlay){
+  const preview=overlay.querySelector("#f-image-preview");
+  if(!preview || typeof RecordMedia==="undefined") return;
+  const url=(overlay.querySelector("#f-image")?.value||"").trim();
+  const preset=RecordMedia.getPreset(selectedImagePreset(overlay));
+  preview.src=url || preset?.src || "";
+}
+
+function wirePresetCards(overlay){
+  overlay.querySelectorAll("#f-image-preset .preset-card").forEach(card=>card.onclick=()=>{
+    overlay.querySelectorAll("#f-image-preset .preset-card").forEach(x=>x.classList.remove("on"));
+    card.classList.add("on"); updateImagePreview(overlay);
+  });
+}
+
+function refreshMediaPresets(overlay,key){
+  if(typeof RecordMedia==="undefined") return;
+  const grid=overlay.querySelector("#f-image-preset");
+  const layout=overlay.querySelector("#f-layout .on")?.dataset.v || "default";
+  if(!grid) return;
+  const preset=RecordMedia.defaultPresetId(key,layout);
+  grid.innerHTML=mediaPresetChoicesHTML(key,layout,preset);
+  wirePresetCards(overlay);
+  updateImagePreview(overlay);
+}
+
+function wireMediaEditor(overlay,key,d){
+  const input=overlay.querySelector("#f-image");
+  const upload=overlay.querySelector("#f-image-upload");
+  const file=overlay.querySelector("#f-image-file");
+  const clear=overlay.querySelector("#f-image-clear");
+  const toggle=overlay.querySelector("#f-media-toggle");
+  const advanced=overlay.querySelector("#f-media-advanced");
+  input?.addEventListener("input",()=>updateImagePreview(overlay));
+  clear?.addEventListener("click",()=>{ input.value=""; updateImagePreview(overlay); });
+  wirePresetCards(overlay);
+  toggle?.addEventListener("click",()=>{
+    if(!advanced) return;
+    const closed=advanced.hasAttribute("hidden");
+    if(closed) advanced.removeAttribute("hidden");
+    else advanced.setAttribute("hidden","");
+    toggle.textContent=closed?"收起":"更多配图";
+  });
+  upload?.addEventListener("click",()=>file?.click());
+  file?.addEventListener("change",async()=>{
+    const picked=file.files&&file.files[0]; if(!picked) return;
+    const old=upload.innerHTML; upload.disabled=true; upload.textContent="上传中…";
+    try{
+      const result=await uploadCardImage(picked,{moduleKey:key,recordId:d.id});
+      input.value=result.url; updateImagePreview(overlay);
+    }catch(e){ alert(e.message||"图片上传失败"); }
+    finally{ upload.disabled=false; upload.innerHTML=old; file.value=""; }
+  });
+}
+
 /* ---------- EDITOR MODAL (per type) ---------- */
 function openEditor(key, item){
   const m=modOf(key); const editing=!!item;
@@ -1151,8 +1249,8 @@ function openEditor(key, item){
     else if(f.type==="number") fields+=`<div class="field"><label>${esc(f.label)}</label><input id="f-cf-${f.key}" type="number" value="${attr(v)}" placeholder="${attr(f.placeholder||'')}"/></div>`;
     else fields+=`<div class="field"><label>${esc(f.label)}</label><input id="f-cf-${f.key}" value="${attr(v)}" placeholder="${attr(f.placeholder||'')}"/></div>`;
   });
-  // shared image URL field (all types)
-  fields+=`<div class="field"><label>图片 URL（可选）</label><input id="f-image" value="${attr(d.image||'')}" placeholder="https://..."/></div>`;
+  // 图片支持云端上传、外链和项目风格预设。
+  fields+=mediaFieldHTML(key,d);
 
   const overlay=document.createElement("div"); overlay.className="overlay";
   overlay.innerHTML=`<div class="modal"><div class="grab"></div>
@@ -1167,9 +1265,13 @@ function openEditor(key, item){
   // segmented pickers
   overlay.querySelectorAll(".seg").forEach(seg=>seg.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
     seg.querySelectorAll(".opt").forEach(x=>x.classList.remove("on")); o.classList.add("on");
+    // 卡片样式变化时同步刷新默认配图候选。
+    if(seg.id==="f-layout") refreshMediaPresets(overlay,key);
   }));
   if(editing) overlay.querySelector("#m-del").onclick=()=>{ close(); confirmDelete(key, d.id); };
-  overlay.querySelector("#m-save").onclick=()=>{
+  wireMediaEditor(overlay,key,d);
+  overlay.querySelector("#m-save").onclick=async()=>{
+    const saveBtn=overlay.querySelector("#m-save"); saveBtn.disabled=true;
     const val=id=>{ const el=overlay.querySelector(id); return el?el.value:undefined; };
     const seg=id=>{ const el=overlay.querySelector(id+" .on"); return el?el.dataset.v:undefined; };
     d.title=(val("#f-title")||"").trim()||"未命名";
@@ -1184,8 +1286,9 @@ function openEditor(key, item){
       else if(f.type==="number") d[f.key]=Math.max(0,+val("#f-cf-"+f.key)||0);
       else d[f.key]=(val("#f-cf-"+f.key)||"").trim();
     });
-    // save image
+    // 保存图片 URL 和默认配图选择。
     d.image=(val("#f-image")||"").trim();
+    d.image_preset=selectedImagePreset(overlay)||d.image_preset||(typeof RecordMedia!=="undefined"?RecordMedia.defaultPresetId(key,d.layout):"");
     if(!editing) (data[key]=data[key]||[]).unshift(d);
     persist(key,d); close();
   };
@@ -1201,6 +1304,7 @@ function newItem(m){
   else item={...base, title:"", content:"", mood:(m.moods&&m.moods[0])||"", date:isoToday()};
   // initialize custom fields
   (m.fields||[]).forEach(f=>{ if(!(f.key in item)) item[f.key]= f.type==="select"?(f.options&&f.options[0]||""):""; });
+  if(typeof RecordMedia!=="undefined") item.image_preset=RecordMedia.defaultPresetId(m.key,item.layout||"default");
   return item;
 }
 

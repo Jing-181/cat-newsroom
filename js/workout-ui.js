@@ -1,7 +1,6 @@
 (function (root) {
   const DRAFT_KEY = "cat-newsroom-workout-draft-v1";
   const DAY_KEY = "cat-newsroom-workout-day-v1";
-  const LIBRARY_KEY = "cat-newsroom-workout-library-collapsed-v1";
 
   function readJson(key) {
     try { return JSON.parse(localStorage.getItem(key)); } catch (_) { return null; }
@@ -16,7 +15,6 @@
     const records = options.records;
     let session = readJson(DRAFT_KEY);
     let selectedDay = localStorage.getItem(DAY_KEY) || "chest";
-    let libraryCollapsed = localStorage.getItem(LIBRARY_KEY) === "true";
 
     function persistDraft() {
       if (session) localStorage.setItem(DRAFT_KEY, JSON.stringify(session));
@@ -76,26 +74,18 @@
       });
     }
 
-    function toggleLibrary() {
-      const panel = container.querySelector(".workout-library-panel");
-      const library = container.querySelector("#exercise-library");
-      const button = container.querySelector("#workout-library-toggle");
-      libraryCollapsed = !libraryCollapsed;
-      localStorage.setItem(LIBRARY_KEY, String(libraryCollapsed));
-      button.textContent = libraryCollapsed ? "+" : "−";
-      button.title = libraryCollapsed ? "展开快捷动作" : "收起快捷动作";
-      button.setAttribute("aria-expanded", String(!libraryCollapsed));
-      if (!shouldAnimate()) {
-        panel.classList.toggle("is-collapsed", libraryCollapsed);
-        return;
-      }
-      if (libraryCollapsed) {
-        const animation = library.animate([{ opacity:1, transform:"scaleY(1)" }, { opacity:0, transform:"scaleY(.96)" }], { duration:140, easing:"ease-in" });
-        animation.addEventListener("finish", () => panel.classList.add("is-collapsed"), { once:true });
-      } else {
-        panel.classList.remove("is-collapsed");
-        library.animate([{ opacity:0, transform:"scaleY(.96)" }, { opacity:1, transform:"scaleY(1)" }], { duration:180, easing:"ease-out" });
-      }
+    function openExerciseLibrary() {
+      const dialog = openDialog(root.WorkoutView.exerciseLibraryHtml(selectedDay, session.exercises));
+      const wireOptions = () => dialog.querySelectorAll("[data-add-exercise]").forEach(button => button.addEventListener("click", () => {
+        root.Workout.addExercise(session, button.dataset.addExercise, records);
+        updateSession({ rerender:false });
+        dialog.querySelector("#workout-dialog-content").innerHTML = root.WorkoutView.exerciseLibraryHtml(selectedDay, session.exercises);
+        dialog.querySelectorAll("[data-dialog-close]").forEach(close => close.addEventListener("click", () => dialog.close()));
+        wireOptions();
+      }));
+      wireOptions();
+      // 关闭选择器后再刷新编辑区，支持一次连续加入多个动作。
+      dialog.addEventListener("close", render, { once:true });
     }
 
     function wireEditor() {
@@ -105,8 +95,7 @@
         persistDraft();
         render();
       });
-      container.querySelector("#workout-library-toggle")?.addEventListener("click", toggleLibrary);
-      container.querySelectorAll("[data-add-exercise]").forEach(button => button.addEventListener("click", () => { root.Workout.addExercise(session, button.dataset.addExercise, records); updateSession(); }));
+      container.querySelector("#workout-add-exercise")?.addEventListener("click", openExerciseLibrary);
       container.querySelectorAll("[data-exercise-delete]").forEach(button => button.addEventListener("click", () => { session.exercises.splice(Number(button.dataset.exerciseDelete), 1); updateSession(); }));
       container.querySelectorAll("[data-set-add], [data-set-copy]").forEach(button => button.addEventListener("click", () => {
         const index = Number(button.dataset.setAdd ?? button.dataset.setCopy);
@@ -178,7 +167,7 @@
     function render() {
       if (session) selectedDay = session.training_day;
       container.innerHTML = session
-        ? root.WorkoutView.editorHtml(session, selectedDay, libraryCollapsed)
+        ? root.WorkoutView.editorHtml(session, selectedDay)
         : root.WorkoutView.idleHtml(selectedDay, records);
       wire();
     }
@@ -187,5 +176,5 @@
     return { render, getSession:() => session };
   }
 
-  root.WorkoutUI = { DRAFT_KEY, DAY_KEY, LIBRARY_KEY, mount };
+  root.WorkoutUI = { DRAFT_KEY, DAY_KEY, mount };
 })(typeof window !== "undefined" ? window : null);

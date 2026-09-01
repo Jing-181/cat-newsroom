@@ -11,13 +11,23 @@ function loadView() {
   return window.WorkoutView;
 }
 
-test("训练编辑器提供日期、折叠和保存入口", () => {
+test("训练编辑器提供日期、动作弹窗和保存入口", () => {
   const view = loadView();
   const session = workout.createSession("chest", new Date(2026, 7, 20));
-  const html = view.editorHtml(session, "chest", true);
+  const html = view.editorHtml(session, "chest");
   assert.match(html, /id="workout-date"/);
-  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /id="workout-add-exercise"/);
   assert.match(html, />完成训练</);
+});
+
+test("动作选择器支持整项点击并标记已添加动作", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 7, 20));
+  workout.addExercise(session, "dumbbell_bench_press");
+  const html = view.exerciseLibraryHtml("chest", session.exercises);
+  assert.match(html, /class="exercise-option is-added"/);
+  assert.match(html, /data-add-exercise="dumbbell_bench_press" disabled/);
+  assert.match(html, />已添加</);
 });
 
 test("训练详情展示动作组次且历史卡提供编辑入口", () => {

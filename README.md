@@ -10,9 +10,10 @@
 - 运动模块按胸、背、肩、腿、手臂、全身和有氧恢复日提供快捷动作。
 - 每个动作可记录重量、次数、RPE、完成组、训练日期、训练时长和备注，支持补录历史训练。
 - 训练历史支持查看完整动作与组次详情，也可原地修改日期、重量、次数和备注。
-- H5 快捷动作区可折叠并记住本地状态，训练保存栏针对窄屏重新排版。
+- H5 快捷动作使用弹窗集中选择，整张动作卡可点击添加；训练保存栏针对窄屏重新排版。
 - 旧版运动目标继续兼容展示；新训练以 Session 形式保存和同步。
 - AI 周报支持汇总新训练数据，并排除草稿和已删除记录。
+- 记录卡片支持标准、大图、引文三种样式；图片可上传到 Supabase Storage、粘贴外链，或使用内置默认配图。
 
 ## 本地运行
 
@@ -71,10 +72,13 @@ const SUPABASE_CONFIG = {
   url: "https://xxxxx.supabase.co", // Supabase Project URL
   anonKey: "sb_publishable_...", // 仅使用 Publishable/anon key
   reportFunction: "generate-weekly-report",
+  mediaBucket: "card-images", // 卡片图片公开读取桶
 };
 ```
 
 Publishable/anon key 可放在前端，并由 RLS 限制数据访问；不要把 `service_role` key 写入仓库或前端代码。
+
+卡片图片上传使用 `card-images` Storage bucket。SQL 脚本会创建公开读取桶，并限制正式登录用户只能写入自己 `userId/模块/记录/文件名` 目录；匿名会话仍可使用默认配图，但不能上传图片。
 
 ### AI 周报
 
@@ -107,9 +111,11 @@ supabase functions deploy generate-weekly-report
 | `js/workout-view.js` | 训练编辑器、历史卡片与详情弹窗视图 |
 | `css/workout-ui.css` | 训练模块两端响应式样式与轻量动效 |
 | `js/workbench-core.js` | 本地记录和元数据保存入口 |
+| `js/record-media.js` | 记录默认配图、图片 URL 回退和图库选择 |
 | `js/sync-core.js` | 全量合并、Realtime 应用和 outbox 去重 |
 | `supabase-sync.js` | Supabase 认证、原子同步和手动/初始化全量同步 |
 | `supabase/functions/generate-weekly-report/` | AI 周报 Edge Function |
+| `supabase/migrations/20260901000000_card_images_storage.sql` | 卡片图片 Storage bucket 与 RLS 策略 |
 | `tests/` | Node 核心逻辑测试 |
 | `docs/implementation-plan-v3.md` | V3 需求、架构和验收依据 |
 
@@ -118,4 +124,5 @@ supabase functions deploy generate-weekly-report
 - `workbench_records` 按记录存储各模块 JSONB 数据，训练 Session 也是其中一条记录。
 - `workbench_meta` 存储头像、番茄统计和趋势数据；番茄运行倒计时只保存在本机。
 - `weekly_reports` 按用户和周缓存生活周报。
+- `card-images` 公开读取图片文件；写入、替换和删除均按用户目录隔离，并要求正式账号。
 - 所有表使用 RLS 按 `auth.uid()` 隔离，匿名用户也拥有独立用户 ID。

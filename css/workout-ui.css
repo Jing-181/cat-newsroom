@@ -20,19 +20,22 @@ html, body { overflow-x:clip; }
 .workout-days { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px; scrollbar-width:thin; }
 .workout-days button { min-height:36px; border:1px solid var(--border-input); border-radius:8px; padding:0 12px; color:var(--text-secondary); background:var(--surface-card); cursor:pointer; white-space:nowrap; }
 .workout-days button.on { border-color:var(--module-3); color:var(--text); background:color-mix(in srgb,var(--module-3) 12%,var(--surface-card)); font-weight:750; }
-.workout-layout { display:grid; grid-template-columns:minmax(240px,.72fr) minmax(0,1.45fr); gap:14px; align-items:start; min-width:0; }
+.workout-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:14px; align-items:start; min-width:0; }
 .workout-panel { min-width:0; border:1px solid var(--border); border-radius:8px; padding:14px; background:var(--surface-card); box-shadow:var(--shadow-card); }
 .workout-panel-title { display:flex; align-items:center; gap:8px; min-height:34px; margin-bottom:12px; font-size:14px; font-weight:800; }
 .workout-panel-title > span:first-child { flex:1; }
-.workout-library-panel.is-collapsed { padding-bottom:10px; }
-.workout-library-panel.is-collapsed .workout-panel-title { margin-bottom:0; }
-.workout-library-panel.is-collapsed .exercise-library { display:none; }
-.library-toggle { margin-left:auto; }
 .exercise-library { display:grid; gap:8px; max-height:620px; overflow:auto; transform-origin:top; }
-.exercise-option { display:flex; align-items:center; gap:10px; min-width:0; padding:10px; border:1px solid var(--border); border-radius:7px; background:var(--surface-nested); }
+.exercise-option { display:flex; align-items:center; gap:10px; width:100%; min-width:0; padding:10px; border:1px solid var(--border); border-radius:7px; color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
+.exercise-option:hover { border-color:var(--module-4); }
+.exercise-option:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
+.exercise-option:disabled { opacity:.55; cursor:not-allowed; }
 .exercise-option .info { min-width:0; flex:1; }
+.exercise-option .name, .exercise-option .meta { display:block; }
 .exercise-option .name { font-size:13px; font-weight:750; overflow-wrap:anywhere; }
 .exercise-option .meta { margin-top:2px; font-size:11px; color:var(--text-secondary); }
+.exercise-state { flex:0 0 auto; color:var(--module-4); font-size:12px; font-weight:750; white-space:nowrap; }
+.exercise-option.is-added .exercise-state { color:var(--text-secondary); }
+.dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); max-height:min(60vh,540px); padding:2px; }
 .icon-action { width:34px; height:34px; flex:0 0 auto; border:1px solid var(--border-input); border-radius:7px; color:var(--text); background:var(--surface-card); cursor:pointer; font-size:19px; }
 .session-list { display:grid; gap:12px; min-width:0; }
 .session-empty { padding:34px 16px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border-input); border-radius:8px; }
@@ -70,7 +73,7 @@ html, body { overflow-x:clip; }
 .history-card p { margin:0; font-size:11px; line-height:1.6; color:var(--text-secondary); }
 .history-actions { display:flex; align-items:center; gap:7px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
 .history-actions .icon-action { margin-left:auto; }
-.workout-dialog { width:min(640px,calc(100vw - 28px)); max-height:min(82vh,760px); box-sizing:border-box; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:18px; color:var(--text); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
+.workout-dialog { position:fixed; inset:0; width:min(560px,calc(100vw - 28px)); max-height:min(82vh,760px); box-sizing:border-box; overflow:auto; margin:auto; border:1px solid var(--border); border-radius:var(--radius-card); padding:18px; color:var(--text); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
 .workout-dialog::backdrop { background:color-mix(in srgb,var(--text) 45%,transparent); }
 .dialog-head { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; }
 .dialog-head > div { min-width:0; flex:1; }
@@ -90,10 +93,25 @@ html, body { overflow-x:clip; }
 .legacy-fields .note { grid-column:1/-1; }
 .dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
 
+/* 手机版即使在宽浏览器中打开，也按内容容器保持 H5 排版。 */
+.mobile-shell .workout-app { gap:13px; padding-top:12px; }
+.mobile-shell .workout-history { grid-template-columns:minmax(0,1fr); }
+.mobile-shell .workout-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.mobile-shell .workout-completion { padding:10px; }
+.mobile-shell .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.mobile-shell .workout-fields .note { grid-column:1/-1; }
+.mobile-shell .workout-submitbar { position:sticky; bottom:64px; z-index:3; justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
+.mobile-shell .workout-submit-summary { display:grid; gap:2px; }
+.mobile-shell .workout-submitbar .workout-btn { flex:0 0 auto; }
+.mobile-shell .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.mobile-shell .record-set { grid-template-columns:58px minmax(0,1fr); }
+.mobile-shell .record-set em { grid-column:2; }
+.mobile-shell .workout-dialog { width:min(448px,calc(100vw - 28px)); }
+
 @media (max-width:760px) {
   .workout-app { gap:13px; }
   .workout-layout { grid-template-columns:minmax(0,1fr); }
-  .exercise-library { grid-template-columns:repeat(2,minmax(0,1fr)); max-height:none; }
+  .dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .workout-history { grid-template-columns:minmax(0,1fr); }
   .workout-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .workout-completion { padding:10px; }
@@ -108,7 +126,7 @@ html, body { overflow-x:clip; }
 }
 
 @media (max-width:360px) {
-  .exercise-library { grid-template-columns:minmax(0,1fr); }
+  .dialog-library { grid-template-columns:minmax(0,1fr); }
   .workout-fields, .legacy-fields { grid-template-columns:minmax(0,1fr); }
   .workout-fields .note, .legacy-fields .note { grid-column:auto; }
   .workout-submitbar { gap:8px; }

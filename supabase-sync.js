@@ -3,6 +3,7 @@ const SUPABASE_CONFIG = {
   url: "https://qqtasmilusrpyxhrqptd.supabase.co",
   anonKey: "sb_publishable_xnVYIwduEPYcIpV0aLSC0Q_Lz8U7nf5",
   reportFunction: "generate-weekly-report",
+  mediaBucket: "card-images",
 };
 
 const SYNC_OUTBOX_KEY = "cat-newsroom-sync-outbox-v1";
@@ -296,6 +297,29 @@ async function getAccessToken() {
   if (!sb) return null;
   const { data: { session } } = await sb.auth.getSession();
   return session?.access_token || null;
+}
+
+function sanitizeStoragePart(value, fallback = "item") {
+  return String(value || fallback).replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || fallback;
+}
+
+async function uploadCardImage(file, options = {}) {
+  if (!sb || !currentUser) throw new Error("云端未连接，暂时不能上传图片");
+  if (currentUser.is_anonymous) throw new Error("请登录正式账号后上传图片");
+  if (!file || !/^image\//.test(file.type || "")) throw new Error("请选择图片文件");
+  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type || "")) throw new Error("仅支持 JPG、PNG、WebP 或 GIF 图片");
+  if (file.size > 6 * 1024 * 1024) throw new Error("图片不能超过 6MB");
+  const moduleKey = sanitizeStoragePart(options.moduleKey, "record");
+  const recordId = sanitizeStoragePart(options.recordId || operationId(), "record");
+  const ext = sanitizeStoragePart((file.name || "image").split(".").pop() || "jpg", "jpg").toLowerCase();
+  const path = `${currentUser.id}/${moduleKey}/${recordId}/${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from(SUPABASE_CONFIG.mediaBucket).upload(path, file, {
+    contentType: file.type || "image/jpeg",
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data: publicData } = sb.storage.from(SUPABASE_CONFIG.mediaBucket).getPublicUrl(path);
+  return { path, url: publicData.publicUrl };
 }
 
 async function generateWeeklyReport(options = {}) {
