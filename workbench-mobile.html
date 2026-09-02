@@ -718,10 +718,34 @@ let data = store.load();
 let view = ["home","insight",...CONFIG.modules.map(m=>m.key)].includes(DeviceMode.restoreView()) ? DeviceMode.restoreView() : "home";
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false, weeklyReportError = "", weeklyReportPolls = 0;
 let pomodoroController = null;
-function persist(moduleKey, record){
+const pendingSyncRecords = new Map();
+function persist(moduleKey, record, { render: shouldRender = true } = {}){
   store.save();
-  if(moduleKey && record) syncRecord({moduleKey, record});
-  render();
+  if(moduleKey && record){
+    const key=`${moduleKey}:${record.id}`;
+    pendingSyncRecords.set(key, Date.now());
+    setTimeout(()=>pendingSyncRecords.delete(key), 3000);
+    syncRecord({moduleKey, record});
+  }
+  if(shouldRender) render();
+}
+function updateCalendarCell(item, date, color){
+  const cell=[...document.querySelectorAll(".cal-cell[data-date]")].find(el=>el.dataset.date===date);
+  if(!cell) return;
+  const on=!!(item.log&&item.log[date]);
+  cell.classList.toggle("on", on);
+  cell.style.background=on?color:"";
+  cell.style.borderColor=on?color:"";
+}
+function updateModuleSummary(moduleKey){
+  if(view!==moduleKey) return;
+  const module=modOf(moduleKey); const items=data[moduleKey]||[];
+  const value=module.type==="todo"
+    ? items.filter(item=>item.done).length
+    : items.filter(item=>item.log&&item.log[today()]).length;
+  const total=items.length; const percent=total?Math.round(value/total*100):0;
+  const valueEl=$("#screen .hero-v"); if(valueEl) valueEl.textContent=`${value}/${total}`;
+  const bar=$("#screen .hero-bar i"); if(bar) bar.style.width=`${percent}%`;
 }
 
 /* ---------- chrome icons ---------- */
@@ -892,7 +916,8 @@ function wireCalendar(key, it){
       return;
     }
     if(wasOn) delete item.log[ds]; else item.log[ds]=true;
-    persist(key,item);
+    persist(key,item,{render:false});
+    updateCalendarCell(item,ds,m.color);
     if(wasOn) showCalUndo(item, ds);
   });
 }
@@ -902,7 +927,7 @@ function showCalUndo(item, ds){
   if(!t){ t=document.createElement("div"); t.id="calToast"; t.className="cal-toast"; document.body.appendChild(t); }
   t.innerHTML=`已取消 ${ds.slice(5)} 打卡<button type="button" id="calUndo">撤销</button>`;
   t.classList.add("show");
-  const undo=$("#calUndo"); if(undo) undo.onclick=()=>{ item.log=item.log||{}; item.log[ds]=true; persist("checkin",item); hideCalToast(); };
+  const undo=$("#calUndo"); if(undo) undo.onclick=()=>{ item.log=item.log||{}; item.log[ds]=true; persist("checkin",item,{render:false}); updateCalendarCell(item,ds,modOf("checkin")?.color); hideCalToast(); };
   clearTimeout(calToastTimer);
   calToastTimer=setTimeout(hideCalToast, 4000);
 }
@@ -916,7 +941,7 @@ function confirmCalUncheck(item, ds){
   const close=()=>overlay.remove();
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
   overlay.querySelector("#cu-cancel").onclick=close;
-  overlay.querySelector("#cu-ok").onclick=()=>{ delete item.log[ds]; persist("checkin",item); close(); showCalUndo(item, ds); };
+  overlay.querySelector("#cu-ok").onclick=()=>{ delete item.log[ds]; persist("checkin",item,{render:false}); updateCalendarCell(item,ds,modOf("checkin")?.color); close(); showCalUndo(item, ds); };
 }
 
 function wireHome(){
@@ -928,7 +953,9 @@ function wireHome(){
     e.stopPropagation(); const m=modOf(el.dataset.mkey), x=find(el); if(!x) return;
     if(m.type==="todo"){ x.done=!x.done; }
     else if(m.type==="checkin"){ x.log=x.log||{}; const t=today(); x.log[t]?delete x.log[t]:x.log[t]=true; }
-    persist(el.dataset.mkey,x);
+    persist(el.dataset.mkey,x,{render:false});
+    el.classList.toggle("on", m.type==="todo" ? !!x.done : !!(x.log&&x.log[today()]));
+    el.closest(".focus-row")?.querySelector(".fn")?.classList.toggle("done", !!x.done);
   });
   // 置顶卡：就地改数字
   $("#screen").querySelectorAll(".js-pin-inc").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=find(el); if(!x) return; x.current=(+x.current||0)+1; persist(el.dataset.mkey,x); });
@@ -1113,7 +1140,10 @@ function wireModule(key){
     e.stopPropagation(); const x=(data[key]).find(i=>i.id==el.dataset.id);
     if(m.type==="todo"){ x.done=!x.done; }
     else if(m.type==="checkin"){ x.log=x.log||{}; const t=today(); x.log[t]?delete x.log[t]:x.log[t]=true; }
-    persist(key,x);
+    persist(key,x,{render:false});
+    el.classList.toggle("on", m.type==="todo" ? !!x.done : !!(x.log&&x.log[today()]));
+    el.closest(".rec")?.querySelector(".rname")?.classList.toggle("done", !!x.done);
+    updateModuleSummary(key);
   });
   $("#screen").querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openEditor(key,(data[key]).find(i=>i.id==el.dataset.edit)));
   $("#screen").querySelectorAll(".js-del").forEach(el=>el.onclick=e=>{ e.stopPropagation(); confirmDelete(key, el.dataset.id); });
@@ -1471,7 +1501,12 @@ document.getElementById("sync-now").onclick=()=>syncNow();
 async function syncNow(){ await runFullSync({reason:"manual"}); render(); updateAuthUI(); }
 
 onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAuthUI(); };
-onRemoteUpdate = function(){ render(); updateAuthUI(); };
+onRemoteUpdate = function(change){
+  const row=change?.newRow||change?.oldRow;
+  const key=row?.module_key && row?.data?.id!=null ? `${row.module_key}:${row.data.id}` : "";
+  if(key && pendingSyncRecords.has(key)){ updateAuthUI(); return; }
+  render(); updateAuthUI();
+};
 
 // 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
 (async function initSync(){

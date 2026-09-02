@@ -113,7 +113,10 @@
       container.querySelectorAll("[data-set-done]").forEach(button => button.addEventListener("click", () => {
         const set = session.exercises[Number(button.dataset.exercise)].sets[Number(button.dataset.set)];
         set.completed = !set.completed;
-        updateSession();
+        // 完成组只更新当前按钮和统计，保留用户当前滚动位置。
+        button.classList.toggle("on", set.completed);
+        updateSession({ rerender:false });
+        refreshStats();
       }));
       // 输入即写入草稿，避免切换动作时丢失最后一次修改。
       container.querySelectorAll("[data-set-field]").forEach(input => input.addEventListener("input", () => {

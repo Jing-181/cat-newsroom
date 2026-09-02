@@ -50,15 +50,14 @@ html, body { overflow-x:clip; }
 .session-exercise-head strong, .session-exercise-head span { display:block; min-width:0; overflow-wrap:anywhere; }
 .session-exercise-head strong { font-size:14px; }
 .session-exercise-head span { margin-top:3px; color:var(--text-secondary); font-size:11px; }
-.set-table-scroll { min-width:0; overflow-x:auto; }
-.set-table { width:100%; min-width:510px; border-collapse:collapse; table-layout:fixed; }
-.set-table th { padding:7px 4px; font-size:10px; color:var(--text-secondary); font-weight:700; }
-.set-table td { padding:5px 4px; text-align:center; border-top:1px solid var(--border); }
-.set-number { display:grid; grid-template-columns:28px minmax(48px,1fr) 28px; align-items:center; gap:3px; }
-.set-number button { width:28px; height:34px; border:1px solid var(--border-input); border-radius:6px; color:var(--text-secondary); background:var(--surface-card); cursor:pointer; font-size:17px; line-height:1; }
-.set-number button:hover { color:var(--text); border-color:var(--module-4); }
-.set-table input { width:100%; min-width:0; height:34px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:6px; text-align:center; color:var(--text); background:var(--surface-card); }
-.set-table .rpe-input { width:48px; }
+.set-list { display:grid; gap:8px; padding:8px 10px; }
+.set-row { display:grid; gap:8px; padding:9px; border:1px solid var(--border); border-radius:7px; background:var(--surface-card); }
+.set-row-head { display:flex; align-items:center; gap:8px; }
+.set-row-head strong { flex:1; font-size:11px; color:var(--text-secondary); }
+.set-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.set-fields label { display:grid; gap:4px; min-width:0; }
+.set-fields label span { font-size:10px; color:var(--text-secondary); }
+.set-fields input { width:100%; min-width:0; height:36px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:6px; padding:0 6px; text-align:center; color:var(--text); background:var(--surface-card); }
 .set-done { width:30px; height:30px; border:1px solid var(--border-input); border-radius:7px; color:transparent; background:var(--surface-card); cursor:pointer; }
 .set-done.on { color:var(--surface-card); border-color:var(--module-1); background:var(--module-1); }
 .session-exercise-foot { display:flex; gap:16px; padding:10px 12px; border-top:1px solid var(--border); }
@@ -106,6 +105,10 @@ html, body { overflow-x:clip; }
 
 /* 手机版即使在宽浏览器中打开，也按内容容器保持 H5 排版。 */
 .mobile-shell .workout-app { gap:13px; padding-top:12px; }
+.mobile-shell .set-list { padding:8px; }
+.mobile-shell .set-row { padding:8px; }
+.mobile-shell .set-fields { gap:6px; }
+.mobile-shell .set-fields input { height:40px; font-size:16px; }
 .mobile-shell .workout-history { grid-template-columns:minmax(0,1fr); }
 .mobile-shell .workout-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .mobile-shell .workout-completion { padding:10px; }
@@ -121,6 +124,10 @@ html, body { overflow-x:clip; }
 
 @media (max-width:760px) {
   .workout-app { gap:13px; }
+  .set-list { padding:8px; }
+  .set-row { padding:8px; }
+  .set-fields { gap:6px; }
+  .set-fields input { height:40px; font-size:16px; }
   .workout-layout { grid-template-columns:minmax(0,1fr); }
   .dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .workout-history { grid-template-columns:minmax(0,1fr); }

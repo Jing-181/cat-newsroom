@@ -833,10 +833,32 @@ let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, w
 let pomo = { running:false, remain:25*60, total:25*60 };   // 番茄钟状态（内存态，跨渲染保留）
 let clockTimer = null;                                       // 全局秒级心跳（时钟 + 番茄钟）
 let pomodoroController = null;
-function persist(moduleKey, record){
+const pendingSyncRecords = new Map();
+function persist(moduleKey, record, { render: shouldRender = true } = {}){
   store.save();
-  if(moduleKey && record) syncRecord({moduleKey, record});
-  render();
+  if(moduleKey && record){
+    const key=`${moduleKey}:${record.id}`;
+    pendingSyncRecords.set(key, Date.now());
+    setTimeout(()=>pendingSyncRecords.delete(key), 3000);
+    syncRecord({moduleKey, record});
+  }
+  if(shouldRender) render();
+}
+function updateHabitCell(cell, item, day){
+  cell.classList.toggle("on", !!(item.log && item.log[day]));
+  cell.classList.toggle("off", !(item.log && item.log[day]));
+  const row=cell.closest("tr"); const rate=row?.querySelector(".hrate");
+  if(rate){ const done=row.querySelectorAll(".js-habit.on").length; rate.textContent=`${Math.round(done/7*100)}%`; }
+}
+function updateModuleSummary(moduleKey){
+  if(view!==moduleKey) return;
+  const module=modOf(moduleKey); const items=data[moduleKey]||[];
+  const value=module.type==="todo"
+    ? items.filter(item=>item.done).length
+    : items.filter(item=>item.log&&item.log[today()]).length;
+  const total=items.length; const percent=total?Math.round(value/total*100):0;
+  const valueEl=$("#screen .hero-v"); if(valueEl) valueEl.textContent=`${value}/${total}`;
+  const bar=$("#screen .hero-bar i"); if(bar) bar.style.width=`${percent}%`;
 }
 function pad2(n){ return String(n).padStart(2,"0"); }
 
@@ -1126,7 +1148,9 @@ function wireHome(){
     e.stopPropagation(); const m=modOf(el.dataset.mkey), x=find(el); if(!x) return;
     if(m.type==="todo"){ x.done=!x.done; }
     else if(m.type==="checkin"){ x.log=x.log||{}; const t=today(); x.log[t]?delete x.log[t]:x.log[t]=true; }
-    persist(el.dataset.mkey,x);
+    persist(el.dataset.mkey,x,{render:false});
+    el.classList.toggle("on", m.type==="todo" ? !!x.done : !!(x.log&&x.log[today()]));
+    el.closest(".focus-row")?.querySelector(".fn")?.classList.toggle("done", !!x.done);
   });
   $("#screen").querySelectorAll(".js-pin-inc").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=find(el); if(!x) return; x.current=(+x.current||0)+1; persist(el.dataset.mkey,x); });
   $("#screen").querySelectorAll(".js-pin-dec").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=find(el); if(!x) return; x.current=Math.max(0,(+x.current||0)-1); persist(el.dataset.mkey,x); });
@@ -1134,7 +1158,9 @@ function wireHome(){
   // 习惯追踪表：点方框直接给对应日期打卡 / 取消
   $("#screen").querySelectorAll(".js-habit").forEach(el=>el.onclick=e=>{
     e.stopPropagation(); const x=(data.checkin||[]).find(i=>i.id==el.dataset.id); if(!x) return;
-    const d=el.dataset.day; x.log=x.log||{}; x.log[d]?delete x.log[d]:x.log[d]=true; persist("checkin",x);
+    const d=el.dataset.day; x.log=x.log||{}; x.log[d]?delete x.log[d]:x.log[d]=true;
+    persist("checkin",x,{render:false});
+    updateHabitCell(el,x,d);
   });
   // 番茄钟控制
   const tg=$("#pomo-toggle"); if(tg) tg.onclick=()=>pomodoroController?.toggle();
@@ -1388,7 +1414,11 @@ function wireModule(key){ const m=modOf(key);
     const x=(data[key]).find(i=>i.id==el.dataset.id);
     if(m.type==="todo") x.done=!x.done;
     else if(m.type==="checkin"){ x.log=x.log||{}; const t=today(); x.log[t]?delete x.log[t]:x.log[t]=true; }
-    persist(key,x); });
+    persist(key,x,{render:false});
+    el.classList.toggle("on", m.type==="todo" ? !!x.done : !!(x.log&&x.log[today()]));
+    el.closest(".rec")?.querySelector(".rname")?.classList.toggle("done", !!x.done);
+    updateModuleSummary(key);
+  });
   $("#screen").querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openEditor(key,(data[key]).find(i=>i.id==el.dataset.edit)));
   $("#screen").querySelectorAll(".js-del").forEach(el=>el.onclick=e=>{ e.stopPropagation(); confirmDelete(key, el.dataset.id); });
   $("#screen").querySelectorAll(".js-pin").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=(data[key]).find(i=>i.id==el.dataset.id); x.pinned=!x.pinned; persist(key,x); });
@@ -1709,7 +1739,12 @@ async function syncNow(){
 
 // 设置云端数据加载回调
 onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAuthUI(); };
-onRemoteUpdate = function(){ render(); updateAuthUI(); };
+onRemoteUpdate = function(change){
+  const row=change?.newRow||change?.oldRow;
+  const key=row?.module_key && row?.data?.id!=null ? `${row.module_key}:${row.data.id}` : "";
+  if(key && pendingSyncRecords.has(key)){ updateAuthUI(); return; }
+  render(); updateAuthUI();
+};
 
 // 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
 (async function initSync(){
