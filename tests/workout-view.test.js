@@ -17,6 +17,7 @@ test("训练编辑器提供日期、动作弹窗和保存入口", () => {
   const html = view.editorHtml(session, "chest");
   assert.match(html, /id="workout-date"/);
   assert.match(html, /id="workout-add-exercise"/);
+  assert.match(html, /data-quick-add=/);
   assert.match(html, />完成训练</);
 });
 

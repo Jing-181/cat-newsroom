@@ -493,6 +493,12 @@
   .device-switcher-options { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
   .device-switcher-options button { min-height:34px; border:1px solid rgba(240,232,213,.16); border-radius:6px; color:var(--drawer-text-mute); background:transparent; font-size:11px; }
   .device-switcher-options button.on { color:var(--drawer-text); border-color:rgba(240,232,213,.38); background:var(--drawer-active); }
+
+  /* 列表拖动排序：通过卡片右上角的手柄拖动，触摸设备同样支持。 */
+  .drag-handle { border:0; background:transparent; color:var(--text-tertiary); cursor:grab; font-size:20px; line-height:1; width:28px; height:28px; padding:0; touch-action:none; }
+  .drag-handle:active { cursor:grabbing; color:var(--accent); }
+  .rec.is-dragging { opacity:.48; }
+  .rec.is-drop-target { box-shadow:0 -3px 0 var(--accent), var(--shadow-overlay); }
 </style>
 <link rel="stylesheet" href="css/workout-ui.css">
 <link rel="stylesheet" href="css/record-media.css">
@@ -545,6 +551,7 @@
 <script src="js/workout-view.js"></script>
 <script src="js/workout-ui.js"></script>
 <script src="js/record-media.js"></script>
+<script src="js/record-list.js"></script>
 <script src="supabase-sync.js"></script>
 <script>
 /* ============================================================
@@ -980,7 +987,7 @@ function renderInsight(){
 
 /* ---------- MODULE VIEW ---------- */
 function renderModule(key){
-  const m=modOf(key); const it=data[key]||[];
+  const m=modOf(key); const it=RecordList.sortNewest(data[key]||[]);
   const t=today();
   let head="", extra="";
   if(m.type==="finance"){
@@ -1025,7 +1032,8 @@ function headHero(m, big, label, pct){
 function recHTML(m,x){
   const pin=`<button class="pin-btn js-pin ${x.pinned?'on':''}" data-id="${x.id}" title="置顶">${icon("star",15)}</button>`;
   const del=`<button class="del js-del" data-id="${x.id}" title="删除">${icon("trash",16)}</button>`;
-  const acts=`<div class="acts">${pin}${del}</div>`;
+  const drag=`<button class="drag-handle" type="button" draggable="true" aria-label="拖动排序" title="拖动排序">⠿</button>`;
+  const acts=`<div class="acts">${drag}${pin}${del}</div>`;
   const chkMark=icon("check",14,2.4);
   const customMeta=(m.fields||[]).filter(f=>x[f.key]).map(f=>`<span class="meta-tag">${esc(x[f.key])}</span>`).join("");
   const customBlock=customMeta?`<div class="meta-line">${customMeta}</div>`:'';
@@ -1038,7 +1046,7 @@ function recHTML(m,x){
   // feature layout: 大图在上 + 标题 + 正文 (适合有图记录)
   if(layout==='feature' && imageSrc){
     const body=(x.content||x.note||'').trim();
-    return `<div class="rec ${layoutCls}">${acts}<div class="top" data-edit="${x.id}" style="flex-direction:column">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top" data-edit="${x.id}" style="flex-direction:column">
       ${thumb}
       <div class="feat-title">${esc(x.title||'无标题')}</div>
       ${body?`<div class="feat-body">${esc(body)}</div>`:''}
@@ -1047,7 +1055,7 @@ function recHTML(m,x){
   // quote layout: 大字居中 (适合短文本/灵感/金句)
   if(layout==='quote'){
     const text=(x.content||x.title||'').trim();
-    return `<div class="rec ${layoutCls}">${acts}<div class="top" data-edit="${x.id}" style="flex-direction:column;align-items:center;text-align:center">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top" data-edit="${x.id}" style="flex-direction:column;align-items:center;text-align:center">
       <div class="quote-text">${esc(text)}</div>
       ${x.mood?`<div class="quote-meta">${esc(x.mood)}${x.date?` · ${esc(x.date)}`:''}</div>`:(x.date?`<div class="quote-meta">${esc(x.date)}</div>`:'')}
       ${customBlock?`<div style="margin-top:8px">${customBlock}</div>`:''}</div></div>`;
@@ -1056,7 +1064,7 @@ function recHTML(m,x){
   // default layout (原有逻辑)
   if(m.type==="todo"){
     const p=(m.priorities||[]).find(p=>p.key===x.priority);
-    return `<div class="rec ${layoutCls}">${acts}<div class="top">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">
       <div class="chk js-chk ${x.done?'on':''}" data-id="${x.id}">${chkMark}</div>
       ${thumb}
       <div class="body" data-edit="${x.id}"><div class="rname ${x.done?'done':''}">${esc(x.title)}</div>
@@ -1065,7 +1073,7 @@ function recHTML(m,x){
   }
   if(m.type==="checkin"){
     const on=!!(x.log&&x.log[today()]); const st=streak(x.log);
-    return `<div class="rec ${layoutCls}">${acts}<div class="top">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">
       <div class="chk js-chk ${on?'on':''}" data-id="${x.id}">${chkMark}</div>
       ${thumb}
       <div class="body" data-edit="${x.id}"><div class="rname">${esc(x.title)}</div>
@@ -1073,7 +1081,7 @@ function recHTML(m,x){
   }
   if(m.type==="progress"){
     const pct=Math.min(100,Math.round((x.current/x.target)*100||0));
-    return `<div class="rec ${layoutCls}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
       <div class="rname">${esc(x.title)}</div>
       <div class="rmeta"><span style="color:var(--text-secondary);font-size:13px">${x.current}/${x.target} ${x.unit||m.unit||''} · ${pct}%</span></div>
       <div class="pbar"><i style="width:${pct}%;background:${m.color}"></i></div>
@@ -1081,13 +1089,13 @@ function recHTML(m,x){
   }
   if(m.type==="finance"){
     const inc=x.type==="income";
-    return `<div class="rec ${layoutCls}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
       <div class="rname">${esc(x.title)}</div>
       <div class="rmeta"><span class="badge" style="background:var(--surface-nested);color:var(--text-secondary)">${esc(x.category||'其他')}</span><span style="color:var(--text-secondary);font-size:12px">${x.date||''}</span></div>${customBlock}</div>
       <div class="amt ${inc?'inc':'exp'}" style="margin-left:auto">${inc?'+':'-'}¥${x.amount}</div></div></div>`;
   }
   // note
-  return `<div class="rec ${layoutCls}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
+  return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
     <div class="rname">${esc(x.title||'无标题')}</div>
     <div class="rmeta">${x.mood?`<span class="badge" style="background:var(--accent-muted);color:var(--accent)">${esc(x.mood)}</span>`:''}<span style="color:var(--text-secondary);font-size:12px">${x.date||''}</span></div>
     ${x.content?`<div class="rnote">${esc(x.content)}</div>`:''}${customBlock}</div></div></div>`;
@@ -1110,6 +1118,12 @@ function wireModule(key){
   $("#screen").querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>openEditor(key,(data[key]).find(i=>i.id==el.dataset.edit)));
   $("#screen").querySelectorAll(".js-del").forEach(el=>el.onclick=e=>{ e.stopPropagation(); confirmDelete(key, el.dataset.id); });
   $("#screen").querySelectorAll(".js-pin").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const x=(data[key]).find(i=>i.id==el.dataset.id); x.pinned=!x.pinned; persist(key,x); });
+  RecordList.wireDrag($(".rec-grid") || $("#screen"), (movingId, targetId, after)=>{
+    data[key]=RecordList.reorder(data[key]||[], movingId, targetId, after);
+    store.save();
+    data[key].forEach(record=>syncRecord({moduleKey:key, record}));
+    render();
+  });
   const add=$("#btn-add"); if(add) add.onclick=()=>openEditor(key,null);
   if(m.type==="checkin") wireCalendar(key, data[key]||[]);
 }
@@ -1289,7 +1303,7 @@ function openEditor(key, item){
     // 保存图片 URL 和默认配图选择。
     d.image=(val("#f-image")||"").trim();
     d.image_preset=selectedImagePreset(overlay)||d.image_preset||(typeof RecordMedia!=="undefined"?RecordMedia.defaultPresetId(key,d.layout):"");
-    if(!editing) (data[key]=data[key]||[]).unshift(d);
+    if(!editing) { const records=data[key]=data[key]||[]; RecordList.placeNewAtTop(records,d); records.unshift(d); }
     persist(key,d); close();
   };
 }
