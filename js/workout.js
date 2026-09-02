@@ -22,17 +22,28 @@
     };
   }
 
+  function previousPerformance(records, exerciseId) {
+    const sessions = records.filter(isSession)
+      .filter(session => session.status !== "draft")
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+    for (const session of sessions) {
+      const exercise = (session.exercises || []).find(item => item.exercise_id === exerciseId);
+      const set = exercise?.sets?.filter(item => item.completed).at(-1);
+      if (set) return { set, date: session.date, sessionTitle: session.title };
+    }
+    return null;
+  }
+
   function previousSet(records, exerciseId) {
-    return records.filter(isSession).sort((a, b) => String(b.date).localeCompare(String(a.date)))
-      .flatMap(session => session.exercises || [])
-      .find(item => item.exercise_id === exerciseId)?.sets?.filter(set => set.completed).at(-1) || null;
+    return previousPerformance(records, exerciseId)?.set || null;
   }
 
   function addExercise(session, exerciseId, history = []) {
     const source = catalog.exercises.find(item => item.id === exerciseId);
     if (!source || session.exercises.some(item => item.exercise_id === exerciseId)) return session;
     const previous = previousSet(history, exerciseId);
-    const base = { weight_kg: Number(previous?.weight_kg || 0), reps: Number(previous?.reps || 10), rpe: previous?.rpe || "", completed: false };
+    // 新加入的动作按最近一次完成组预填，并默认视为本次计划完成；未练的组可直接删除或取消勾选。
+    const base = { weight_kg: Number(previous?.weight_kg || 0), reps: Number(previous?.reps || 10), rpe: previous?.rpe || "", completed: true };
     session.exercises.push({
       id: id("exercise"), exercise_id: source.id, name: source.name, body_part: source.bodyPart,
       equipment: source.equipment, angle: source.angle || "", sets: [{ ...base }, { ...base }, { ...base }], note: "",
@@ -72,5 +83,5 @@
     return saved;
   }
 
-  return { catalog, isSession, createSession, previousSet, addExercise, calculateStats, summary, cloneRecord, upsertSession };
+  return { catalog, isSession, createSession, previousPerformance, previousSet, addExercise, calculateStats, summary, cloneRecord, upsertSession };
 });

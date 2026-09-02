@@ -20,6 +20,13 @@
     </div>`;
   }
 
+  function quickExerciseHtml(selectedDay, exercises) {
+    const added = new Set((exercises || []).map(item => item.exercise_id));
+    const items = root.WorkoutCatalog.forDay(selectedDay).filter(item => !added.has(item.id)).slice(0, 5);
+    if (!items.length) return "";
+    return `<div class="quick-exercises" aria-label="常用动作">${items.map(item => `<button type="button" data-quick-add="${escapeHtml(item.id)}">+ ${escapeHtml(item.name)}</button>`).join("")}<button type="button" class="more" data-open-library>更多动作</button></div>`;
+  }
+
   function historyHtml(records) {
     if (!records.length) return `<div class="session-empty">还没有训练记录，选择训练日开始第一练。</div>`;
     return `<div class="workout-history">${records.map(record => {
@@ -38,18 +45,22 @@
     }).join("")}</div>`;
   }
 
+  function numberControl(set, exerciseIndex, setIndex, field, label, step, min) {
+    return `<div class="set-number"><button type="button" data-set-adjust="${field}" data-step="-${step}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="减少${label}">−</button><input type="number" min="${min}" step="${step}" value="${escapeHtml(set[field])}" data-set-field="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="${label}"><button type="button" data-set-adjust="${field}" data-step="${step}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="增加${label}">+</button></div>`;
+  }
+
   function setRows(exercise, exerciseIndex) {
     return exercise.sets.map((set, setIndex) => `<tr>
       <td>${setIndex + 1}</td>
-      <td><input type="number" min="0" step="2.5" value="${escapeHtml(set.weight_kg)}" data-set-field="weight_kg" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="重量"></td>
-      <td><input type="number" min="1" step="1" value="${escapeHtml(set.reps)}" data-set-field="reps" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="次数"></td>
-      <td><input type="number" min="1" max="10" step="1" value="${escapeHtml(set.rpe)}" data-set-field="rpe" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="RPE"></td>
+      <td>${numberControl(set, exerciseIndex, setIndex, "weight_kg", "重量", 2.5, 0)}</td>
+      <td>${numberControl(set, exerciseIndex, setIndex, "reps", "次数", 1, 1)}</td>
+      <td><input class="rpe-input" type="number" min="1" max="10" step="1" value="${escapeHtml(set.rpe)}" data-set-field="rpe" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="RPE"></td>
       <td><button type="button" class="set-done ${set.completed ? "on" : ""}" data-set-done="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="完成本组" aria-label="完成本组">✓</button></td>
       <td><button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除本组">×</button></td>
     </tr>`).join("");
   }
 
-  function editorHtml(session, selectedDay) {
+  function editorHtml(session, selectedDay, history = []) {
     const stats = root.Workout.calculateStats(session);
     const editing = Boolean(session._editing_record_id);
     return `<section class="workout-app">
@@ -57,7 +68,11 @@
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       ${statsHtml(stats)}
       <div class="workout-layout">
-        <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => `<article class="session-exercise"><div class="session-exercise-head"><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)}</span><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div><div class="set-table-scroll"><table class="set-table"><thead><tr><th>组</th><th>kg</th><th>次数</th><th>RPE</th><th>完成</th><th></th></tr></thead><tbody>${setRows(exercise, exerciseIndex)}</tbody></table></div><div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><button type="button" data-set-copy="${exerciseIndex}">复制上一组</button></div></article>`).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
+        <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><p class="workout-hint">动作会带入最近一次完成组；新组默认已完成，不练可直接删掉或取消勾选。</p>${quickExerciseHtml(selectedDay, session.exercises)}<div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => {
+          const previous = root.Workout.previousPerformance(history, exercise.exercise_id);
+          const last = previous ? `上次 ${escapeHtml(previous.date)} · ${escapeHtml(previous.set.weight_kg)} kg × ${escapeHtml(previous.set.reps)}` : "首次记录此动作";
+          return `<article class="session-exercise"><div class="session-exercise-head"><div><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)} · ${last}</span></div><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div><div class="set-table-scroll"><table class="set-table"><thead><tr><th>组</th><th>重量</th><th>次数</th><th>RPE</th><th>完成</th><th></th></tr></thead><tbody>${setRows(exercise, exerciseIndex)}</tbody></table></div><div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><button type="button" data-set-copy="${exerciseIndex}">复制上一组</button></div></article>`;
+        }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
       </div>
       <section class="workout-completion" aria-label="完成训练">
         <div class="workout-fields">

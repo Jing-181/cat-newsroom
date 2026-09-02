@@ -24,6 +24,11 @@ html, body { overflow-x:clip; }
 .workout-panel { min-width:0; border:1px solid var(--border); border-radius:8px; padding:14px; background:var(--surface-card); box-shadow:var(--shadow-card); }
 .workout-panel-title { display:flex; align-items:center; gap:8px; min-height:34px; margin-bottom:12px; font-size:14px; font-weight:800; }
 .workout-panel-title > span:first-child { flex:1; }
+.workout-hint { margin:-4px 0 12px; color:var(--text-secondary); font-size:12px; line-height:1.5; }
+.quick-exercises { display:flex; gap:7px; overflow-x:auto; margin:-2px 0 12px; padding:2px; }
+.quick-exercises button { min-height:32px; border:1px solid var(--border-input); border-radius:999px; padding:0 10px; color:var(--text); background:var(--surface-card); cursor:pointer; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; }
+.quick-exercises button:hover { border-color:var(--module-4); color:var(--module-4); }
+.quick-exercises .more { color:var(--text-secondary); }
 .exercise-library { display:grid; gap:8px; max-height:620px; overflow:auto; transform-origin:top; }
 .exercise-option { display:flex; align-items:center; gap:10px; width:100%; min-width:0; padding:10px; border:1px solid var(--border); border-radius:7px; color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
 .exercise-option:hover { border-color:var(--module-4); }
@@ -41,13 +46,19 @@ html, body { overflow-x:clip; }
 .session-empty { padding:34px 16px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border-input); border-radius:8px; }
 .session-exercise { min-width:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
 .session-exercise-head { display:flex; align-items:center; gap:8px; min-width:0; padding:11px 12px; background:var(--surface-nested); }
-.session-exercise-head strong { min-width:0; flex:1; font-size:14px; overflow-wrap:anywhere; }
-.session-exercise-head span { color:var(--text-secondary); font-size:11px; }
+.session-exercise-head > div { min-width:0; flex:1; }
+.session-exercise-head strong, .session-exercise-head span { display:block; min-width:0; overflow-wrap:anywhere; }
+.session-exercise-head strong { font-size:14px; }
+.session-exercise-head span { margin-top:3px; color:var(--text-secondary); font-size:11px; }
 .set-table-scroll { min-width:0; overflow-x:auto; }
-.set-table { width:100%; min-width:430px; border-collapse:collapse; table-layout:fixed; }
+.set-table { width:100%; min-width:510px; border-collapse:collapse; table-layout:fixed; }
 .set-table th { padding:7px 4px; font-size:10px; color:var(--text-secondary); font-weight:700; }
 .set-table td { padding:5px 4px; text-align:center; border-top:1px solid var(--border); }
+.set-number { display:grid; grid-template-columns:28px minmax(48px,1fr) 28px; align-items:center; gap:3px; }
+.set-number button { width:28px; height:34px; border:1px solid var(--border-input); border-radius:6px; color:var(--text-secondary); background:var(--surface-card); cursor:pointer; font-size:17px; line-height:1; }
+.set-number button:hover { color:var(--text); border-color:var(--module-4); }
 .set-table input { width:100%; min-width:0; height:34px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:6px; text-align:center; color:var(--text); background:var(--surface-card); }
+.set-table .rpe-input { width:48px; }
 .set-done { width:30px; height:30px; border:1px solid var(--border-input); border-radius:7px; color:transparent; background:var(--surface-card); cursor:pointer; }
 .set-done.on { color:var(--surface-card); border-color:var(--module-1); background:var(--module-1); }
 .session-exercise-foot { display:flex; gap:16px; padding:10px 12px; border-top:1px solid var(--border); }

@@ -96,12 +96,17 @@
         render();
       });
       container.querySelector("#workout-add-exercise")?.addEventListener("click", openExerciseLibrary);
+      container.querySelector("[data-open-library]")?.addEventListener("click", openExerciseLibrary);
+      container.querySelectorAll("[data-quick-add]").forEach(button => button.addEventListener("click", () => {
+        root.Workout.addExercise(session, button.dataset.quickAdd, records);
+        updateSession();
+      }));
       container.querySelectorAll("[data-exercise-delete]").forEach(button => button.addEventListener("click", () => { session.exercises.splice(Number(button.dataset.exerciseDelete), 1); updateSession(); }));
       container.querySelectorAll("[data-set-add], [data-set-copy]").forEach(button => button.addEventListener("click", () => {
         const index = Number(button.dataset.setAdd ?? button.dataset.setCopy);
         const exercise = session.exercises[index];
         const previous = exercise.sets.at(-1) || { weight_kg:0, reps:10, rpe:"" };
-        exercise.sets.push({ ...previous, completed:false });
+        exercise.sets.push({ ...previous, completed:true });
         updateSession();
       }));
       container.querySelectorAll("[data-set-delete]").forEach(button => button.addEventListener("click", () => { session.exercises[Number(button.dataset.exercise)].sets.splice(Number(button.dataset.set), 1); updateSession(); }));
@@ -114,6 +119,19 @@
       container.querySelectorAll("[data-set-field]").forEach(input => input.addEventListener("input", () => {
         const set = session.exercises[Number(input.dataset.exercise)].sets[Number(input.dataset.set)];
         set[input.dataset.setField] = input.value === "" ? "" : Number(input.value);
+        updateSession({ rerender:false });
+        refreshStats();
+      }));
+      container.querySelectorAll("[data-set-adjust]").forEach(button => button.addEventListener("click", () => {
+        const exerciseIndex = Number(button.dataset.exercise);
+        const setIndex = Number(button.dataset.set);
+        const field = button.dataset.setAdjust;
+        const step = Number(button.dataset.step);
+        const set = session.exercises[exerciseIndex].sets[setIndex];
+        const minimum = field === "reps" ? 1 : 0;
+        set[field] = Math.max(minimum, Number(set[field] || 0) + step);
+        const input = container.querySelector(`[data-set-field="${field}"][data-exercise="${exerciseIndex}"][data-set="${setIndex}"]`);
+        if (input) input.value = set[field];
         updateSession({ rerender:false });
         refreshStats();
       }));
@@ -167,7 +185,7 @@
     function render() {
       if (session) selectedDay = session.training_day;
       container.innerHTML = session
-        ? root.WorkoutView.editorHtml(session, selectedDay)
+        ? root.WorkoutView.editorHtml(session, selectedDay, records)
         : root.WorkoutView.idleHtml(selectedDay, records);
       wire();
     }
