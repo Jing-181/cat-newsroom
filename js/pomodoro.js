@@ -128,7 +128,7 @@
       writeState(null);
       hide();
       completing = false;
-      if (finishedPhase === "focus" && window.confirm("本轮专注完成，开始 5 分钟休息？")) start("break");
+      if (finishedPhase === "focus" && await window.AppDialog.confirm("本轮专注完成，开始 5 分钟休息？", { title:"专注完成", okText:"开始休息" })) start("break");
     }
 
     function render() {
@@ -166,8 +166,8 @@
     }
 
     toggleEl.addEventListener("click", () => writeState(state.status === "paused" ? resume(state) : pause(state)));
-    overlay.querySelector("#focus-stop").addEventListener("click", () => {
-      if (window.confirm("确定结束当前计时？本轮不会计为完整番茄。")) { writeState(null); hide(); }
+    overlay.querySelector("#focus-stop").addEventListener("click", async () => {
+      if (await window.AppDialog.confirm("确定结束当前计时？本轮不会计为完整番茄。", { title:"结束本轮专注", danger:true, okText:"结束计时" })) { writeState(null); hide(); }
     });
     overlay.querySelector("#focus-hide").addEventListener("click", hide);
     document.addEventListener("keydown", event => { if (event.key === "Escape" && overlay.classList.contains("show")) hide(); });

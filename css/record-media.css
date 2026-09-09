@@ -51,6 +51,14 @@
 .media-preset-head strong { font-size:12px; }
 .media-fallback { color:var(--text-tertiary); font-size:11px; }
 
+/* 记录分页：仅在记录超过一页时显示。 */
+.record-pager { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:14px; }
+.record-pager button { min-width:32px; height:32px; padding:0 8px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); color:var(--text-secondary); cursor:pointer; }
+.record-pager button:hover:not(:disabled), .record-pager button.on { border-color:var(--accent); color:var(--accent); background:var(--accent-muted); }
+.record-pager button:disabled { opacity:.4; cursor:not-allowed; }
+.record-pager .prev svg { transform:rotate(180deg); }
+.record-pager .record-page-status { min-width:74px; text-align:center; color:var(--text-secondary); font-size:12px; }
+
 @media (max-width: 640px) {
   .preset-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }

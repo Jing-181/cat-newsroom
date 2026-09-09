@@ -89,8 +89,8 @@
     }
 
     function wireEditor() {
-      container.querySelector("#workout-cancel")?.addEventListener("click", () => {
-        if (!confirm(session._editing_record_id ? "退出编辑并放弃本次修改？" : "放弃当前训练草稿？")) return;
+      container.querySelector("#workout-cancel")?.addEventListener("click", async () => {
+        if (!(await root.AppDialog.confirm(session._editing_record_id ? "退出编辑并放弃本次修改？" : "放弃当前训练草稿？", { title:"放弃训练", danger:true, okText:"放弃" }))) return;
         session = null;
         persistDraft();
         render();
@@ -149,9 +149,9 @@
         updateSession({ rerender:false });
       });
       container.querySelector("#workout-note")?.addEventListener("input", event => { session.note = event.target.value; updateSession({ rerender:false }); });
-      container.querySelector("#workout-finish")?.addEventListener("click", () => {
-        if (!session.date) return alert("请选择训练日期。");
-        if (!root.Workout.calculateStats(session).setCount && !confirm("还没有标记完成的训练组，仍要保存吗？")) return;
+      container.querySelector("#workout-finish")?.addEventListener("click", async () => {
+        if (!session.date) return root.AppDialog.alert("请选择训练日期。", { title:"还差一步" });
+        if (!root.Workout.calculateStats(session).setCount && !(await root.AppDialog.confirm("还没有标记完成的训练组，仍要保存吗？", { title:"训练尚未完成", okText:"仍然保存" }))) return;
         session.duration_min = Math.max(1, Number(container.querySelector("#workout-duration").value || 1));
         session.note = container.querySelector("#workout-note").value.trim();
         const saved = root.Workout.upsertSession(records, session);
@@ -175,9 +175,9 @@
       container.querySelector("#workout-start")?.addEventListener("click", () => { session = root.Workout.createSession(selectedDay); persistDraft(); render(); });
       container.querySelectorAll("[data-history-view]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyView); if (record) openDialog(root.WorkoutView.detailHtml(record)); }));
       container.querySelectorAll("[data-history-edit]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyEdit); if (record) editRecord(record); }));
-      container.querySelectorAll("[data-history-delete]").forEach(button => button.addEventListener("click", () => {
+      container.querySelectorAll("[data-history-delete]").forEach(button => button.addEventListener("click", async () => {
         const record = findRecord(button.dataset.historyDelete);
-        if (!record || !confirm(`删除「${record.title || "这条训练"}」？`)) return;
+        if (!record || !(await root.AppDialog.confirm(`删除「${record.title || "这条训练"}」？`, { title:"删除训练记录", danger:true, okText:"删除" }))) return;
         records.splice(records.indexOf(record), 1);
         options.onDelete(record);
         render();

@@ -651,6 +651,7 @@
 </style>
 <link rel="stylesheet" href="css/workout-ui.css">
 <link rel="stylesheet" href="css/record-media.css">
+<link rel="stylesheet" href="css/app-dialog.css">
 </head>
 <body class="desktop-shell">
 <div class="layout">
@@ -677,6 +678,7 @@
 <script src="js/device-mode.js"></script>
 <script src="js/workbench-core.js"></script>
 <script src="js/sync-core.js"></script>
+<script src="js/app-dialog.js"></script>
 <script src="js/pomodoro.js"></script>
 <script src="js/workout-catalog.js"></script>
 <script src="js/workout.js"></script>
@@ -829,6 +831,8 @@ const store = {
 let data = store.load();
 let view = ["home","insight",...CONFIG.modules.map(m=>m.key)].includes(DeviceMode.restoreView()) ? DeviceMode.restoreView() : "home";
 let searchQ = "";
+const RECORD_PAGE_SIZE = 20; // 列表单页上限，数据少时不会显示分页控件。
+let recordPage = 1;
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false, weeklyReportError = "", weeklyReportPolls = 0;
 let pomo = { running:false, remain:25*60, total:25*60 };   // 番茄钟状态（内存态，跨渲染保留）
 let clockTimer = null;                                       // 全局秒级心跳（时钟 + 番茄钟）
@@ -959,7 +963,7 @@ async function maybeGenerateWeeklyReport(force){
   if(force){ weeklyReportPolls=0; weeklyReportError=""; }
   weeklyReportLoading=true; render();
   try { const result=await generateWeeklyReport({force:!!force}); weeklyReportMeta=result.meta||weeklyReportMeta; weeklyReportWaiting=result.status==='generating'&&!result.report; if(weeklyReportWaiting&&weeklyReportPolls<8){ weeklyReportPolls++; setTimeout(()=>maybeGenerateWeeklyReport(false),Math.min(10000,3000+weeklyReportPolls*750)); } else if(weeklyReportWaiting){ weeklyReportWaiting=false; weeklyReportError='生成时间较长，请稍后手动重试。'; } else { weeklyReportPolls=0; weeklyReportError=""; weeklyReport=result.report||null; } }
-  catch(e){ weeklyReportWaiting=false; weeklyReportError=e.message||'AI 生活报生成失败'; if(force) alert(weeklyReportError); }
+  catch(e){ weeklyReportWaiting=false; weeklyReportError=e.message||'AI 生活报生成失败'; if(force) await AppDialog.alert(weeklyReportError, { title:'周报生成失败' }); }
   finally { weeklyReportLoading=false; render(); }
 }
 
@@ -1220,7 +1224,9 @@ function renderModule(key){
     head=headHero(m, `${all.length}`, `条记录 · 今日 ${todayN} 条`, null);
   }
 
-  const body = it.length ? it.map(x=>recHTML(m,x)).join("")
+  const page = RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
+  recordPage = page.page;
+  const body = page.items.length ? page.items.map(x=>recHTML(m,x)).join("")
     : `<div class="empty"><span class="e">${icon(m.icon,28)}</span><div>${q?'没有匹配的记录':'还没有记录，点右上角「新建」添加第一条吧'}</div></div>`;
 
   $("#screen").innerHTML=`<div class="header"><div><h2>${m.name}</h2><p>${m.desc}</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar",14)} ${dateStr()}</span></div>
@@ -1231,7 +1237,7 @@ function renderModule(key){
     <div class="mod-layout">
       <div class="mod-main">
         <div class="sec-title">全部记录 <span id="rec-count" style="margin-left:auto;font-weight:500;color:var(--text-secondary);font-size:12px">${it.length} 条</span></div>
-        <div class="rec-grid">${body}</div>
+        <div class="rec-grid">${body}</div>${recordPagerHTML(page)}
       </div>
       <aside class="mod-side">${sideStats(m,all)}</aside>
     </div>`;
@@ -1250,11 +1256,23 @@ function renderModuleResults(key){
   const m=modOf(key); const all=RecordList.sortNewest(data[key]||[]);
   const q=searchQ.trim().toLowerCase();
   const it=q?all.filter(x=>(x.title||"").toLowerCase().includes(q)||(x.note||x.content||"").toLowerCase().includes(q)):all;
-  const body = it.length ? it.map(x=>recHTML(m,x)).join("")
+  const page = RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
+  recordPage = page.page;
+  const body = page.items.length ? page.items.map(x=>recHTML(m,x)).join("")
     : `<div class="empty"><span class="e">${icon(m.icon,28)}</span><div>${q?'没有匹配的记录':'还没有记录，点右上角「新建」添加第一条吧'}</div></div>`;
   const grid=$(".rec-grid"); if(grid) grid.innerHTML=body;
   const cnt=$("#rec-count"); if(cnt) cnt.textContent=`${it.length} 条`;
+  const pager=$("#record-pager"); if(pager) pager.outerHTML=recordPagerHTML(page);
   wireModule(key);
+}
+
+// 生成分页控件，页码点击后只重绘当前模块列表。
+function recordPagerHTML(page){
+  if(page.totalPages <= 1) return "";
+  const pages=Array.from({length:page.totalPages},(_,index)=>index+1).map(number=>
+    `<button type="button" class="${number===page.page?'on':''}" data-record-page="${number}" aria-label="第 ${number} 页">${number}</button>`
+  ).join("");
+  return `<div class="record-pager" id="record-pager"><button type="button" class="prev" data-record-page="${page.page-1}" aria-label="上一页" ${page.hasPrev?'':'disabled'}>${icon("chevron",14)}</button>${pages}<span class="record-page-status">${page.page} / ${page.totalPages}</span><button type="button" class="next" data-record-page="${page.page+1}" aria-label="下一页" ${page.hasNext?'':'disabled'}>${icon("chevron",14)}</button></div>`;
 }
 
 /* 模块统计侧栏：按 type 生成多维数据，填满右侧空间 */
@@ -1428,6 +1446,11 @@ function wireModule(key){ const m=modOf(key);
     data[key].forEach(record=>syncRecord({moduleKey:key, record}));
     render();
   });
+  $("#record-pager")?.querySelectorAll("[data-record-page]").forEach(button=>button.addEventListener("click",()=>{
+    if(button.disabled) return;
+    recordPage=Number(button.dataset.recordPage)||1;
+    renderModuleResults(key);
+  }));
 }
 
 function mediaFieldHTML(key,d){
@@ -1515,7 +1538,7 @@ function wireMediaEditor(overlay,key,d){
     try{
       const result=await uploadCardImage(picked,{moduleKey:key,recordId:d.id});
       input.value=result.url; updateImagePreview(overlay);
-    }catch(e){ alert(e.message||"图片上传失败"); }
+    }catch(e){ await AppDialog.alert(e.message||"图片上传失败", { title:"图片上传失败" }); }
     finally{ upload.disabled=false; upload.innerHTML=old; file.value=""; }
   });
 }
@@ -1628,7 +1651,7 @@ function confirmDelete(key,id){ const item=(data[key]||[]).find(i=>i.id==id); if
 
 /* ---------- router / sidebar ---------- */
 function dateStr(){ const n=new Date(); const wd="日一二三四五六"[n.getDay()]; return `${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日 周${wd}`; }
-function go(v){ view=v; DeviceMode.saveView(view); searchQ=""; renderNavActive(); render(); window.scrollTo({top:0}); }
+function go(v){ view=v; DeviceMode.saveView(view); searchQ=""; recordPage=1; renderNavActive(); render(); window.scrollTo({top:0}); }
 function renderWorkout(){
   $("#screen").innerHTML='<div id="workout-root"></div>';
   WorkoutUI.mount($("#workout-root"), {
@@ -1723,12 +1746,12 @@ function updateAuthUI(){
 }
 
 // 同步指示器点击事件
-document.getElementById("sync-indicator").onclick=()=>{
+document.getElementById("sync-indicator").onclick=async()=>{
   const s=getSyncStatus();
   if(s==="online"){
     const user=getCurrentUser();
     if(user && user.is_anonymous) openAuthModal("login");
-    else if(user && user.email) { if(confirm("确定登出？")) signOut().then(()=>{ updateAuthUI(); }); }
+    else if(user && user.email) { if(await AppDialog.confirm("确定登出？", { title:"退出当前账号", danger:true, okText:"退出登录" })) signOut().then(()=>{ updateAuthUI(); }); }
   } else if(s==="offline"||s==="error") initSupabase().then(ok=>{ if(ok) syncNow(); });
 };
 

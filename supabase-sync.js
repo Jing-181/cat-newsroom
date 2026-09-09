@@ -296,7 +296,14 @@ async function signOut() {
 async function getAccessToken() {
   if (!sb) return null;
   const { data: { session } } = await sb.auth.getSession();
-  return session?.access_token || null;
+  return typeof session?.access_token === "string" ? session.access_token : null;
+}
+
+// 仅允许可安全放入 HTTP 请求头的 ASCII 值，避免浏览器抛出 ByteString 异常。
+function normalizeHeaderValue(value, label) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text || !/^[\x21-\x7E]+$/.test(text)) throw new Error(`${label}格式异常，请重新登录`);
+  return text;
 }
 
 function sanitizeStoragePart(value, fallback = "item") {
@@ -317,20 +324,38 @@ async function uploadCardImage(file, options = {}) {
     contentType: file.type || "image/jpeg",
     upsert: false,
   });
-  if (error) throw error;
+  if (error) {
+    // 未部署存储迁移时，Supabase 会返回 NoSuchBucket，给出可执行的修复提示。
+    const message = String(error.message || "").toLowerCase();
+    if (error.code === "NoSuchBucket" || error.statusCode === 404 || message.includes("bucket not found")) {
+      throw new Error("图片存储桶尚未初始化，请在 Supabase SQL Editor 执行 supabase/migrations/20260907000000_repair_card_images_storage.sql");
+    }
+    throw error;
+  }
   const { data: publicData } = sb.storage.from(SUPABASE_CONFIG.mediaBucket).getPublicUrl(path);
   return { path, url: publicData.publicUrl };
 }
 
 async function generateWeeklyReport(options = {}) {
   if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成 AI 生活报");
-  const token = await getAccessToken();
-  if (!token) throw new Error("登录状态已过期，请重新登录");
-  const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/${SUPABASE_CONFIG.reportFunction}`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ week_start: localWeekStartKey(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...options }),
-  });
+  let response;
+  try {
+    // 会话刷新也可能构造请求头，统一转换浏览器的 ByteString 异常。
+    const rawToken = await getAccessToken();
+    if (!rawToken) throw new Error("登录状态已过期，请重新登录");
+    const token = normalizeHeaderValue(rawToken, "登录令牌");
+    const apiKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
+    response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/${SUPABASE_CONFIG.reportFunction}`, {
+      method: "POST",
+      headers: { apikey: apiKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ week_start: localWeekStartKey(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...options }),
+    });
+  } catch (error) {
+    if (/ByteString|invalid character/i.test(String(error?.message || error))) {
+      throw new Error("登录状态异常，请退出当前账号后重新登录");
+    }
+    throw error;
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "AI 生活报生成失败");
   return payload;

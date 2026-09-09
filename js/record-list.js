@@ -21,6 +21,24 @@
     });
   }
 
+  // 将已排序的记录切成固定大小的一页，并自动修正越界页码。
+  function paginate(records, page = 1, pageSize = 20) {
+    const list = Array.isArray(records) ? records : [];
+    const size = Math.max(1, Number(pageSize) || 20);
+    const totalPages = Math.max(1, Math.ceil(list.length / size));
+    const currentPage = Math.min(totalPages, Math.max(1, Number(page) || 1));
+    const start = (currentPage - 1) * size;
+    return {
+      items: list.slice(start, start + size),
+      page: currentPage,
+      pageSize: size,
+      total: list.length,
+      totalPages,
+      hasPrev: currentPage > 1,
+      hasNext: currentPage < totalPages,
+    };
+  }
+
   function placeNewAtTop(records, record) {
     const orders = (records || []).map(item => Number(item.sort_order)).filter(Number.isFinite);
     record.sort_order = orders.length ? Math.min(...orders) - 1 : 0;
@@ -78,5 +96,5 @@
     container.addEventListener("dragend", finish, listenerOptions);
   }
 
-  return { sortNewest, placeNewAtTop, reorder, wireDrag };
+  return { sortNewest, paginate, placeNewAtTop, reorder, wireDrag };
 });

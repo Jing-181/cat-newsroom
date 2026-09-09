@@ -502,6 +502,7 @@
 </style>
 <link rel="stylesheet" href="css/workout-ui.css">
 <link rel="stylesheet" href="css/record-media.css">
+<link rel="stylesheet" href="css/app-dialog.css">
 </head>
 <body class="mobile-shell">
 <div class="app">
@@ -545,6 +546,7 @@
 <script src="js/device-mode.js"></script>
 <script src="js/workbench-core.js"></script>
 <script src="js/sync-core.js"></script>
+<script src="js/app-dialog.js"></script>
 <script src="js/pomodoro.js"></script>
 <script src="js/workout-catalog.js"></script>
 <script src="js/workout.js"></script>
@@ -694,7 +696,7 @@ async function maybeGenerateWeeklyReport(force){
   if(force){ weeklyReportPolls=0; weeklyReportError=""; }
   weeklyReportLoading=true; render();
   try { const result=await generateWeeklyReport({force:!!force}); weeklyReportMeta=result.meta||weeklyReportMeta; weeklyReportWaiting=result.status==='generating'&&!result.report; if(weeklyReportWaiting&&weeklyReportPolls<8){ weeklyReportPolls++; setTimeout(()=>maybeGenerateWeeklyReport(false),Math.min(10000,3000+weeklyReportPolls*750)); } else if(weeklyReportWaiting){ weeklyReportWaiting=false; weeklyReportError='生成时间较长，请稍后手动重试。'; } else { weeklyReportPolls=0; weeklyReportError=""; weeklyReport=result.report||null; } }
-  catch(e){ weeklyReportWaiting=false; weeklyReportError=e.message||'AI 生活报生成失败'; if(force) alert(weeklyReportError); }
+  catch(e){ weeklyReportWaiting=false; weeklyReportError=e.message||'AI 生活报生成失败'; if(force) await AppDialog.alert(weeklyReportError, { title:'周报生成失败' }); }
   finally { weeklyReportLoading=false; render(); }
 }
 
@@ -716,6 +718,8 @@ const store = {
 };
 let data = store.load();
 let view = ["home","insight",...CONFIG.modules.map(m=>m.key)].includes(DeviceMode.restoreView()) ? DeviceMode.restoreView() : "home";
+const RECORD_PAGE_SIZE = 20; // 列表单页上限，数据少时不会显示分页控件。
+let recordPage = 1;
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false, weeklyReportError = "", weeklyReportPolls = 0;
 let pomodoroController = null;
 const pendingSyncRecords = new Map();
@@ -1038,13 +1042,24 @@ function renderModule(key){
     head=headHero(m, `${it.length}`, `条记录 · 今日 ${todayN} 条`, null);
   }
   if(m.type==="checkin") extra=renderCalendar(m,it);
-  const body = it.length ? it.map(x=>recHTML(m,x)).join("")
+  const page = RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
+  recordPage = page.page;
+  const body = page.items.length ? page.items.map(x=>recHTML(m,x)).join("")
     : `<div class="empty"><span class="e">${icon(m.icon,26)}</span><div>还没有记录，点上方「新建」添加第一条吧</div></div>`;
   $("#screen").innerHTML = `<div class="greet"><div><h1>${m.name}</h1><p>${m.desc}</p></div>
       <button class="add" id="btn-add">${icon("plus",16,2.2)}新建</button></div>
     <div style="margin-top:16px">${head}${extra}
-      <div class="sec-title">记录</div>${body}</div>`;
+      <div class="sec-title">记录</div><div class="rec-grid">${body}</div>${recordPagerHTML(page)}</div>`;
   wireModule(key);
+}
+
+// 生成分页控件，移动端与桌面端使用同一页码行为。
+function recordPagerHTML(page){
+  if(page.totalPages <= 1) return "";
+  const pages=Array.from({length:page.totalPages},(_,index)=>index+1).map(number=>
+    `<button type="button" class="${number===page.page?'on':''}" data-record-page="${number}" aria-label="第 ${number} 页">${number}</button>`
+  ).join("");
+  return `<div class="record-pager" id="record-pager"><button type="button" class="prev" data-record-page="${page.page-1}" aria-label="上一页" ${page.hasPrev?'':'disabled'}>${icon("chevron",14)}</button>${pages}<span class="record-page-status">${page.page} / ${page.totalPages}</span><button type="button" class="next" data-record-page="${page.page+1}" aria-label="下一页" ${page.hasNext?'':'disabled'}>${icon("chevron",14)}</button></div>`;
 }
 
 /* per-module hero header: compact strip — icon + big number + label + optional progress bar */
@@ -1154,6 +1169,11 @@ function wireModule(key){
     data[key].forEach(record=>syncRecord({moduleKey:key, record}));
     render();
   });
+  $("#record-pager")?.querySelectorAll("[data-record-page]").forEach(button=>button.addEventListener("click",()=>{
+    if(button.disabled) return;
+    recordPage=Number(button.dataset.recordPage)||1;
+    renderModule(key);
+  }));
   const add=$("#btn-add"); if(add) add.onclick=()=>openEditor(key,null);
   if(m.type==="checkin") wireCalendar(key, data[key]||[]);
 }
@@ -1243,7 +1263,7 @@ function wireMediaEditor(overlay,key,d){
     try{
       const result=await uploadCardImage(picked,{moduleKey:key,recordId:d.id});
       input.value=result.url; updateImagePreview(overlay);
-    }catch(e){ alert(e.message||"图片上传失败"); }
+    }catch(e){ await AppDialog.alert(e.message||"图片上传失败", { title:"图片上传失败" }); }
     finally{ upload.disabled=false; upload.innerHTML=old; file.value=""; }
   });
 }
@@ -1367,7 +1387,7 @@ function confirmDelete(key,id){
 }
 
 /* ---------- router / nav ---------- */
-function go(v){ view=v; DeviceMode.saveView(view); closeDrawer();
+function go(v){ view=v; DeviceMode.saveView(view); recordPage=1; closeDrawer();
   const app=document.getElementById("screen");
   if(app){ app.style.opacity="0"; app.style.transform="translateY(6px)"; }
   setTimeout(()=>{
@@ -1489,11 +1509,11 @@ function updateAuthUI(){
   else { emailEl.textContent=""; }
 }
 
-document.getElementById("sync-indicator").onclick=()=>{
+document.getElementById("sync-indicator").onclick=async()=>{
   const s=getSyncStatus();
   if(s==="online"){ const user=getCurrentUser();
     if(user && user.is_anonymous) openAuthModal("login");
-    else if(user && user.email) { if(confirm("确定登出？")) signOut().then(()=>{ updateAuthUI(); }); }
+    else if(user && user.email) { if(await AppDialog.confirm("确定登出？", { title:"退出当前账号", danger:true, okText:"退出登录" })) signOut().then(()=>{ updateAuthUI(); }); }
   } else if(s==="offline"||s==="error") initSupabase().then(ok=>{ if(ok) syncNow(); });
 };
 

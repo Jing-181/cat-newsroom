@@ -12,6 +12,31 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...cors, "Content-Type": "application/json" },
 });
 
+function supabaseApiKey() {
+  const legacy = Deno.env.get("SUPABASE_ANON_KEY");
+  if (legacy) return legacy;
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "{}");
+    const key = keys && typeof keys === "object" ? keys.default || Object.values(keys)[0] : null;
+    if (typeof key === "string" && key) return key;
+  } catch (_) {
+    // 环境变量格式异常时统一返回配置错误。
+  }
+  throw new Error("Supabase 公钥未配置");
+}
+
+async function providerError(response: Response, fallback: string) {
+  let detail = "";
+  try {
+    const body = await response.clone().json();
+    const value = body?.error?.message || body?.error || body?.message;
+    if (typeof value === "string") detail = value.slice(0, 300);
+  } catch (_) {
+    // 非 JSON 响应不影响返回统一错误。
+  }
+  return detail ? `${fallback}：${detail}` : fallback;
+}
+
 function dateOnly(value: unknown) {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
@@ -100,12 +125,16 @@ function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, un
 
 async function chooseModel(apiKey: string) {
   const configured = Deno.env.get("AIXLUV_MODEL");
-  if (configured) return configured;
+  if (configured?.trim()) return configured.trim();
   const response = await fetch("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${apiKey}` } });
-  if (!response.ok) throw new Error("无法读取 AI 模型列表");
+  if (!response.ok) throw new Error(await providerError(response, `读取 AI 模型失败：${response.status}`));
   const body = await response.json();
-  const ids = Array.isArray(body.data) ? body.data.map((x: { id?: string }) => x.id).filter(Boolean) : [];
-  return ids.find((id: string) => /gpt|claude|gemini/i.test(id)) || ids[0];
+  const ids = Array.isArray(body.data)
+    ? body.data.map((x: { id?: string }) => x?.id).filter((id: unknown): id is string => typeof id === "string" && id.trim())
+    : [];
+  const model = ids.find((id: string) => /gpt|claude|gemini/i.test(id)) || ids[0];
+  if (!model) throw new Error("AI 服务未返回可用模型，请配置 AIXLUV_MODEL");
+  return model;
 }
 
 async function generateWithAI(apiKey: string, model: string, snapshot: unknown) {
@@ -121,12 +150,23 @@ async function generateWithAI(apiKey: string, model: string, snapshot: unknown) 
       ],
     }),
   });
-  if (!response.ok) throw new Error(`AI 请求失败：${response.status}`);
+  if (!response.ok) throw new Error(await providerError(response, `AI 请求失败：${response.status}`));
   const body = await response.json();
-  const content = body.choices?.[0]?.message?.content;
+  const rawContent = body.choices?.[0]?.message?.content;
+  const content = Array.isArray(rawContent)
+    ? rawContent.map((part: { text?: unknown }) => typeof part?.text === "string" ? part.text : "").join("")
+    : rawContent;
   if (!content) throw new Error("AI 返回为空");
-  const clean = String(content).replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-  const parsed = JSON.parse(clean);
+  const clean = String(content).replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(clean);
+  } catch (_) {
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start < 0 || end <= start) throw new Error("AI 返回格式无效");
+    parsed = JSON.parse(clean.slice(start, end + 1));
+  }
   parsed.insight ||= { patterns: [], risks: [], next_actions: [] };
   parsed.review ||= { overview: "", highlights: [], unfinished: [], suggestions: [] };
   parsed.daily ||= [];
@@ -144,7 +184,7 @@ Deno.serve(async (request) => {
     const authHeader = request.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
     if (!token) return json({ error: "缺少登录凭据" }, 401);
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${token}` } } });
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, supabaseApiKey(), { global: { headers: { Authorization: `Bearer ${token}` } } });
     dbClient = supabase;
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) return json({ error: "登录状态无效" }, 401);

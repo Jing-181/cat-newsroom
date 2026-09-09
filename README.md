@@ -78,7 +78,7 @@ const SUPABASE_CONFIG = {
 
 Publishable/anon key 可放在前端，并由 RLS 限制数据访问；不要把 `service_role` key 写入仓库或前端代码。
 
-卡片图片上传使用 `card-images` Storage bucket。SQL 脚本会创建公开读取桶，并限制正式登录用户只能写入自己 `userId/模块/记录/文件名` 目录；匿名会话仍可使用默认配图，但不能上传图片。
+卡片图片上传使用 `card-images` Storage bucket。SQL 脚本会创建公开读取桶，并限制正式登录用户只能写入自己 `userId/模块/记录/文件名` 目录；匿名会话仍可使用默认配图，但不能上传图片。若线上提示 `Bucket not found`，请在 Supabase SQL Editor 执行 [修复迁移](supabase/migrations/20260907000000_repair_card_images_storage.sql)，或使用 `supabase db push` 部署迁移后再重试。
 
 ### AI 周报
 
@@ -116,6 +116,7 @@ supabase functions deploy generate-weekly-report
 | `supabase-sync.js` | Supabase 认证、原子同步和手动/初始化全量同步 |
 | `supabase/functions/generate-weekly-report/` | AI 周报 Edge Function |
 | `supabase/migrations/20260901000000_card_images_storage.sql` | 卡片图片 Storage bucket 与 RLS 策略 |
+| `supabase/migrations/20260907000000_repair_card_images_storage.sql` | 修复线上缺失的卡片图片 bucket 与 RLS 策略 |
 | `tests/` | Node 核心逻辑测试 |
 | `docs/implementation-plan-v3.md` | V3 需求、架构和验收依据 |
 
