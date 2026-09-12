@@ -1,0 +1,16 @@
+/* 应用内弹窗使用与编辑器一致的纸张风格，并补齐聚焦与危险状态。 */
+.app-dialog { width: 420px; max-width: min(92vw, 420px); }
+.app-dialog-mark { width: 34px; height: 34px; margin-bottom: 12px; border: 1px solid var(--border-input); border-radius: 50%; display:grid; place-items:center; font-weight:800; font-family: Georgia, "Songti SC", serif; color:var(--accent); background:var(--accent-muted); }
+.app-dialog-mark.is-confirm { color:var(--accent); }
+.app-dialog-mark.is-alert { color:var(--danger); background:var(--danger-muted); border-color:color-mix(in srgb, var(--danger) 35%, var(--border-input)); }
+.app-dialog h2 { font-size: 19px; font-weight: 800; }
+.app-dialog .sub { white-space: pre-wrap; overflow-wrap:anywhere; line-height:1.65; }
+.app-dialog .modal-actions { justify-content:flex-end; }
+.app-dialog .modal-actions .btn { min-width:92px; }
+.app-dialog .modal-actions .btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+@media (max-width: 640px) {
+  .app-dialog { max-width: 100%; }
+  .app-dialog .modal-actions { justify-content:stretch; }
+  .app-dialog .modal-actions .btn { min-width:0; }
+}
