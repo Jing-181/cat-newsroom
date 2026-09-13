@@ -48,7 +48,7 @@
       : { weight_kg: Number(previous?.weight_kg || 0), reps: Number(previous?.reps || 10), rpe: previous?.rpe || "", completed:true };
     session.exercises.push({
       id: id("exercise"), exercise_id: source.id, name: source.name, body_part: source.bodyPart,
-      equipment: source.equipment, angle: source.angle || "", icon: source.icon || "🏋", tips: source.tips || "控制动作节奏，保持躯干稳定；重量以动作质量为先。", muscles: source.muscles || source.bodyPart, sets: [{ ...base }], note: "",
+      equipment: source.equipment, angle: source.angle || "", icon: source.icon || "运", tips: source.tips || "控制动作节奏，保持躯干稳定；重量以动作质量为先。", muscles: source.muscles || source.bodyPart, sets: [{ ...base }], note: "",
     });
     session.updated_at = new Date().toISOString();
     return session;
@@ -82,9 +82,17 @@
     if (index >= 0) records[index] = saved;
     else records.unshift(saved);
     // 补录或修改日期后，历史记录仍按日期倒序展示。
-    records.sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")));
+    sortRecords(records);
     return saved;
   }
 
-  return { catalog, isSession, createSession, previousPerformance, previousSet, addExercise, calculateStats, summary, cloneRecord, upsertSession };
+  function sortRecords(records) {
+    return records.sort((left, right) => {
+      const dateDiff = Date.parse(String(right.date || "")) - Date.parse(String(left.date || ""));
+      if (Number.isFinite(dateDiff) && dateDiff !== 0) return dateDiff;
+      return String(right.updated_at || right.created_at || right.id || "").localeCompare(String(left.updated_at || left.created_at || left.id || ""));
+    });
+  }
+
+  return { catalog, isSession, createSession, previousPerformance, previousSet, addExercise, calculateStats, summary, cloneRecord, upsertSession, sortRecords };
 });

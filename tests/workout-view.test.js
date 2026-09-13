@@ -17,7 +17,7 @@ test("训练编辑器提供日期、动作弹窗和保存入口", () => {
   const html = view.editorHtml(session, "chest");
   assert.match(html, /id="workout-date"/);
   assert.match(html, /id="workout-add-exercise"/);
-  assert.match(html, /data-quick-add=/);
+  assert.match(html, /id="workout-add-floating"/);
   assert.match(html, />完成训练</);
 });
 
@@ -26,7 +26,7 @@ test("训练组使用屏内卡片布局，避免固定宽度横向滚动", () =>
   const session = workout.createSession("chest", new Date(2026, 7, 20));
   workout.addExercise(session, "dumbbell_bench_press");
   const html = view.editorHtml(session, "chest");
-  assert.equal((html.match(/class="set-row"/g) || []).length, 1);
+  assert.equal((html.match(/class="set-row(?: completed)?"/g) || []).length, 1);
   assert.doesNotMatch(html, /set-table-scroll|class="set-table"/);
   assert.match(html, /class="set-fields"/);
 });

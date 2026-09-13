@@ -382,6 +382,16 @@ async function generateWeeklyReport(options = {}) {
   return payload;
 }
 
+async function generateWorkoutPlan(options = {}) {
+  if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成训练计划");
+  const token = normalizeHeaderValue(await getAccessToken(), "登录令牌");
+  const headers = new Headers({ apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" });
+  const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/generate-workout-plan`, { method:"POST", headers, body:JSON.stringify(options) });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "训练计划生成失败");
+  return payload;
+}
+
 function updateSyncIndicator() {
   const element = document.getElementById("sync-indicator");
   if (!element) return;

@@ -25,6 +25,7 @@ python3 -m http.server 8765
 
 访问 `http://127.0.0.1:8765/`。默认入口 [index.html](index.html) 会根据当前视口和输入能力进入合适页面。
 
+
 开发校验：
 
 ```bash
