@@ -6,8 +6,8 @@ html, body { overflow-x:clip; }
 .app > .topbar { margin-inline:-16px; padding-inline:18px; background:var(--page-bg); }
 .workout-app { display:grid; gap:16px; min-width:0; }
 .workout-head { display:flex; align-items:flex-start; gap:12px; min-width:0; }
-.workout-head-actions { display:flex; gap:8px; margin-left:auto; flex-wrap:wrap; justify-content:flex-end; }
-.workout-plan-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.workout-head-actions { display:flex; gap:8px; margin-left:auto; flex-wrap:wrap; justify-content:flex-end; position:relative; }
+.workout-plan-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; position:absolute; top:calc(100% + 8px); right:0; z-index:20; width:max-content; max-width:min(92vw,360px); padding:8px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
 .workout-plan-actions[hidden] { display:none !important; }
 .plan-menu-icon { width:34px; min-width:34px; max-width:34px; height:34px; padding:0; flex:0 0 34px !important; font-size:18px; line-height:1; }
 .workout-head h2 { min-width:0; margin:0; font-size:22px; font-style:normal; overflow-wrap:anywhere; }
@@ -166,7 +166,7 @@ html, body { overflow-x:clip; }
 
 @media (max-width:760px) {
   .workout-head-actions { width:100%; margin-left:0; justify-content:stretch; }
-  .workout-plan-actions { width:100%; justify-content:stretch; }
+  .workout-plan-actions { width:max-content; justify-content:stretch; flex-direction:column; align-items:stretch; }
   .workout-plan-actions .workout-btn { flex:1 1 130px; }
   .workout-head-actions .workout-btn { flex:1 1 150px; min-width:0; }
   .workout-app { gap:13px; }
