@@ -72,11 +72,11 @@
     --nav-h: 62px;                   /* 底部导航栏高度 */
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent;
-       touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+       -webkit-text-size-adjust: 100%; }
   :focus-visible { outline: 2px solid var(--module-2); outline-offset: 2px; border-radius: 4px; }
   button { -webkit-focus-ring-color: var(--module-2); }
   html, body { height: 100%; touch-action: pan-y; overscroll-behavior-y: contain; }
-  html { touch-action: manipulation; }
+  html { touch-action: pan-y; }
   body {
     background: var(--page-bg);
     color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5;

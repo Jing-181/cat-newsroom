@@ -12,7 +12,7 @@
   }
 
   function statsHtml(stats) {
-    return `<div class="workout-summary">
+    return `<div class="workout-summary" aria-label="训练统计">
       <div class="workout-stat"><b data-workout-stat="exerciseCount">${stats.exerciseCount}</b><span>动作</span></div>
       <div class="workout-stat"><b data-workout-stat="setCount">${stats.setCount}</b><span>完成组</span></div>
       <div class="workout-stat"><b data-workout-stat="reps">${stats.reps}</b><span>总次数</span></div>
@@ -29,7 +29,8 @@
 
   function historyHtml(records) {
     if (!records.length) return `<div class="session-empty">还没有训练记录，选择训练日开始第一练。</div>`;
-    return `<div class="workout-history">${records.map(record => {
+    const ordered = [...records].sort((a,b) => String(b.date||"").localeCompare(String(a.date||"")) || String(b.updated_at||"").localeCompare(String(a.updated_at||"")));
+    return `<div class="workout-history">${ordered.map(record => {
       const info = root.Workout.summary(record);
       const meta = info.legacy
         ? `${escapeHtml(record.date || "日期未记录")} · ${escapeHtml(record.current || 0)}/${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}`
@@ -49,10 +50,8 @@
     // 纵向组卡片在手机上一屏可完整查看，避免横向滚动。
     return exercise.sets.map((set, setIndex) => `<div class="set-row">
       <div class="set-row-head"><strong>第 ${setIndex + 1} 组</strong><button type="button" class="set-done ${set.completed ? "on" : ""}" data-set-done="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="完成本组" aria-label="完成第 ${setIndex + 1} 组">✓</button><button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${setIndex + 1} 组">×</button></div>
-      <div class="set-fields">
-        <label><span>重量 kg</span><input type="number" min="0" step="2.5" value="${escapeHtml(set.weight_kg)}" data-set-field="weight_kg" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="重量"></label>
-        <label><span>次数</span><input type="number" min="1" step="1" value="${escapeHtml(set.reps)}" data-set-field="reps" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="次数"></label>
-        <label><span>RPE</span><input type="number" min="1" max="10" step="1" value="${escapeHtml(set.rpe)}" data-set-field="rpe" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="RPE"></label>
+      <div class="set-fields${exercise.equipment === "有氧" || exercise.equipment === "恢复" ? " cardio-fields" : ""}">
+        ${exercise.equipment === "有氧" || exercise.equipment === "恢复" ? `<label><span>时长（分）</span><input type="number" min="1" value="${escapeHtml(set.duration_min)}" data-set-field="duration_min" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="时长"></label><label><span>距离 km</span><input type="number" min="0" step="0.1" value="${escapeHtml(set.distance_km)}" data-set-field="distance_km" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="距离"></label><label><span>配速</span><input value="${escapeHtml(set.pace)}" data-set-field="pace" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="配速"></label>` : `<label><span>重量 kg</span><input type="number" min="0" step="2.5" value="${escapeHtml(set.weight_kg)}" data-set-field="weight_kg" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="重量"></label><label><span>次数</span><input type="number" min="1" step="1" value="${escapeHtml(set.reps)}" data-set-field="reps" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="次数"></label><label><span>RPE</span><input type="number" min="1" max="10" step="1" value="${escapeHtml(set.rpe)}" data-set-field="rpe" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="RPE"></label>`}
       </div>
     </div>`).join("");
   }
@@ -68,7 +67,8 @@
         <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><p class="workout-hint">动作会带入最近一次完成组；新组默认已完成，不练可直接删掉或取消勾选。</p>${quickExerciseHtml(selectedDay, session.exercises)}<div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => {
           const previous = root.Workout.previousPerformance(history, exercise.exercise_id);
           const last = previous ? `上次 ${escapeHtml(previous.date)} · ${escapeHtml(previous.set.weight_kg)} kg × ${escapeHtml(previous.set.reps)}` : "首次记录此动作";
-          return `<article class="session-exercise"><div class="session-exercise-head"><div><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)} · ${last}</span></div><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div><div class="set-list">${setRows(exercise, exerciseIndex)}</div><div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><button type="button" data-set-copy="${exerciseIndex}">复制上一组</button></div></article>`;
+          const lastText = previous ? (exercise.equipment === "有氧" || exercise.equipment === "恢复" ? `上次 ${escapeHtml(previous.date)} · ${escapeHtml(previous.set.duration_min || 0)} 分钟` : `上次 ${escapeHtml(previous.date)} · ${escapeHtml(previous.set.weight_kg)} kg × ${escapeHtml(previous.set.reps)}`) : "首次记录此动作";
+          return `<article class="session-exercise"><div class="session-exercise-head"><div><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)} · ${lastText}</span></div><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div><div class="set-list">${setRows(exercise, exerciseIndex)}</div><div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
         }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
       </div>
       <section class="workout-completion" aria-label="完成训练">

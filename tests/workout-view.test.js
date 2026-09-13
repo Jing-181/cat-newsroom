@@ -26,7 +26,7 @@ test("训练组使用屏内卡片布局，避免固定宽度横向滚动", () =>
   const session = workout.createSession("chest", new Date(2026, 7, 20));
   workout.addExercise(session, "dumbbell_bench_press");
   const html = view.editorHtml(session, "chest");
-  assert.equal((html.match(/class="set-row"/g) || []).length, 3);
+  assert.equal((html.match(/class="set-row"/g) || []).length, 1);
   assert.doesNotMatch(html, /set-table-scroll|class="set-table"/);
   assert.match(html, /class="set-fields"/);
 });

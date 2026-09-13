@@ -19,19 +19,22 @@ test("训练容量按完成组计算", () => {
   assert.deepEqual(workout.calculateStats(session), { exerciseCount: 1, setCount: 2, reps: 18, volume: 360 });
 });
 
-test("新增动作会带入最近完成组，并默认勾选本次训练组", () => {
+test("新增动作会带入最近完成组，并默认只创建一组", () => {
   const history = [workout.createSession("chest", new Date(2026, 7, 20))];
   workout.addExercise(history[0], "dumbbell_bench_press");
   history[0].status = "completed";
   history[0].exercises[0].sets[2] = { weight_kg: 24, reps: 8, rpe: 9, completed: true };
   const session = workout.createSession("chest", new Date(2026, 7, 21));
   workout.addExercise(session, "dumbbell_bench_press", history);
-  assert.deepEqual(session.exercises[0].sets, [
-    { weight_kg: 24, reps: 8, rpe: 9, completed: true },
-    { weight_kg: 24, reps: 8, rpe: 9, completed: true },
-    { weight_kg: 24, reps: 8, rpe: 9, completed: true },
-  ]);
+  assert.deepEqual(session.exercises[0].sets, [{ weight_kg: 24, reps: 8, rpe: 9, completed: true }]);
   assert.equal(workout.previousPerformance(history, "dumbbell_bench_press").date, "2026-08-20");
+});
+
+test("有氧动作使用时长、距离和配速字段", () => {
+  const session = workout.createSession("cardio", new Date(2026, 7, 21));
+  workout.addExercise(session, "treadmill");
+  assert.deepEqual(session.exercises[0].sets, [{ duration_min: 10, distance_km: 0, pace: "", completed: true }]);
+  assert.equal(workout.calculateStats(session).volume, 0);
 });
 
 test("旧运动记录保持兼容", () => {

@@ -111,6 +111,9 @@ html, body { overflow-x:clip; }
 .mobile-shell .set-fields input { height:40px; font-size:16px; }
 .mobile-shell .workout-history { grid-template-columns:minmax(0,1fr); }
 .mobile-shell .workout-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.mobile-shell .workout-stat { padding:8px; }
+.mobile-shell .workout-stat b { font-size:16px; }
+.mobile-shell .workout-stat span { font-size:9px; }
 .mobile-shell .workout-completion { padding:10px; }
 .mobile-shell .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .mobile-shell .workout-fields .note { grid-column:1/-1; }

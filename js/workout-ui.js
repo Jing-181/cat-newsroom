@@ -102,12 +102,16 @@
         updateSession();
       }));
       container.querySelectorAll("[data-exercise-delete]").forEach(button => button.addEventListener("click", () => { session.exercises.splice(Number(button.dataset.exerciseDelete), 1); updateSession(); }));
-      container.querySelectorAll("[data-set-add], [data-set-copy]").forEach(button => button.addEventListener("click", () => {
-        const index = Number(button.dataset.setAdd ?? button.dataset.setCopy);
+      container.querySelectorAll("[data-set-add]").forEach(button => button.addEventListener("click", () => {
+        const index = Number(button.dataset.setAdd);
         const exercise = session.exercises[index];
         const previous = exercise.sets.at(-1) || { weight_kg:0, reps:10, rpe:"" };
         exercise.sets.push({ ...previous, completed:true });
         updateSession();
+      }));
+      container.querySelectorAll("[data-exercise-info]").forEach(button => button.addEventListener("click", () => {
+        const ex = session.exercises[Number(button.dataset.exerciseInfo)];
+        openDialog(`<div class="dialog-head"><div><span class="dialog-kicker">动作说明</span><h3>${ex.name}</h3></div><button type="button" class="icon-action" data-dialog-close>×</button></div><p><strong>锻炼部位：</strong>${ex.muscles || ex.body_part || "全身"}</p><p><strong>动作要点：</strong>${ex.tips || "保持动作稳定，按自身能力调整重量和次数。"}</p>`);
       }));
       container.querySelectorAll("[data-set-delete]").forEach(button => button.addEventListener("click", () => { session.exercises[Number(button.dataset.exercise)].sets.splice(Number(button.dataset.set), 1); updateSession(); }));
       container.querySelectorAll("[data-set-done]").forEach(button => button.addEventListener("click", () => {
@@ -121,7 +125,7 @@
       // 输入即写入草稿，避免切换动作时丢失最后一次修改。
       container.querySelectorAll("[data-set-field]").forEach(input => input.addEventListener("input", () => {
         const set = session.exercises[Number(input.dataset.exercise)].sets[Number(input.dataset.set)];
-        set[input.dataset.setField] = input.value === "" ? "" : Number(input.value);
+        set[input.dataset.setField] = input.dataset.setField === "pace" ? input.value : (input.value === "" ? "" : Number(input.value));
         updateSession({ rerender:false });
         refreshStats();
       }));

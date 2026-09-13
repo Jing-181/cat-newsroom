@@ -124,6 +124,7 @@ function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, un
 }
 
 async function chooseModel(apiKey: string) {
+  if (!/^[\x21-\x7E]+$/.test(apiKey)) throw new Error("AI 密钥格式无效，请检查 Supabase Secret");
   const configured = Deno.env.get("AIXLUV_MODEL");
   if (configured?.trim()) return configured.trim();
   const response = await fetch("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${apiKey}` } });

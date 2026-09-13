@@ -69,7 +69,9 @@ async function initSupabase() {
   syncStatus = "connecting"; updateSyncIndicator();
   try {
     if (!window.supabase) await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js");
-    sb = supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+    const clientUrl = normalizeHeaderValue(SUPABASE_CONFIG.url, "Supabase 地址");
+    const clientKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
+    sb = supabase.createClient(clientUrl, clientKey, { auth: { persistSession: true, autoRefreshToken: true } });
     const { data: { session } } = await sb.auth.getSession();
     if (session) currentUser = session.user;
     else {
@@ -83,6 +85,13 @@ async function initSupabase() {
     return true;
   } catch (error) {
     console.error("[sync] 初始化失败:", error);
+    if (/ByteString|invalid character/i.test(String(error?.message || error))) {
+      // 清理损坏的持久化会话，避免 Supabase 自动刷新持续构造非法 Authorization 头。
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index) || "";
+        if (key.includes("-auth-token")) localStorage.removeItem(key);
+      }
+    }
     syncStatus = "error"; updateSyncIndicator(); return false;
   }
 }
@@ -295,8 +304,16 @@ async function signOut() {
 
 async function getAccessToken() {
   if (!sb) return null;
-  const { data: { session } } = await sb.auth.getSession();
-  return typeof session?.access_token === "string" ? session.access_token : null;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    return typeof session?.access_token === "string" ? session.access_token : null;
+  } catch (error) {
+    if (/ByteString|invalid character/i.test(String(error?.message || error))) {
+      await sb.auth.signOut({ scope: "local" }).catch(() => {});
+      throw new Error("登录状态已损坏，请重新登录后再生成周报");
+    }
+    throw error;
+  }
 }
 
 // 仅允许可安全放入 HTTP 请求头的 ASCII 值，避免浏览器抛出 ByteString 异常。
@@ -345,9 +362,13 @@ async function generateWeeklyReport(options = {}) {
     if (!rawToken) throw new Error("登录状态已过期，请重新登录");
     const token = normalizeHeaderValue(rawToken, "登录令牌");
     const apiKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
+    const headers = new Headers();
+    headers.set("apikey", apiKey);
+    headers.set("Authorization", `Bearer ${token}`);
+    headers.set("Content-Type", "application/json");
     response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/${SUPABASE_CONFIG.reportFunction}`, {
       method: "POST",
-      headers: { apikey: apiKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ week_start: localWeekStartKey(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...options }),
     });
   } catch (error) {
