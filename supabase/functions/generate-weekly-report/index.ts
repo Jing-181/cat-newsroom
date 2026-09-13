@@ -13,12 +13,12 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 function supabaseApiKey() {
-  const legacy = Deno.env.get("SUPABASE_ANON_KEY");
+  const legacy = Deno.env.get("SUPABASE_ANON_KEY")?.trim();
   if (legacy) return legacy;
   try {
     const keys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "{}");
     const key = keys && typeof keys === "object" ? keys.default || Object.values(keys)[0] : null;
-    if (typeof key === "string" && key) return key;
+    if (typeof key === "string" && key.trim()) return key.trim();
   } catch (_) {
     // 环境变量格式异常时统一返回配置错误。
   }
@@ -124,10 +124,11 @@ function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, un
 }
 
 async function chooseModel(apiKey: string) {
-  if (!/^[\x21-\x7E]+$/.test(apiKey)) throw new Error("AI 密钥格式无效，请检查 Supabase Secret");
+  const normalizedKey = apiKey.trim();
+  if (!/^[\x21-\x7E]+$/.test(normalizedKey)) throw new Error("AI 密钥格式无效，请检查 Supabase Secret");
   const configured = Deno.env.get("AIXLUV_MODEL");
   if (configured?.trim()) return configured.trim();
-  const response = await fetch("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${apiKey}` } });
+  const response = await fetch("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${normalizedKey}` } });
   if (!response.ok) throw new Error(await providerError(response, `读取 AI 模型失败：${response.status}`));
   const body = await response.json();
   const ids = Array.isArray(body.data)
@@ -139,9 +140,10 @@ async function chooseModel(apiKey: string) {
 }
 
 async function generateWithAI(apiKey: string, model: string, snapshot: unknown) {
+  const normalizedKey = apiKey.trim();
   const response = await fetch("https://api.aixluv.com/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${normalizedKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
       temperature: 0.6,
