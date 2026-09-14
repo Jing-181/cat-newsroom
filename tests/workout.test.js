@@ -8,6 +8,13 @@ test("胸日包含卧推动作和任意日小肌群动作", () => {
   assert.ok(names.includes("绳索下压"));
 });
 
+test("腿日包含保加利亚分腿蹲和常见基础动作", () => {
+  const names = workout.catalog.forDay("legs").map(item => item.name);
+  assert.ok(names.includes("保加利亚分腿蹲"));
+  assert.ok(names.includes("传统硬拉"));
+  assert.ok(names.includes("行走弓步"));
+});
+
 test("训练容量按完成组计算", () => {
   const session = workout.createSession("chest", new Date(2026, 7, 31));
   workout.addExercise(session, "dumbbell_bench_press");
