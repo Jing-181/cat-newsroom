@@ -42,11 +42,13 @@
     const source = catalog.exercises.find(item => item.id === exerciseId);
     if (!source || session.exercises.some(item => item.exercise_id === exerciseId)) return session;
     const previous = previousSet(history, exerciseId);
-    // 新加入的动作按最近一次完成组预填，并默认视为本次计划完成；未练的组可直接删除或取消勾选。
-    const base = { weight_kg: Number(previous?.weight_kg || 0), reps: Number(previous?.reps || 10), rpe: previous?.rpe || "", completed: true };
+    // 新动作只建立一组，重量和次数由本次训练单独调整。
+    const base = source.equipment === "有氧" || source.equipment === "恢复"
+      ? { duration_min: Number(previous?.duration_min || 10), distance_km: Number(previous?.distance_km || 0), pace: previous?.pace || "", completed:true }
+      : { weight_kg: Number(previous?.weight_kg || 0), reps: Number(previous?.reps || 10), rpe: previous?.rpe || "", completed:true };
     session.exercises.push({
       id: id("exercise"), exercise_id: source.id, name: source.name, body_part: source.bodyPart,
-      equipment: source.equipment, angle: source.angle || "", sets: [{ ...base }, { ...base }, { ...base }], note: "",
+      equipment: source.equipment, angle: source.angle || "", icon: source.icon || "运", tips: source.tips || "控制动作节奏，保持躯干稳定；重量以动作质量为先。", muscles: source.muscles || source.bodyPart, sets: [{ ...base }], note: "",
     });
     session.updated_at = new Date().toISOString();
     return session;
@@ -54,11 +56,12 @@
 
   function calculateStats(session) {
     const sets = (session?.exercises || []).flatMap(item => item.sets || []).filter(set => set.completed);
+    const strengthSets = sets.filter(set => "reps" in set || "weight_kg" in set);
     return {
       exerciseCount: (session?.exercises || []).length,
       setCount: sets.length,
-      reps: sets.reduce((sum, set) => sum + Number(set.reps || 0), 0),
-      volume: sets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0),
+      reps: strengthSets.reduce((sum, set) => sum + Number(set.reps || 0), 0),
+      volume: strengthSets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0),
     };
   }
 
@@ -79,9 +82,17 @@
     if (index >= 0) records[index] = saved;
     else records.unshift(saved);
     // 补录或修改日期后，历史记录仍按日期倒序展示。
-    records.sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")));
+    sortRecords(records);
     return saved;
   }
 
-  return { catalog, isSession, createSession, previousPerformance, previousSet, addExercise, calculateStats, summary, cloneRecord, upsertSession };
+  function sortRecords(records) {
+    return records.sort((left, right) => {
+      const dateDiff = Date.parse(String(right.date || "")) - Date.parse(String(left.date || ""));
+      if (Number.isFinite(dateDiff) && dateDiff !== 0) return dateDiff;
+      return String(right.updated_at || right.created_at || right.id || "").localeCompare(String(left.updated_at || left.created_at || left.id || ""));
+    });
+  }
+
+  return { catalog, isSession, createSession, previousPerformance, previousSet, addExercise, calculateStats, summary, cloneRecord, upsertSession, sortRecords };
 });

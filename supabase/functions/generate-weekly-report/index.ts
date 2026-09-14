@@ -13,12 +13,12 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 function supabaseApiKey() {
-  const legacy = Deno.env.get("SUPABASE_ANON_KEY");
+  const legacy = Deno.env.get("SUPABASE_ANON_KEY")?.trim();
   if (legacy) return legacy;
   try {
     const keys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "{}");
     const key = keys && typeof keys === "object" ? keys.default || Object.values(keys)[0] : null;
-    if (typeof key === "string" && key) return key;
+    if (typeof key === "string" && key.trim()) return key.trim();
   } catch (_) {
     // 环境变量格式异常时统一返回配置错误。
   }
@@ -124,25 +124,32 @@ function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, un
 }
 
 async function chooseModel(apiKey: string) {
+  const normalizedKey = apiKey.trim();
+  if (!/^[\x21-\x7E]+$/.test(normalizedKey)) throw new Error("AI 密钥格式无效，请检查 Supabase Secret");
   const configured = Deno.env.get("AIXLUV_MODEL");
   if (configured?.trim()) return configured.trim();
-  const response = await fetch("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${apiKey}` } });
+  const response = await fetch("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${normalizedKey}` } });
   if (!response.ok) throw new Error(await providerError(response, `读取 AI 模型失败：${response.status}`));
   const body = await response.json();
   const ids = Array.isArray(body.data)
     ? body.data.map((x: { id?: string }) => x?.id).filter((id: unknown): id is string => typeof id === "string" && id.trim())
     : [];
-  const model = ids.find((id: string) => /gpt|claude|gemini/i.test(id)) || ids[0];
+  // 优先选择已验证可用的通用模型，避免音频/实时模型在文本请求中返回上游流错误。
+  const model = ids.find((id: string) => /^codex-auto-review$/i.test(id))
+    || ids.find((id: string) => /gpt-5|claude|gemini/i.test(id))
+    || ids[0];
   if (!model) throw new Error("AI 服务未返回可用模型，请配置 AIXLUV_MODEL");
   return model;
 }
 
 async function generateWithAI(apiKey: string, model: string, snapshot: unknown) {
+  const normalizedKey = apiKey.trim();
   const response = await fetch("https://api.aixluv.com/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${normalizedKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
+      stream: false,
       temperature: 0.6,
       messages: [
         { role: "system", content: "你是温柔、具体、克制的生活报主编与分析师。只返回合法 JSON，不要 Markdown。输出字段必须是 daily、review、insight、editor_note。daily 是 7 项数组，每项包含 date、title、summary、quote、reminder。review 包含 overview、highlights、unfinished、suggestions。insight 包含 patterns、risks、next_actions。所有结论都必须基于输入数据，不要编造。" },
