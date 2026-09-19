@@ -1518,14 +1518,23 @@ document.getElementById("sync-indicator").onclick=async()=>{
 };
 
 document.getElementById("sync-now").onclick=()=>syncNow();
-async function syncNow(){ await runFullSync({reason:"manual"}); render(); updateAuthUI(); }
+let deferredSyncRender = false;
+function workoutDialogOpen(){ return !!document.querySelector("#workout-dialog[open]"); }
+function renderAfterWorkoutDialog(){
+  if(workoutDialogOpen()){ deferredSyncRender=true; return; }
+  deferredSyncRender=false; render(); updateAuthUI();
+}
+document.addEventListener("close", event=>{
+  if(event.target?.id === "workout-dialog" && deferredSyncRender) renderAfterWorkoutDialog();
+}, true);
+async function syncNow(){ await runFullSync({reason:"manual"}); renderAfterWorkoutDialog(); }
 
-onSyncReady = function(cloudData){ mergeCloudData(cloudData); render(); updateAuthUI(); };
+onSyncReady = function(cloudData){ mergeCloudData(cloudData); renderAfterWorkoutDialog(); };
 onRemoteUpdate = function(change){
   const row=change?.newRow||change?.oldRow;
   const key=row?.module_key && row?.data?.id!=null ? `${row.module_key}:${row.data.id}` : "";
   if(key && pendingSyncRecords.has(key)){ updateAuthUI(); return; }
-  render(); updateAuthUI();
+  renderAfterWorkoutDialog();
 };
 
 // 页面配置完成后再初始化，避免外部同步脚本抢先读取未定义的 CONFIG。
