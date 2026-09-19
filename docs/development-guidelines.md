@@ -2,7 +2,7 @@
 
 ## 技术边界
 
-新功能优先使用 `js/` 下的共享模块和 `css/` 下的样式文件。`workbench-mobile.html` 与 `workbench-desktop.html` 只作为页面入口，避免继续新增内联业务逻辑。
+新功能优先使用 `js/` 下的共享模块和 `css/` 下的样式文件。主题 token 和通用组件以 `css/theme.css`、`css/components.css` 为单一来源。`workbench-mobile.html` 与 `workbench-desktop.html` 只作为页面入口，避免继续新增内联业务逻辑。
 
 ## 目录与命名
 
@@ -18,4 +18,8 @@
 
 ## 验证与提交
 
-提交前运行 `npm run check`、`npm run build`；涉及 Edge Function 时同时验证未登录、匿名账号、上游错误和非法 JSON。新增行为必须补纯函数测试或组件测试。
+提交前运行 `npm run check` 和 `npm test`；当前项目没有 `npm run build` 脚本。涉及 Edge Function 时同时验证未登录、匿名账号、上游错误和非法 JSON。新增行为必须补纯函数测试或组件测试。视觉改动需同步检查 `docs/design-demo.html`、两个 workbench 入口以及 375/390/430px 移动和 1280/1440px 桌面视口。
+
+## 设计回归
+
+修改公共颜色、字体、按钮、表单、空状态或弹窗时，先更新 `docs/design-system.md`，再更新 `docs/design-demo.html`。页面专属差异必须记录为布局覆盖，不能复制一份新的主题变量。

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>猫咪生活报 · Design Demo</title>
+  <link rel="stylesheet" href="../css/theme.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <style>
+    :root { --demo-max: 1120px; }
+    * { box-sizing: border-box; }
+    html { background: var(--page-bg); }
+    body { margin: 0; color: var(--text); font-family: var(--font); line-height: 1.5; background: var(--page-bg); }
+    body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--page-texture) center/cover; opacity: .35; mix-blend-mode: multiply; }
+    .demo-shell { width: min(calc(100% - 32px), var(--demo-max)); margin: 0 auto; padding: 32px 0 64px; }
+    .demo-masthead { display: flex; align-items: end; gap: 20px; padding: 20px 0 16px; border-bottom: 3px double var(--border-input); }
+    .demo-masthead h1 { margin: 0; font-size: clamp(28px, 5vw, 48px); line-height: 1; }
+    .demo-masthead p { margin: 0; color: var(--text-secondary); font: 13px/1.5 var(--font-sans); }
+    .demo-kicker { color: var(--accent); font: 700 11px/1 var(--font-sans); letter-spacing: .12em; text-transform: uppercase; }
+    .demo-section { margin-top: 32px; }
+    .demo-section > h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 20px; }
+    .demo-section > h2::before { content: ""; width: 4px; height: 18px; border-radius: 2px; background: var(--accent); }
+    .demo-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .swatch { min-height: 90px; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-tile); font: 700 12px/1.2 var(--font-sans); }
+    .swatch span { color: currentColor; opacity: .75; font-weight: 500; }
+    .type-sample { padding: 20px; }
+    .type-sample .display { margin: 0; font-size: 34px; line-height: 1.15; }
+    .type-sample .section-title { margin: 12px 0 0; font-size: 20px; }
+    .type-sample .body-copy { margin: 8px 0 0; color: var(--text-secondary); font: 14px/1.6 var(--font-sans); }
+    .button-row, .status-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 18px; }
+    .stepper-demo { display: flex; align-items: center; gap: 8px; }
+    .stepper-demo output { min-width: 42px; text-align: center; font: 700 15px var(--font-sans); }
+    .record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .record-card { padding: 16px; }
+    .record-card header { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+    .record-card h3 { margin: 0; font-size: 18px; }
+    .record-card p { margin: 4px 0 0; color: var(--text-secondary); font: 12px/1.4 var(--font-sans); }
+    .record-card .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+    .metric { padding: 10px; border-radius: var(--radius-control); background: var(--surface-nested); }
+    .metric b, .metric span { display: block; }
+    .metric b { font: 700 20px/1 var(--font-sans); }
+    .metric span { margin-top: 5px; color: var(--text-secondary); font: 11px var(--font-sans); }
+    .demo-modal-backdrop { display: none; position: fixed; inset: 0; z-index: 3; place-items: center; padding: 16px; background: color-mix(in srgb, var(--text) 44%, transparent); backdrop-filter: blur(3px); }
+    .demo-modal-backdrop.is-open { display: grid; }
+    .demo-modal { width: min(100%, 460px); padding: 22px; }
+    .demo-modal header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .demo-modal h3 { margin: 0; font-size: 20px; }
+    .demo-modal p { color: var(--text-secondary); font: 14px/1.6 var(--font-sans); }
+    .demo-footer { margin-top: 42px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-tertiary); font: 12px var(--font-sans); }
+    @media (max-width: 700px) {
+      .demo-shell { width: min(calc(100% - 24px), var(--demo-max)); padding-top: 18px; }
+      .demo-masthead { display: block; }
+      .demo-masthead p { margin-top: 10px; }
+      .demo-grid, .record-grid, .form-grid { grid-template-columns: 1fr 1fr; }
+      .form-grid { padding: 14px; }
+    }
+    @media (max-width: 430px) {
+      .demo-grid, .record-grid, .form-grid { grid-template-columns: 1fr; }
+      .demo-masthead h1 { font-size: 32px; }
+      .type-sample .display { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="demo-shell newsroom-components">
+    <header class="demo-masthead">
+      <div><div class="demo-kicker">Visual baseline · 2026.09</div><h1>猫咪生活报</h1></div>
+      <p>复古报刊 × 个人生活<br>共享主题与组件回归页</p>
+    </header>
+
+    <section class="demo-section" aria-labelledby="colors-title">
+      <h2 id="colors-title">色彩</h2>
+      <div class="demo-grid">
+        <div class="swatch" style="background:var(--page-bg)">Page<span>--page-bg</span></div>
+        <div class="swatch" style="background:var(--surface-card)">Surface<span>--surface-card</span></div>
+        <div class="swatch" style="background:var(--accent);color:var(--on-accent)">Accent<span>--accent</span></div>
+        <div class="swatch" style="background:var(--danger);color:var(--on-accent)">Danger<span>--danger</span></div>
+        <div class="swatch" style="background:var(--module-1);color:#fff">Success<span>--module-1</span></div>
+        <div class="swatch" style="background:var(--module-3);color:#fff">Workout<span>--module-3</span></div>
+        <div class="swatch" style="background:var(--surface-nested)">Nested<span>--surface-nested</span></div>
+        <div class="swatch" style="background:var(--drawer-bg);color:var(--drawer-text)">Drawer<span>--drawer-bg</span></div>
+      </div>
+    </section>
+
+    <section class="demo-section" aria-labelledby="type-title">
+      <h2 id="type-title">字体层级</h2>
+      <article class="shared-card type-sample"><div class="demo-kicker">Headline</div><p class="display">今天也留下值得回看的生活</p><p class="section-title">栏目标题与训练状态</p><p class="body-copy">正文、辅助信息和数字共同组成一页轻量的个人生活报。页面保持温暖、克制，并优先支持扫描和快速记录。</p></article>
+    </section>
+
+    <section class="demo-section" aria-labelledby="controls-title">
+      <h2 id="controls-title">控件与状态</h2>
+      <article class="shared-card" style="padding:18px">
+        <div class="button-row"><button class="shared-btn primary" type="button">开始训练</button><button class="shared-btn" type="button">保存修改</button><button class="shared-btn ghost" type="button">取消</button><button class="shared-btn danger" type="button">删除记录</button><button class="shared-btn" type="button" disabled>处理中…</button><button class="shared-btn" id="open-demo-modal" type="button">打开弹窗</button></div>
+        <div class="status-row" style="margin-top:18px"><span class="shared-status success">✓ 已同步</span><span class="shared-status warning">! 待补记</span><span class="shared-status error">! 同步失败</span></div>
+      </article>
+      <article class="shared-card form-grid" style="margin-top:12px">
+        <label class="shared-field">动作名称<input value="哑铃卧推" aria-label="动作名称"></label>
+        <label class="shared-field">训练日期<input type="date" value="2026-09-19" aria-label="训练日期"></label>
+        <label class="shared-field">训练日<select aria-label="训练日"><option>胸</option><option>腿</option><option>背</option></select></label>
+        <label class="shared-field" style="grid-column:1/-1">备注<textarea rows="2" aria-label="备注">今天状态稳定，最后一组保留余力。</textarea></label>
+        <div class="shared-field"><span>重量 stepper</span><div class="stepper-demo"><button class="shared-btn" type="button" data-step="-2.5" aria-label="减少重量">−</button><output id="weight-output">60 kg</output><button class="shared-btn" type="button" data-step="2.5" aria-label="增加重量">+</button></div></div>
+      </article>
+    </section>
+
+    <section class="demo-section" aria-labelledby="records-title">
+      <h2 id="records-title">训练记录与统计</h2>
+      <div class="record-grid">
+        <article class="shared-card record-card"><header><div><h3>胸 · 训练完成</h3><p>2026-09-19 · 54 分钟</p></div><span class="shared-status success">已完成</span></header><div class="metrics"><div class="metric"><b>3</b><span>动作</span></div><div class="metric"><b>9</b><span>完成组</span></div><div class="metric"><b>1,280</b><span>容量 kg</span></div></div></article>
+        <article class="shared-card record-card"><header><div><h3>下一次从上次开始</h3><p>哑铃卧推 · 上次 60 kg × 8</p></div><span class="shared-status warning">草稿</span></header><div class="metrics"><div class="metric"><b>60</b><span>重量 kg</span></div><div class="metric"><b>8</b><span>次数</span></div><div class="metric"><b>2.5</b><span>步长 kg</span></div></div></article>
+      </div>
+    </section>
+
+    <section class="demo-section" aria-labelledby="empty-title">
+      <h2 id="empty-title">空白、加载与错误</h2>
+      <div class="demo-grid"><div class="shared-empty">还没有训练记录<br><button class="shared-btn primary" type="button" style="margin-top:12px">开始第一练</button></div><div class="shared-empty">正在生成本周生活报…<br><span class="shared-status warning" style="margin-top:12px">请稍候</span></div><div class="shared-empty">同步失败<br><button class="shared-btn danger" type="button" style="margin-top:12px">重试</button></div></div>
+    </section>
+
+    <footer class="demo-footer">该页面只使用固定样例数据，不加载同步、AI 或个人 localStorage。修改公共组件后请重新检查本页和两个 workbench 入口。</footer>
+  </main>
+
+  <div class="demo-modal-backdrop" id="demo-modal" role="presentation"><section class="shared-modal demo-modal" role="dialog" aria-modal="true" aria-labelledby="demo-modal-title"><header><div><div class="demo-kicker">Component state</div><h3 id="demo-modal-title">训练保存确认</h3></div><button class="shared-btn" id="close-demo-modal" type="button" aria-label="关闭弹窗">×</button></header><p>本次训练包含 9 个完成组。保存后会进入训练历史，并沿用现有同步边界。</p><div class="button-row"><button class="shared-btn ghost" id="cancel-demo-modal" type="button">取消</button><button class="shared-btn primary" id="confirm-demo-modal" type="button">确认保存</button></div></section></div>
+  <script>
+    const modal = document.querySelector('#demo-modal');
+    const open = document.querySelector('#open-demo-modal');
+    const close = () => { modal.classList.remove('is-open'); open.focus(); };
+    open.addEventListener('click', () => { modal.classList.add('is-open'); document.querySelector('#close-demo-modal').focus(); });
+    document.querySelector('#close-demo-modal').addEventListener('click', close);
+    document.querySelector('#cancel-demo-modal').addEventListener('click', close);
+    document.querySelector('#confirm-demo-modal').addEventListener('click', close);
+    modal.addEventListener('click', event => { if (event.target === modal) close(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && modal.classList.contains('is-open')) close(); });
+    let weight = 60;
+    document.querySelectorAll('[data-step]').forEach(button => button.addEventListener('click', () => { weight = Math.max(0, weight + Number(button.dataset.step)); document.querySelector('#weight-output').textContent = `${weight} kg`; }));
+  </script>
+</body>
+</html>

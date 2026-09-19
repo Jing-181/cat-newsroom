@@ -1,0 +1,55 @@
+/* Shared component primitives used by both workbenches and docs/design-demo.html. */
+.newsroom-components,
+.newsroom-components * { box-sizing: border-box; }
+
+.shared-btn {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-tile);
+  padding: 0 14px;
+  color: var(--text);
+  background: var(--surface-card);
+  font: 700 14px/1 var(--font-sans);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.shared-btn:hover { border-color: var(--accent); background: var(--accent-muted); }
+.shared-btn:active { transform: translateY(1px); }
+.shared-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.shared-btn.primary { border-color: var(--accent); color: var(--on-accent); background: var(--accent); }
+.shared-btn.danger { border-color: var(--danger); color: var(--on-accent); background: var(--danger); }
+.shared-btn.ghost { color: var(--text-secondary); }
+.shared-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.shared-field { display: grid; gap: 6px; color: var(--text-secondary); font: 600 12px/1.3 var(--font-sans); }
+.shared-field input,
+.shared-field select,
+.shared-field textarea {
+  width: 100%;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-control);
+  padding: 10px 11px;
+  color: var(--text);
+  background: var(--surface-card);
+  font: 14px/1.4 var(--font-sans);
+}
+.shared-field input:focus-visible,
+.shared-field select:focus-visible,
+.shared-field textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.shared-card { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); box-shadow: var(--shadow-card); }
+.shared-empty { padding: 30px 18px; border: 1px dashed var(--border-input); border-radius: var(--radius-tile); color: var(--text-secondary); text-align: center; }
+.shared-modal { border: 1px solid var(--border-input); border-top: 3px double var(--border-input); border-radius: var(--radius-sheet); background: var(--surface-card); box-shadow: var(--shadow-overlay); }
+.shared-status { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 9px; color: var(--text-secondary); background: var(--surface-nested); font: 700 11px/1 var(--font-sans); }
+.shared-status.success { color: var(--module-1); background: color-mix(in srgb, var(--module-1) 14%, var(--surface-card)); }
+.shared-status.warning { color: var(--module-4); background: color-mix(in srgb, var(--module-4) 14%, var(--surface-card)); }
+.shared-status.error { color: var(--danger); background: var(--danger-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-btn { transition: none; }
+  .shared-btn:active { transform: none; }
+}

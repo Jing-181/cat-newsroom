@@ -1,0 +1,41 @@
+/* 猫咪生活报 shared theme tokens. Keep public values here; page files only own layout overrides. */
+:root {
+  --page-bg: #f3ecd9;
+  --surface-card: #faf3e3;
+  --surface-nested: #ede4cc;
+  --border: #ddd0b4;
+  --border-input: #c9b896;
+  --text: #5a4a38;
+  --text-secondary: #8a7560;
+  --text-tertiary: #b09880;
+  --accent: #c47128;
+  --accent-muted: #f5e8cf;
+  --on-accent: #faf3e3;
+  --module-1: #5c7a3e;
+  --module-2: #c47128;
+  --module-3: #b89030;
+  --module-4: #8b6839;
+  --module-5: #4a6b5c;
+  --danger: #b8482e;
+  --danger-muted: #f0dccd;
+  --drawer-bg: #3a2e20;
+  --drawer-bg-top: #4a3a28;
+  --drawer-text: #f0e8d5;
+  --drawer-text-mute: rgba(240,232,213,.55);
+  --drawer-hover: rgba(240,232,213,.1);
+  --drawer-active: rgba(240,232,213,.09);
+  --greet-image: url("../assets/greet-banner.jpg");
+  --page-texture: url("../assets/paper-texture.jpg");
+  --radius-control: 6px;
+  --radius-tile: 10px;
+  --radius-card: 14px;
+  --radius-sheet: 20px;
+  --shadow-card: 0 1px 2px rgba(90,74,56,.05), 0 3px 14px rgba(90,74,56,.06);
+  --shadow-overlay: 0 8px 24px rgba(90,74,56,.14);
+  --font: Georgia, "Songti SC", "STSong", "PingFang SC", serif;
+  --font-sans: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+/* Layout tokens deliberately stay local to each entry. */
+.desktop-shell { --sidebar-w: 260px; --drawer-hover: rgba(240,232,213,.08); --drawer-active: rgba(240,232,213,.12); }
+.mobile-shell { --nav-h: 62px; }

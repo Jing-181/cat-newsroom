@@ -10,6 +10,21 @@
     return !matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
+  function localDateKey() {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function loadPlan() {
+    return root.WorkoutPlan?.load?.() || readJson("cat-newsroom-weekly-workout-plan-v1");
+  }
+
+  function planHtml(plan, title = "六天训练建议") {
+    const days = (plan?.days || []).map(day => `<p><strong>第${day.day_index}天 ${day.title || "训练"}</strong><br>${(day.exercises || []).map(item => `${item.name} ${item.sets || 0}组 × ${item.reps || 0}`).join("；") || "恢复或自由安排"}</p>`).join("");
+    const meta = root.WorkoutPlan?.formatMeta?.(plan) || "已保存计划";
+    return `<div class="dialog-head"><div><span class="dialog-kicker">训练计划</span><h3>${title}</h3><p class="dialog-sub">${meta}${plan?.start_date ? ` · 从 ${plan.start_date} 开始` : ""}</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>${days || "<p>计划没有可展示的训练日。</p>"}`;
+  }
+
   function mount(container, options) {
     if (!container || !root.Workout || !root.WorkoutCatalog || !root.WorkoutView) return null;
     const records = options.records || [];
@@ -175,14 +190,31 @@
 
     function wire() {
       container.querySelector("#workout-plan-menu")?.addEventListener("click", event => { const actions=container.querySelector(".workout-plan-actions"); if(actions){ actions.hidden=!actions.hidden; event.currentTarget.setAttribute("aria-expanded", String(!actions.hidden)); } });
-      container.querySelector("#workout-plan-view")?.addEventListener("click", () => { const saved=readJson("cat-newsroom-workout-plan-v1") || readJson("cat-newsroom-weekly-workout-plan-v1"); if(!saved) return root.AppDialog.alert("还没有已保存的训练计划，请先生成。", {title:"暂无计划"}); const plan=saved.plan||saved; openDialog(`<div class="dialog-head"><div><span class="dialog-kicker">训练计划</span><h3>最近两轮 · 六天安排</h3></div><button type="button" class="icon-action" data-dialog-close>×</button></div>${(plan.days||[]).map(day=>`<p><strong>第${day.day_index}天 ${day.title||""}</strong><br>${(day.exercises||[]).map(item=>`${item.name} ${item.sets}组 × ${item.reps}`).join("；")}</p>`).join("")}`); });
+      container.querySelector("#workout-plan-view")?.addEventListener("click", () => { const plan=loadPlan(); if(!plan) return root.AppDialog.alert("还没有已保存的训练计划，请先生成。", {title:"暂无计划"}); openDialog(planHtml(plan, "已保存的六天安排")); });
       container.querySelector("#workout-preferences")?.addEventListener("click", () => {
         const saved = readJson("cat-newsroom-workout-preferences-v1") || { goal:"hypertrophy", split:"three_day", days_per_week:3, session_minutes:60, notes:"" };
         const dialog = openDialog(`<form class="workout-preferences" id="workout-preferences-form"><h3>运动偏好</h3><label>目标<select name="goal"><option value="hypertrophy">增肌</option><option value="strength">力量</option><option value="fat_loss">减脂</option><option value="maintenance">维持</option></select></label><label>分化<select name="split"><option value="three_day">三分化</option><option value="upper_lower">上下肢</option><option value="full_body">全身</option></select></label><label>每周训练次数<input name="days_per_week" type="number" min="1" max="7"></label><label>单次时长<input name="session_minutes" type="number" min="15" max="240"></label><label>补充说明<textarea name="notes" maxlength="500"></textarea></label><button class="workout-btn primary" type="submit">保存</button></form>`);
         const form = dialog.querySelector("form"); Object.entries(saved).forEach(([key,value]) => { if (form.elements[key]) form.elements[key].value = value; });
         form.addEventListener("submit", event => { event.preventDefault(); localStorage.setItem("cat-newsroom-workout-preferences-v1", JSON.stringify(Object.fromEntries(new FormData(form)))); dialog.close(); });
       });
-      container.querySelector("#workout-plan")?.addEventListener("click", async event => { const button=event.currentTarget; button.disabled=true; button.textContent="生成中…"; try { const preferences=readJson("cat-newsroom-workout-preferences-v1")||{}; const result=await root.generateWorkoutPlan({ preferences, recent_workouts:records.slice(0,12), days:6, start_date:new Date().toISOString().slice(0,10), timezone:Intl.DateTimeFormat().resolvedOptions().timeZone }); localStorage.setItem("cat-newsroom-workout-plan-v1", JSON.stringify(result.plan||{})); openDialog(`<h3>六天训练建议</h3>${(result.plan?.days||[]).map(day=>`<p><strong>第${day.day_index}天 ${day.title||""}</strong><br>${(day.exercises||[]).map(item=>`${item.name} ${item.sets}组 × ${item.reps}`).join("；")}</p>`).join("")||"暂无计划"}`); } catch(error) { root.AppDialog.alert(error.message||"训练计划生成失败", {title:"生成失败"}); } finally { button.disabled=false; button.textContent="生成六天计划"; } });
+      container.querySelector("#workout-plan")?.addEventListener("click", async event => {
+        const button = event.currentTarget;
+        const existing = loadPlan();
+        if (existing && !(await root.AppDialog.confirm("已有一份训练计划。重新生成会覆盖它，是否继续？", { title:"覆盖训练计划", danger:true, okText:"重新生成" }))) return;
+        button.disabled = true; button.textContent = "生成中…";
+        try {
+          const preferences = readJson("cat-newsroom-workout-preferences-v1") || {};
+          const recentWorkouts = records.filter(record => root.Workout.isSession(record) && record.status !== "draft" && !record.deleted_at).slice(0, 12);
+          const startDate = localDateKey();
+          const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const result = await root.generateWorkoutPlan({ preferences, recent_workouts: recentWorkouts, days: 6, start_date: startDate, timezone });
+          const plan = root.WorkoutPlan.normalize(result, { preferences, start_date: startDate, timezone });
+          root.WorkoutPlan.save(plan);
+          openDialog(planHtml(plan));
+        } catch (error) {
+          root.AppDialog.alert(error.message || "训练计划生成失败", { title: "生成失败" });
+        } finally { button.disabled = false; button.textContent = "生成六天计划"; }
+      });
       container.querySelectorAll("[data-day]").forEach(button => button.addEventListener("click", () => {
         selectedDay = button.dataset.day;
         localStorage.setItem(DAY_KEY, selectedDay);
