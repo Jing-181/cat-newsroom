@@ -36,3 +36,13 @@ test("周报不会在页面初始化时自动请求或重绘运动页面", () =>
     assert.match(html, /weeklyReportTimer/);
   }
 });
+
+test("两端提供本地备份入口并监听同源标签页数据变化", () => {
+  for (const file of ["workbench-desktop.html", "workbench-mobile.html"]) {
+    const html = read(file);
+    assert.match(html, /js\/data-backup\.js/);
+    assert.match(html, /id="backup-export"/);
+    assert.match(html, /id="backup-import"/);
+    assert.match(html, /addEventListener\("storage"/);
+  }
+});

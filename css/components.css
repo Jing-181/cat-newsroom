@@ -49,6 +49,9 @@
 .shared-status.warning { color: var(--module-4); background: color-mix(in srgb, var(--module-4) 14%, var(--surface-card)); }
 .shared-status.error { color: var(--danger); background: var(--danger-muted); }
 
+.backup-actions { display: flex; gap: 6px; }
+.backup-actions .sync-now { flex: 1; }
+
 @media (prefers-reduced-motion: reduce) {
   .shared-btn { transition: none; }
   .shared-btn:active { transform: none; }

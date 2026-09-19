@@ -68,6 +68,10 @@ npm run check
 
 普通业务操作、自动重试和 Realtime 事件不会触发全量回拉。失败操作保存在 `cat-newsroom-sync-outbox-v1`，恢复连接后只重试对应单项操作。完整训练 Session 作为一条 JSONB 记录原子 upsert。
 
+### 本地备份与恢复
+
+同步区提供“导出备份”和“导入备份”。备份是版本化 JSON 文件，包含当前浏览器的业务记录、头像和番茄统计；导入前会校验格式并确认覆盖本地数据。导入只修改当前浏览器的 `cat-newsroom-data-v2`，不会自动写入 Supabase，确认内容无误后再使用“立即同步”。同源的其他标签页会通过 `storage` 事件刷新本地视图。
+
 ## Supabase 配置
 
 1. 创建 Supabase 项目。
@@ -119,6 +123,7 @@ supabase functions deploy generate-weekly-report
 | `js/workout-view.js` | 训练编辑器、历史卡片与详情弹窗视图 |
 | `css/workout-ui.css` | 训练模块两端响应式样式与轻量动效 |
 | `js/workbench-core.js` | 本地记录和元数据保存入口 |
+| `js/data-backup.js` | 本地数据备份快照、校验、导入和导出 |
 | `js/record-media.js` | 记录默认配图、图片 URL 回退和图库选择 |
 | `js/sync-core.js` | 全量合并、Realtime 应用和 outbox 去重 |
 | `supabase-sync.js` | Supabase 认证、原子同步和手动/初始化全量同步 |

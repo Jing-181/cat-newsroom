@@ -479,6 +479,8 @@
     <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
     <span class="sync-user-email" id="syncEmail"></span>
     <button class="sync-now" id="sync-now" type="button">立即同步</button>
+    <div class="backup-actions"><button class="sync-now" id="backup-export" type="button">导出备份</button><button class="sync-now" id="backup-import" type="button">导入备份</button></div>
+    <input id="backup-input" type="file" accept="application/json,.json" hidden>
   </div>
   <div class="dsep"></div>
   <div class="dfoot" id="drawerFoot">猫咪编辑部 · 云端同步版</div>
@@ -486,6 +488,7 @@
 
 <script src="js/device-mode.js"></script>
 <script src="js/workbench-core.js"></script>
+<script src="js/data-backup.js"></script>
 <script src="js/sync-core.js"></script>
 <script src="js/app-dialog.js"></script>
 <script src="js/pomodoro.js"></script>
@@ -707,6 +710,16 @@ function persist(moduleKey, record, { render: shouldRender = true } = {}){
   }
   if(shouldRender) render();
 }
+window.addEventListener("storage", event => {
+  if(event.key !== CONFIG.storageKey || !event.newValue) return;
+  try {
+    const next = JSON.parse(event.newValue);
+    if(!next || typeof next !== "object" || Array.isArray(next)) return;
+    data = next;
+    if(typeof renderAfterWorkoutDialog === "function") renderAfterWorkoutDialog();
+    else render();
+  } catch (_) { /* Ignore malformed cross-tab values and keep the current view. */ }
+});
 function updateCalendarCell(item, date, color){
   const cell=[...document.querySelectorAll(".cal-cell[data-date]")].find(el=>el.dataset.date===date);
   if(!cell) return;
@@ -1487,6 +1500,16 @@ document.getElementById("sync-indicator").onclick=async()=>{
 };
 
 document.getElementById("sync-now").onclick=()=>syncNow();
+DataBackup.mount({
+  exportButton: document.getElementById("backup-export"),
+  importButton: document.getElementById("backup-import"),
+  input: document.getElementById("backup-input"),
+  getData: () => data,
+  setData: next => { data = next; store.save(); render(); updateAuthUI(); },
+  storageKey: CONFIG.storageKey,
+  moduleKeys: CONFIG.modules.map(module => module.key),
+  confirm: message => AppDialog.confirm(message, { title: "导入本地备份", danger: true, okText: "覆盖本地数据" }),
+});
 let deferredSyncRender = false;
 function workoutDialogOpen(){ return !!document.querySelector("#workout-dialog[open]"); }
 function renderAfterWorkoutDialog(){
