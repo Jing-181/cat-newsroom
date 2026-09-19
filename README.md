@@ -39,9 +39,11 @@ python3 -m http.server 8765
 ```bash
 npm test
 npm run check
+npm run build:vue
 ```
 
 `npm test` 执行设备模式、番茄钟、训练模型和同步核心测试；`npm run check` 额外检查同步脚本语法。
+`npm run dev:vue` 和 `npm run build:vue` 用于并行 Vue 迁移入口；迁移完成前不会替换默认 `index.html`。
 
 ## 端模式与数据互通
 

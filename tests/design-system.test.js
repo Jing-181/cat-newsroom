@@ -34,6 +34,7 @@ test("周报不会在页面初始化时自动请求或重绘运动页面", () =>
     assert.doesNotMatch(html, /if\(user\s*&&\s*!user\.is_anonymous\)\s*maybeGenerateWeeklyReport\(false\)/);
     assert.match(html, /function refreshWeeklyReportSlot\(\)/);
     assert.match(html, /weeklyReportTimer/);
+    assert.match(html, /id=["']report-login["']/);
   }
 });
 

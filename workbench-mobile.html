@@ -628,7 +628,7 @@ const $ = s => document.querySelector(s);
 function weeklyReportTileHTML(){
   if(weeklyReportLoading || weeklyReportWaiting) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">正在生成，完成后会自动显示…</div></div>';
   if(weeklyReportError) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">'+esc(weeklyReportError)+'</div><div class="report-actions"><button class="primary" id="report-generate">重新生成</button></div></div>';
-  if(!weeklyReport) return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">登录正式账号后生成本周生活报。</div><div class="report-actions"><button class="primary" id="report-generate">生成本周生活报</button></div></div>';
+  if(!weeklyReport) { const user = getCurrentUser(); return '<div class="report-card"><h3>本周生活报</h3><div class="report-text">'+(user?.is_anonymous || !user ? '登录正式账号后生成本周生活报。' : '准备好了，可以生成本周生活报。')+'</div><div class="report-actions">'+(user?.is_anonymous || !user ? '<button class="primary" id="report-login">登录账号</button>' : '<button class="primary" id="report-generate">生成本周生活报</button>')+'</div></div>'; }
   const days=(weeklyReport.daily||[]).map(function(day){ return '<details class="report-day"><summary>'+esc(day.date||'本日')+' · '+esc(day.title||'生活记录')+'</summary><div class="report-text">'+esc(day.summary||'')+' '+esc(day.quote||'')+'</div></details>'; }).join('');
   const review=weeklyReport.review||{};
   const insight=weeklyReport.insight||{};
@@ -644,6 +644,7 @@ function refreshWeeklyReportSlot(){
   slot.innerHTML = weeklyReportTileHTML();
   const reportButton = slot.querySelector("#report-generate, #report-refresh");
   if(reportButton) reportButton.onclick = () => maybeGenerateWeeklyReport(true);
+  slot.querySelector("#report-login")?.addEventListener("click", () => openAuthModal("login"));
   slot.querySelector("#report-export-md")?.addEventListener("click", () => exportWeeklyReport("md"));
   slot.querySelector("#report-export-json")?.addEventListener("click", () => exportWeeklyReport("json"));
 }
