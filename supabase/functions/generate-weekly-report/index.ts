@@ -128,7 +128,7 @@ async function chooseModel(apiKey: string) {
   if (!/^[\x21-\x7E]+$/.test(normalizedKey)) throw new Error("AI 密钥格式无效，请检查 Supabase Secret");
   const configured = Deno.env.get("AIXLUV_MODEL");
   if (configured?.trim()) return configured.trim();
-  const response = await fetch("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${normalizedKey}` } });
+  const response = await fetchWithTimeout("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${normalizedKey}` } }, 15000);
   if (!response.ok) throw new Error(await providerError(response, `读取 AI 模型失败：${response.status}`));
   const body = await response.json();
   const ids = Array.isArray(body.data)
@@ -144,7 +144,7 @@ async function chooseModel(apiKey: string) {
 
 async function generateWithAI(apiKey: string, model: string, snapshot: unknown) {
   const normalizedKey = apiKey.trim();
-  const response = await fetch("https://api.aixluv.com/v1/chat/completions", {
+  const response = await fetchWithTimeout("https://api.aixluv.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${normalizedKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -156,7 +156,7 @@ async function generateWithAI(apiKey: string, model: string, snapshot: unknown) 
         { role: "user", content: `请根据以下本周数据生成七日生活报、周复盘和分析洞察。不要编造数据；没有数据的日期写成轻量的鼓励。数据：${JSON.stringify(snapshot)}` },
       ],
     }),
-  });
+  }, 60000);
   if (!response.ok) throw new Error(await providerError(response, `AI 请求失败：${response.status}`));
   const body = await response.json();
   const rawContent = body.choices?.[0]?.message?.content;
@@ -179,6 +179,19 @@ async function generateWithAI(apiKey: string, model: string, snapshot: unknown) 
   parsed.daily ||= [];
   parsed.editor_note ||= parsed.review.overview || "";
   return parsed;
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("AI 服务请求超时，请检查上游服务或稍后重试");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 Deno.serve(async (request) => {

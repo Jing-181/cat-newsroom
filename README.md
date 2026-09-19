@@ -21,6 +21,7 @@
 - [设计规范](docs/design-system.md)：主题 token、组件状态和双端规则。
 - [设计演示页](docs/design-demo.html)：共享 CSS 的视觉回归入口，可直接在浏览器打开。
 - [任务表](docs/任务表.md)：当前批次、原任务处理策略和后续队列。
+- [前端架构迁移计划](docs/frontend-migration-plan.md)：Vue 组件化、服务层拆分、今日头版和运动计划的执行顺序。
 
 ## 本地运行
 

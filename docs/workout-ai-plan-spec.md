@@ -2,6 +2,8 @@
 
 训练计划接口为 `POST /functions/v1/generate-workout-plan`，接收 `preferences`、`recent_workouts`、`days`、`start_date` 和 `timezone`，返回最多六天的建议动作。近期数据仅取已完成、未删除的最近 12 次训练。前端将结果保存为 `cat-newsroom-workout-plan-v1` 的版本化记录，包含生成时间、起始日期、时区和偏好；重新生成前必须确认覆盖。
 
+后续重做按“训练前选计划、训练中逐组记录”设计：AI 返回的是可编辑建议，用户选择某一天后才创建训练草稿；草稿和最终 `workout_session` 分开保存，计划生成失败不得清空旧计划或当前草稿。
+
 周报和训练计划是两条独立请求链。周报不会在页面初始化或登录恢复时自动生成，只能由用户主动点击周报按钮触发；请求状态不得调用全局页面 `render()`，避免销毁运动编辑器和动作选择弹窗。
 
 偏好使用 `workout_preferences` 版本 1 对象保存于 `workbench_meta`。计划只作为草稿来源，用户必须确认并自行调整重量、次数和 RPE。

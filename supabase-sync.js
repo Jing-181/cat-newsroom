@@ -357,21 +357,18 @@ async function uploadCardImage(file, options = {}) {
 
 async function generateWeeklyReport(options = {}) {
   if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成 AI 生活报");
-  let response;
   try {
     // 会话刷新也可能构造请求头，统一转换浏览器的 ByteString 异常。
     const rawToken = await getAccessToken();
     if (!rawToken) throw new Error("登录状态已过期，请重新登录");
     const token = normalizeHeaderValue(rawToken, "登录令牌");
     const apiKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
-    const headers = new Headers();
-    headers.set("apikey", apiKey);
-    headers.set("Authorization", `Bearer ${token}`);
-    headers.set("Content-Type", "application/json");
-    response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/${SUPABASE_CONFIG.reportFunction}`, {
-      method: "POST",
+    const headers = { apikey: apiKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+    return await ApiClient.requestJson({
+      url: `${SUPABASE_CONFIG.url}/functions/v1/${SUPABASE_CONFIG.reportFunction}`,
       headers,
-      body: JSON.stringify({ week_start: localWeekStartKey(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...options }),
+      body: { week_start: localWeekStartKey(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...options },
+      timeoutMs: 50000,
     });
   } catch (error) {
     if (/ByteString|invalid character/i.test(String(error?.message || error))) {
@@ -379,19 +376,13 @@ async function generateWeeklyReport(options = {}) {
     }
     throw error;
   }
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "AI 生活报生成失败");
-  return payload;
 }
 
 async function generateWorkoutPlan(options = {}) {
   if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成训练计划");
   const token = normalizeHeaderValue(await getAccessToken(), "登录令牌");
-  const headers = new Headers({ apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" });
-  const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/generate-workout-plan`, { method:"POST", headers, body:JSON.stringify(options) });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "训练计划生成失败");
-  return payload;
+  const headers = { apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-workout-plan`, headers, body: options, timeoutMs: 50000 });
 }
 
 function updateSyncIndicator() {
