@@ -132,7 +132,7 @@ function mergeDataWithCloud(cloudData) {
   return { added: Math.max(0, after - before), conflicts: 0 };
 }
 
-function replaceLocalWithCloud(cloudData) {
+function replaceLocalWithCloud(cloudData, pendingOperations = []) {
   const local = getLocalData();
   if (!local || !cloudData || typeof CONFIG === "undefined") return;
   CONFIG.modules.forEach(module => { local[module.key] = Array.isArray(cloudData[module.key]) ? cloudData[module.key] : []; });
@@ -143,6 +143,7 @@ function replaceLocalWithCloud(cloudData) {
     if (Object.prototype.hasOwnProperty.call(cloudData, key)) local[key] = cloudData[key];
     else delete local[key];
   });
+  SyncCore.applyPending(local, pendingOperations);
   localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
 }
 
@@ -154,10 +155,11 @@ async function runFullSync(options = {}) {
   if (reason === "page_init") pageInitSyncDone = true;
   try {
     await processOutbox();
+    const pendingOperations = readOutbox();
     const cloudData = await fetchAllCloudData();
     if (!cloudData) return null;
     if (currentUser.is_anonymous) mergeDataWithCloud(cloudData);
-    else replaceLocalWithCloud(cloudData);
+    else replaceLocalWithCloud(cloudData, pendingOperations);
     lastSyncAt = isoNow(); syncStatus = "online"; updateSyncIndicator();
     if (onSyncReady) onSyncReady(cloudData);
     return cloudData;

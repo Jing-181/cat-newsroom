@@ -21,3 +21,25 @@ test("outbox 对同一实体保留最后一次原子操作", () => {
   assert.equal(outbox.length, 1);
   assert.equal(outbox[0].record.title, "b");
 });
+
+test("全量覆盖后保留尚未上传的本地记录和删除", () => {
+  const local = { todo: [{ id: "1", title: "云端旧值" }, { id: "2", title: "待删除" }] };
+  sync.applyPending(local, [
+    { type: "record", moduleKey: "todo", record: { id: "1", title: "本地新值" } },
+    { type: "delete", moduleKey: "todo", recordId: "2" },
+    { type: "record", moduleKey: "todo", record: { id: "3", title: "本地新增" } },
+  ]);
+  assert.deepEqual(local.todo.map(item => item.id).sort(), ["1", "3"]);
+  assert.equal(local.todo.find(item => item.id === "1").title, "本地新值");
+  assert.equal(local.todo.find(item => item.id === "3").title, "本地新增");
+});
+
+test("全量覆盖后保留尚未上传的元数据", () => {
+  const local = { __avatar: "旧头像", __pomo: { count: 1, min: 25 } };
+  sync.applyPending(local, [
+    { type: "meta", field: "__avatar", value: "本地头像" },
+    { type: "meta", field: "__pomo", value: { count: 2, min: 50 } },
+  ]);
+  assert.equal(local.__avatar, "本地头像");
+  assert.deepEqual(local.__pomo, { count: 2, min: 50 });
+});

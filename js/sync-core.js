@@ -61,6 +61,27 @@
     return next;
   }
 
+  function applyPending(local, outbox) {
+    (outbox || []).forEach(operation => {
+      if (operation.type === "record" && operation.moduleKey && operation.record) {
+        const list = Array.isArray(local[operation.moduleKey]) ? local[operation.moduleKey] : (local[operation.moduleKey] = []);
+        const index = list.findIndex(item => String(item.id) === String(operation.record.id));
+        if (index >= 0) list[index] = operation.record;
+        else list.unshift(operation.record);
+      }
+      if (operation.type === "delete" && operation.moduleKey) {
+        const list = Array.isArray(local[operation.moduleKey]) ? local[operation.moduleKey] : [];
+        local[operation.moduleKey] = list.filter(item => String(item.id) !== String(operation.recordId));
+      }
+      if (operation.type === "meta") {
+        const fieldMap = { __avatar: "__avatar", __pomo: "__pomo", __trend: "__trend" };
+        const field = fieldMap[operation.field];
+        if (field) local[field] = operation.value;
+      }
+    });
+    return local;
+  }
+
   function entityKey(operation) {
     if (operation.type === "meta") return `meta:${operation.field}`;
     return `record:${operation.moduleKey}:${operation.recordId || operation.record?.id}`;
@@ -73,5 +94,5 @@
     return filtered;
   }
 
-  return { applyRecord, applyMeta, applyRealtime, mergeFull, entityKey, enqueue };
+  return { applyRecord, applyMeta, applyRealtime, mergeFull, applyPending, entityKey, enqueue };
 });
