@@ -1,5 +1,7 @@
 # AI 训练计划规范
 
+> 更新（2026-09-20）：计划生成主路径已改为本地规则引擎（`WorkoutPlan.generatePlan`），生成原理见 [训练计划生成原理 v1](./workout-plan-generation-principles.md)。AI Edge Function `generate-workout-plan` 保留但不作为默认入口。
+
 训练计划接口为 `POST /functions/v1/generate-workout-plan`，接收 `preferences`、`recent_workouts`、`days`、`start_date` 和 `timezone`，返回最多六天的建议动作。近期数据仅取已完成、未删除的最近 12 次训练。前端将结果保存为 `cat-newsroom-workout-plan-v1` 的版本化记录，包含生成时间、起始日期、时区和偏好；重新生成前必须确认覆盖。
 
 后续重做按“训练前选计划、训练中逐组记录”设计：AI 返回的是可编辑建议，用户选择某一天后才创建训练草稿；草稿和最终 `workout_session` 分开保存，计划生成失败不得清空旧计划或当前草稿。

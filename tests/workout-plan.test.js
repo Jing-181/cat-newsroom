@@ -1,29 +1,107 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const workoutPlan = require("../js/workout-plan.js");
+const plan = require("../js/workout-plan.js");
+const workout = require("../js/workout.js");
 
-test("训练计划统一保存为最多六天的版本化记录", () => {
-  const result = workoutPlan.normalize({ plan: { days: [
-    { day_index: 9, title: "胸", exercises: [{ name: "卧推" }] },
-    { title: "背", exercises: [] },
-    { title: "腿", exercises: [] },
-    { title: "肩", exercises: [] },
-    { title: "手臂", exercises: [] },
-    { title: "恢复", exercises: [] },
-    { title: "多余", exercises: [] },
-  ] } }, { start_date: "2026-09-19", timezone: "Asia/Shanghai", preferences: { days_per_week: 3 } });
-  assert.equal(result.schema_version, 1);
-  assert.equal(result.kind, "workout_plan");
+function fakeStorage() {
+  const map = new Map();
+  return {
+    getItem: k => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => map.set(k, String(v)),
+    removeItem: k => map.delete(k),
+  };
+}
+
+function completedSession(date, entries) {
+  const session = workout.createSession("chest", new Date(date));
+  session.status = "completed";
+  session.exercises = entries.map(([exerciseId, sets]) => ({
+    id: `ex-${exerciseId}`, exercise_id: exerciseId, name: exerciseId,
+    body_part: "胸", equipment: "杠铃", sets,
+  }));
+  return session;
+}
+
+test("生成 2 轮 × 3 天 PPL 结构", () => {
+  const result = plan.generatePlan({ preferences: { goal: "hypertrophy" }, records: [] });
   assert.equal(result.days.length, 6);
-  assert.equal(result.days[0].day_index, 9);
-  assert.equal(result.days[1].day_index, 2);
-  assert.equal(result.start_date, "2026-09-19");
+  const splits = result.days.map(d => d.split_day);
+  assert.deepEqual(splits, ["push", "pull", "legs", "push", "pull", "legs"]);
+  assert.deepEqual(result.days.map(d => d.round), [1, 1, 1, 2, 2, 2]);
+  assert.deepEqual(result.days.map(d => d.training_day), ["chest", "back", "legs", "chest", "back", "legs"]);
+  assert.equal(result.days[0].title, "推日 · 第 1 轮");
+  assert.equal(result.days[3].title, "推日 · 第 2 轮");
 });
 
-test("训练计划可从隔离存储保存和读取", () => {
-  const storage = { values: new Map(), getItem(key) { return this.values.get(key) || null; }, setItem(key, value) { this.values.set(key, value); } };
-  const plan = workoutPlan.normalize({ days: [{ title: "胸", exercises: [] }] });
-  assert.equal(workoutPlan.save(plan, storage), true);
-  assert.deepEqual(workoutPlan.load(storage), plan);
-  assert.equal(workoutPlan.isValid(workoutPlan.load(storage)), true);
+test("每天 4 复合 + 2 孤立，第 2 轮复合相同、孤立替换", () => {
+  const result = plan.generatePlan({ preferences: { goal: "hypertrophy" }, records: [] });
+  for (const day of result.days) {
+    assert.equal(day.exercises.length, 6);
+  }
+  const first = result.days[0], second = result.days[3];
+  const firstCompounds = first.exercises.slice(0, 4).map(e => e.exercise_id);
+  const secondCompounds = second.exercises.slice(0, 4).map(e => e.exercise_id);
+  assert.deepEqual(secondCompounds, firstCompounds);
+  const firstIsolation = first.exercises.slice(4).map(e => e.exercise_id);
+  const secondIsolation = second.exercises.slice(4).map(e => e.exercise_id);
+  assert.ok(secondIsolation.some(id => !firstIsolation.includes(id)), "第 2 轮孤立应有替换");
+  assert.ok(first.exercises.every(e => e.sets === 4 || e.sets === 3));
+});
+
+test("动作名从目录补齐且顺序为 1..6", () => {
+  const result = plan.generatePlan({ preferences: {}, records: [] });
+  for (const day of result.days) {
+    day.exercises.forEach((e, index) => {
+      assert.ok(e.name.length > 0, `${e.exercise_id} 应有动作名`);
+      assert.equal(e.order, index + 1);
+    });
+  }
+});
+
+test("全部完成且 RPE≤8 → 建议 +2.5kg", () => {
+  const records = [completedSession("2026-09-10", [["barbell_bench_press", [
+    { weight_kg: 50, reps: 10, rpe: 8, completed: true },
+    { weight_kg: 50, reps: 9, rpe: 7, completed: true },
+  ]]])];
+  const result = plan.generatePlan({ preferences: {}, records });
+  const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
+  assert.equal(bench.weight_kg, 52.5);
+});
+
+test("存在未完成组或 RPE≥9 → 维持上次重量", () => {
+  const records = [completedSession("2026-09-10", [["barbell_bench_press", [
+    { weight_kg: 50, reps: 10, rpe: 8, completed: true },
+    { weight_kg: 50, reps: 6, rpe: 9, completed: false },
+  ]]])];
+  const result = plan.generatePlan({ preferences: {}, records });
+  const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
+  assert.equal(bench.weight_kg, 50);
+});
+
+test("无历史 → 建议重量为空", () => {
+  const result = plan.generatePlan({ preferences: {}, records: [] });
+  assert.equal(result.days[0].exercises[0].weight_kg, null);
+});
+
+test("保存与读取完成进度", () => {
+  const storage = fakeStorage();
+  const saved = plan.saveProgress({ plan_generated_at: "2026-09-20T00:00:00.000Z", day_index: 1, session_id: "workout-1", date: "2026-09-20" }, storage);
+  assert.equal(saved, true);
+  const progress = plan.loadProgress(storage);
+  assert.equal(progress.plan_generated_at, "2026-09-20T00:00:00.000Z");
+  assert.deepEqual(progress.days["1"], { session_id: "workout-1", date: "2026-09-20", saved_at: progress.days["1"].saved_at });
+});
+
+test("计划版本不匹配时进度视为无效", () => {
+  const storage = fakeStorage();
+  plan.saveProgress({ plan_generated_at: "old", day_index: 1, session_id: "workout-1", date: "2026-09-20" }, storage);
+  assert.equal(plan.isProgressValid(plan.loadProgress(storage), "new"), false);
+  assert.equal(plan.isProgressValid(plan.loadProgress(storage), "old"), true);
+});
+
+test("清除进度", () => {
+  const storage = fakeStorage();
+  plan.saveProgress({ plan_generated_at: "old", day_index: 1, session_id: "w", date: "2026-09-20" }, storage);
+  plan.clearProgress(storage);
+  assert.equal(plan.loadProgress(storage), null);
 });
