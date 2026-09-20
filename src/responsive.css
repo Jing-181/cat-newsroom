@@ -2,13 +2,15 @@
    响应式外壳：PC 侧栏常驻，≤820px 切换为「顶栏 + 底部导航 + 抽屉」
    同时废弃 DeviceMode 双 HTML 跳转，改为纯样式切换
    ============================================================ */
-body { min-width: 0; }
 .main > * { max-width: 1180px; }
 
 /* 移动元素默认隐藏，窄屏显示 */
 .m-topbar, .m-tabs, .m-scrim { display: none; }
 
 @media (max-width: 820px) {
+  /* 覆盖 desktop.css 的 min-width:1000px，禁止横向滚动 */
+  html, body { min-width: 0; overflow-x: hidden; }
+  .layout { overflow-x: hidden; }
   /* 顶栏 */
   .m-topbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 40;
     padding: 10px 14px; background: linear-gradient(180deg, var(--drawer-bg-top), var(--drawer-bg)); color: var(--drawer-text); }
@@ -79,4 +81,11 @@ body { min-width: 0; }
 
   /* 周报操作区可换行 */
   .report-actions { flex-wrap: wrap; }
+
+  /* 弹窗窄屏适配 */
+  .auth-modal { width: 100%; max-width: 92vw; }
+  .modal { width: 100%; max-width: 92vw; }
+
+  /* 负边距全宽容器不溢出 */
+  .workout-head, .app > .topbar { margin-inline: 0; padding-inline: 0; }
 }
