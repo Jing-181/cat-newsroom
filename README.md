@@ -39,11 +39,11 @@ python3 -m http.server 8765
 ```bash
 npm test
 npm run check
-npm run build:vue
+npm run build
 ```
 
 `npm test` 执行设备模式、番茄钟、训练模型和同步核心测试；`npm run check` 额外检查同步脚本语法。
-`npm run dev:vue` 和 `npm run build:vue` 用于并行 Vue 迁移入口；迁移完成前不会替换默认 `index.html`。
+`npm run dev:vue` 启动 Vue 组件入口（`src/`）开发服务；`npm run build` 构建 `src/` 为 `dist/`，每个业务模块独立压缩 chunk、文件名无 hash，部署到子路径时访问地址不变。迁移完成前不会替换默认 `index.html`。
 
 ## 端模式与数据互通
 
@@ -118,6 +118,8 @@ supabase functions deploy generate-weekly-report
 | `index.html` | 统一入口和端模式解析 |
 | `workbench-desktop.html` | 桌面端页面与 DOM 适配 |
 | `workbench-mobile.html` | 移动端页面与 DOM 适配 |
+| `src/` | Vue 组件迁移入口：`index.html` + `main.js` + `App.vue` + `modules/*` 独立组件 |
+| `scripts/` | 构建辅助脚本（拷贝 supabase-sync 等） |
 | `js/device-mode.js` | 自动识别、模式偏好和模块恢复 |
 | `js/pomodoro.js` | 番茄钟状态机与全页面专注层 |
 | `js/workout-catalog.js` | 训练日与动作目录 |

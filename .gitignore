@@ -2,3 +2,5 @@ node_modules/
 dist/
 dist-vue/
 supabase/.temp/
+src/public/
+.trae-html-share-packages/
