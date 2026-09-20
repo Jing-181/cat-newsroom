@@ -100,9 +100,7 @@
 
   function idleHtml(selectedDay, records) {
     return `<section class="workout-app"><div class="workout-head"><div><h2>运动健身</h2><p>按训练日快速安排动作，记录每一组重量与次数。</p></div>
-      <!-- AI 六天训练计划 UI 已注释：交互细节未定，见任务表 W-009，讨论完后再恢复。
-      <div class="workout-head-actions"><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划">☷</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn" id="workout-preferences">编辑运动偏好</button><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
-      -->
+      <div class="workout-head-actions"><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划" aria-expanded="false">☰</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn" id="workout-preferences">编辑运动偏好</button><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
       </div>
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       <div><button type="button" class="workout-btn primary" id="workout-start">开始${dayName(selectedDay)}</button></div>

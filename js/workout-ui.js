@@ -189,7 +189,17 @@
     }
 
     function wire() {
-      container.querySelector("#workout-plan-menu")?.addEventListener("click", event => { const actions=container.querySelector(".workout-plan-actions"); if(actions){ actions.hidden=!actions.hidden; event.currentTarget.setAttribute("aria-expanded", String(!actions.hidden)); } });
+      container.querySelector("#workout-plan-menu")?.addEventListener("click", event => {
+        const actions = container.querySelector(".workout-plan-actions");
+        if (!actions) return;
+        actions.hidden = !actions.hidden;
+        event.currentTarget.setAttribute("aria-expanded", String(!actions.hidden));
+        event.stopPropagation();
+        if (!actions.hidden) {
+          const close = ev => { if (!actions.contains(ev.target)) { actions.hidden = true; document.removeEventListener("click", close); } };
+          setTimeout(() => document.addEventListener("click", close), 0);
+        }
+      });
       container.querySelector("#workout-plan-view")?.addEventListener("click", () => { const plan=loadPlan(); if(!plan) return root.AppDialog.alert("还没有已保存的训练计划，请先生成。", {title:"暂无计划"}); openDialog(planHtml(plan, "已保存的六天安排")); });
       container.querySelector("#workout-preferences")?.addEventListener("click", () => {
         const saved = readJson("cat-newsroom-workout-preferences-v1") || { goal:"hypertrophy", split:"three_day", days_per_week:3, session_minutes:60, notes:"" };

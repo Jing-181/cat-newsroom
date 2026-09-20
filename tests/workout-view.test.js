@@ -67,11 +67,11 @@ test("训练历史按月份分组，无日期记录归入日期未记录", () =>
   assert.match(html, /data-history-view=/);
 });
 
-test("空闲视图已注释 AI 六天训练计划 UI，保留开始训练入口", () => {
+test("空闲视图恢复训练计划菜单，保留开始训练入口", () => {
   const view = loadView();
   const html = view.idleHtml("chest", []);
-  const dom = html.replace(/<!--[\s\S]*?-->/g, ""); // 剥离注释后校验真实 DOM
-  assert.doesNotMatch(dom, /workout-plan-menu|生成六天计划|workout-preferences/);
-  assert.match(html, /AI 六天训练计划 UI 已注释/); // 注释占位仍在
-  assert.match(dom, /id="workout-start"/);
+  assert.match(html, /id="workout-plan-menu"/);
+  assert.match(html, /id="workout-plan"/);
+  assert.match(html, /id="workout-preferences"/);
+  assert.match(html, /id="workout-start"/);
 });

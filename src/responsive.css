@@ -9,8 +9,9 @@
 
 @media (max-width: 820px) {
   /* 覆盖 desktop.css 的 min-width:1000px，禁止横向滚动 */
-  html, body { min-width: 0; overflow-x: hidden; }
+  html, body { min-width: 0; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
   .layout { overflow-x: hidden; }
+  button, a, .navi, .m-tabs button, .qbtn, .modcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   /* 顶栏 */
   .m-topbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 40;
     padding: 10px 14px; background: linear-gradient(180deg, var(--drawer-bg-top), var(--drawer-bg)); color: var(--drawer-text); }
