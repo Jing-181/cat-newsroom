@@ -19,12 +19,6 @@
     return root.WorkoutPlan?.load?.() || readJson("cat-newsroom-weekly-workout-plan-v1");
   }
 
-  function planHtml(plan, title = "六天训练建议") {
-    const days = (plan?.days || []).map(day => `<p><strong>第${day.day_index}天 ${day.title || "训练"}</strong><br>${(day.exercises || []).map(item => `${item.name} ${item.sets || 0}组 × ${item.reps || 0}`).join("；") || "恢复或自由安排"}</p>`).join("");
-    const meta = root.WorkoutPlan?.formatMeta?.(plan) || "已保存计划";
-    return `<div class="dialog-head"><div><span class="dialog-kicker">训练计划</span><h3>${title}</h3><p class="dialog-sub">${meta}${plan?.start_date ? ` · 从 ${plan.start_date} 开始` : ""}</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>${days || "<p>计划没有可展示的训练日。</p>"}`;
-  }
-
   function mount(container, options) {
     if (!container || !root.Workout || !root.WorkoutCatalog || !root.WorkoutView) return null;
     const records = options.records || [];
@@ -182,10 +176,38 @@
         session.note = container.querySelector("#workout-note").value.trim();
         const saved = root.Workout.upsertSession(records, session);
         options.onSave(saved);
+        if (session._plan_generated_at && session._plan_day_index != null) {
+          root.WorkoutPlan?.saveProgress?.({
+            plan_generated_at: session._plan_generated_at,
+            day_index: session._plan_day_index,
+            session_id: saved.id,
+            date: saved.date,
+          });
+        }
         session = null;
         persistDraft();
         render();
       });
+    }
+
+    function startFromPlanDay(day, plan) {
+      session = root.Workout.createSession(day.training_day, new Date());
+      session.title = day.title;
+      const history = records.filter(record => root.Workout.isSession(record));
+      for (const item of day.exercises || []) {
+        root.Workout.addExercise(session, item.exercise_id, history);
+        const entry = session.exercises.find(exercise => exercise.exercise_id === item.exercise_id);
+        if (!entry) continue;
+        const target = item.sets || entry.sets.length;
+        while (entry.sets.length < target) entry.sets.push(JSON.parse(JSON.stringify(entry.sets[0])));
+        entry.sets.forEach(set => { if (item.weight_kg) set.weight_kg = item.weight_kg; });
+      }
+      session._plan_day_index = day.day_index;
+      session._plan_generated_at = plan.generated_at;
+      container.querySelector("#workout-dialog")?.close();
+      persistDraft();
+      render();
+      window.scrollTo({ top: 0, behavior: shouldAnimate() ? "smooth" : "auto" });
     }
 
     function wire() {
@@ -200,30 +222,27 @@
           setTimeout(() => document.addEventListener("click", close), 0);
         }
       });
-      container.querySelector("#workout-plan-view")?.addEventListener("click", () => { const plan=loadPlan(); if(!plan) return root.AppDialog.alert("还没有已保存的训练计划，请先生成。", {title:"暂无计划"}); openDialog(planHtml(plan, "已保存的六天安排")); });
+      container.querySelector("#workout-plan-view")?.addEventListener("click", () => {
+        const plan = loadPlan();
+        if (!plan) return root.AppDialog.alert("还没有已保存的训练计划，请先生成。", { title: "暂无计划" });
+        const rawProgress = root.WorkoutPlan?.loadProgress?.();
+        const progress = root.WorkoutPlan?.isProgressValid?.(rawProgress, plan.generated_at) ? rawProgress : null;
+        openDialog(root.WorkoutView.planViewHtml(plan, progress));
+      });
       container.querySelector("#workout-preferences")?.addEventListener("click", () => {
         const saved = readJson("cat-newsroom-workout-preferences-v1") || { goal:"hypertrophy", split:"three_day", days_per_week:3, session_minutes:60, notes:"" };
         const dialog = openDialog(`<form class="workout-preferences" id="workout-preferences-form"><h3>运动偏好</h3><label>目标<select name="goal"><option value="hypertrophy">增肌</option><option value="strength">力量</option><option value="fat_loss">减脂</option><option value="maintenance">维持</option></select></label><label>分化<select name="split"><option value="three_day">三分化</option><option value="upper_lower">上下肢</option><option value="full_body">全身</option></select></label><label>每周训练次数<input name="days_per_week" type="number" min="1" max="7"></label><label>单次时长<input name="session_minutes" type="number" min="15" max="240"></label><label>补充说明<textarea name="notes" maxlength="500"></textarea></label><button class="workout-btn primary" type="submit">保存</button></form>`);
         const form = dialog.querySelector("form"); Object.entries(saved).forEach(([key,value]) => { if (form.elements[key]) form.elements[key].value = value; });
         form.addEventListener("submit", event => { event.preventDefault(); localStorage.setItem("cat-newsroom-workout-preferences-v1", JSON.stringify(Object.fromEntries(new FormData(form)))); dialog.close(); });
       });
-      container.querySelector("#workout-plan")?.addEventListener("click", async event => {
-        const button = event.currentTarget;
+      container.querySelector("#workout-plan")?.addEventListener("click", async () => {
         const existing = loadPlan();
         if (existing && !(await root.AppDialog.confirm("已有一份训练计划。重新生成会覆盖它，是否继续？", { title:"覆盖训练计划", danger:true, okText:"重新生成" }))) return;
-        button.disabled = true; button.textContent = "生成中…";
-        try {
-          const preferences = readJson("cat-newsroom-workout-preferences-v1") || {};
-          const recentWorkouts = records.filter(record => root.Workout.isSession(record) && record.status !== "draft" && !record.deleted_at).slice(0, 12);
-          const startDate = localDateKey();
-          const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          const result = await root.generateWorkoutPlan({ preferences, recent_workouts: recentWorkouts, days: 6, start_date: startDate, timezone });
-          const plan = root.WorkoutPlan.normalize(result, { preferences, start_date: startDate, timezone });
-          root.WorkoutPlan.save(plan);
-          openDialog(planHtml(plan));
-        } catch (error) {
-          root.AppDialog.alert(error.message || "训练计划生成失败", { title: "生成失败" });
-        } finally { button.disabled = false; button.textContent = "生成六天计划"; }
+        const preferences = readJson("cat-newsroom-workout-preferences-v1") || {};
+        const plan = root.WorkoutPlan.generatePlan({ preferences, records });
+        root.WorkoutPlan.save(plan);
+        root.WorkoutPlan.clearProgress();
+        openDialog(root.WorkoutView.planViewHtml(plan));
       });
       container.querySelectorAll("[data-day]").forEach(button => button.addEventListener("click", () => {
         selectedDay = button.dataset.day;
@@ -253,6 +272,31 @@
         ? root.WorkoutView.editorHtml(session, selectedDay, records)
         : root.WorkoutView.idleHtml(selectedDay, records);
       wire();
+    }
+
+    // 计划日卡是打开弹窗后才渲染的，使用事件委托避免重复绑定。
+    if (!container.__planDayBound) {
+      container.__planDayBound = true;
+      container.addEventListener("click", async event => {
+        const card = event.target.closest("[data-plan-day]");
+        if (!card) return;
+        const plan = loadPlan();
+        const dayIndex = Number(card.dataset.planDay);
+        const day = plan?.days?.find(item => item.day_index === dayIndex);
+        if (!plan || !day) return;
+        const rawProgress = root.WorkoutPlan?.loadProgress?.();
+        const progress = root.WorkoutPlan?.isProgressValid?.(rawProgress, plan.generated_at) ? rawProgress : null;
+        const done = progress?.days?.[String(dayIndex)];
+        if (done) {
+          const record = findRecord(done.session_id);
+          const redo = await root.AppDialog.confirm(`这天已在 ${done.date} 完成。是否重新练一次？`, { title: "该日已完成", okText: "重新练一次" });
+          if (!redo) {
+            if (record) openDialog(root.WorkoutView.detailHtml(record));
+            return;
+          }
+        }
+        startFromPlanDay(day, plan);
+      });
     }
 
     render();

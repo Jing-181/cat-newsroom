@@ -237,3 +237,16 @@ html, body { overflow-x:clip; }
 @media (prefers-reduced-motion:reduce) {
   .workout-app *, .workout-dialog { scroll-behavior:auto !important; animation:none !important; transition:none !important; }
 }
+
+/* 训练计划日卡视图 */
+.plan-day-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; max-height:min(62vh,560px); overflow-y:auto; padding:2px; }
+.plan-day-card { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-input); border-radius:var(--radius-card); background:var(--surface-card); cursor:pointer; transition:border-color .15s ease, transform .15s ease; }
+.plan-day-card:hover { border-color:var(--module-4); transform:translateY(-1px); }
+.plan-day-card.is-done { border-color:color-mix(in srgb,var(--module-3) 55%,var(--border-input)); background:color-mix(in srgb,var(--module-3) 6%,var(--surface-card)); }
+.plan-day-card header { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.plan-day-card h4 { margin:0; font-size:15px; }
+.plan-day-card header span { color:var(--text-secondary); font-size:12px; }
+.plan-day-card header em { margin-left:auto; color:var(--module-3); font-style:normal; font-size:12px; font-weight:750; white-space:nowrap; }
+.plan-day-card ul { margin:0; padding:0 0 0 18px; display:grid; gap:4px; }
+.plan-day-card li { font-size:12.5px; line-height:1.5; color:var(--text-secondary); }
+.plan-day-card.is-done li { color:var(--text-secondary); }

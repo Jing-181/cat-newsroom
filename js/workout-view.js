@@ -93,8 +93,10 @@
           <div class="workout-field note"><label for="workout-note">备注</label><input id="workout-note" value="${escapeHtml(session.note)}" placeholder="今天的状态"></div>
         </div>
       </section>
-      <div class="workout-submitbar"><div class="workout-submit-summary"><b data-submit-date>${escapeHtml(session.date)}</b><span><i data-submit-duration>${escapeHtml(session.duration_min)}</i> 分钟</span></div><button type="button" class="workout-btn primary" id="workout-finish">${editing ? "保存修改" : "完成训练"}</button></div>
-      <div class="workout-add-floating"><button type="button" class="workout-btn primary" id="workout-add-floating">+ 添加动作</button></div>
+      <div class="workout-bottom-bar">
+        <div class="workout-submitbar"><div class="workout-submit-summary"><b data-submit-date>${escapeHtml(session.date)}</b><span><i data-submit-duration>${escapeHtml(session.duration_min)}</i> 分钟</span></div><button type="button" class="workout-btn primary" id="workout-finish">${editing ? "保存修改" : "完成训练"}</button></div>
+        <div class="workout-add-floating"><button type="button" class="workout-btn primary" id="workout-add-floating">+ 添加动作</button></div>
+      </div>
       ${dialogShell()}
     </section>`;
   }
@@ -143,5 +145,22 @@
       <div class="dialog-actions"><button type="button" class="workout-btn" data-dialog-close>取消</button><button type="submit" class="workout-btn primary">保存修改</button></div></form>`;
   }
 
-  root.WorkoutView = { editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, legacyEditHtml };
+  function planDayCard(day, progress) {
+    const done = progress?.days?.[String(day.day_index)];
+    const exercises = (day.exercises || []).map(item => {
+      const weight = item.weight_kg ? `${escapeHtml(item.weight_kg)} kg` : "重量待填";
+      return `<li>${escapeHtml(item.name)} · ${escapeHtml(item.sets)} 组 × ${escapeHtml(item.reps)} · ${weight} · 休息 ${escapeHtml(item.rest_seconds)}s${item.intensity_hint ? ` · ${escapeHtml(item.intensity_hint)}` : ""}</li>`;
+    }).join("");
+    return `<article class="plan-day-card ${done ? "is-done" : ""}" data-plan-day="${day.day_index}">
+      <header><h4>${escapeHtml(day.title)}</h4><span>${escapeHtml(day.focus)}</span>${done ? `<em>✓ 已完成 ${escapeHtml(done.date)}</em>` : ""}</header>
+      <ul>${exercises}</ul>
+    </article>`;
+  }
+
+  function planViewHtml(plan, progress = null) {
+    return `<div class="dialog-head"><div><span class="dialog-kicker">训练计划</span><h3>力训三分化 · ${(plan.days || []).length} 天</h3><p class="dialog-sub">点击某一天开始训练，保存后自动标记完成</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+      <div class="plan-day-grid">${(plan.days || []).map(day => planDayCard(day, progress)).join("")}</div>`;
+  }
+
+  root.WorkoutView = { editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, legacyEditHtml, planDayCard, planViewHtml };
 })(typeof window !== "undefined" ? window : null);
