@@ -386,17 +386,20 @@ async function generateWorkoutPlan(options = {}) {
 }
 
 function updateSyncIndicator() {
-  const element = document.getElementById("sync-indicator");
-  if (!element) return;
+  const elements = document.querySelectorAll("#sync-indicator");
+  if (!elements.length) return;
   const map = {
     offline: { text: "本地模式", cls: "sync-off" }, connecting: { text: "连接中…", cls: "sync-connecting" },
     online: { text: readOutbox().length ? "等待同步" : (lastSyncAt ? "已同步" : "已连接"), cls: "sync-on" },
     error: { text: "同步异常", cls: "sync-error" },
   };
   const state = map[syncStatus] || map.offline;
-  element.textContent = state.text;
-  element.className = `sync-indicator ${state.cls}`;
-  element.title = lastSyncAt ? `最近同步：${new Date(lastSyncAt).toLocaleString()}` : state.text;
+  const title = lastSyncAt ? `最近同步：${new Date(lastSyncAt).toLocaleString()}` : state.text;
+  elements.forEach(element => {
+    element.textContent = state.text;
+    element.className = `sync-indicator ${state.cls}`;
+    element.title = title;
+  });
 }
 
 function getSyncStatus() { return syncStatus; }

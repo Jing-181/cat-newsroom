@@ -31,19 +31,31 @@
     if (!records.length) return `<div class="session-empty">还没有训练记录，选择训练日开始第一练。</div>`;
     const ordered = [...records];
     root.Workout.sortRecords(ordered);
-    return `<div class="workout-history">${ordered.map(record => {
+    // 按月份分组展示；旧版无日期记录归入「日期未记录」
+    const groups = [];
+    let month = null;
+    ordered.forEach(record => {
       const info = root.Workout.summary(record);
-      const meta = info.legacy
-        ? `${escapeHtml(record.date || "日期未记录")} · ${escapeHtml(record.current || 0)}/${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}`
-        : `${escapeHtml(info.date)} · ${info.exerciseCount} 个动作 · ${info.setCount} 组 · ${info.duration || 0} 分钟`;
-      return `<article class="history-card">
-        <div class="history-card-copy"><h4>${escapeHtml(info.title)}</h4><p>${meta}</p></div>
+      const key = (info.date || record.date || "").slice(0, 7);
+      if (key !== month) { month = key; groups.push({ month: key, items: [] }); }
+      groups[groups.length - 1].items.push({ record, info });
+    });
+    return `<div class="workout-history">${groups.map(group => {
+      const label = group.month ? group.month.replace(/-0?(\d)$/, " 年 $1 月") : "日期未记录";
+      const cards = group.items.map(({ record, info }) => {
+        const meta = info.legacy
+          ? `<span>${escapeHtml(record.date || "日期未记录")}</span><span>${escapeHtml(record.current || 0)}/${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}</span>`
+          : `<span>${escapeHtml(info.date)}</span><span>${info.exerciseCount} 个动作</span><span>${info.setCount} 组</span><span>${info.duration || 0} 分钟</span>`;
+        return `<article class="history-card">
+        <div class="history-card-copy"><h4>${escapeHtml(info.title)}</h4><div class="history-meta">${meta}</div></div>
         <div class="history-actions">
           <button type="button" class="workout-btn compact" data-history-view="${escapeHtml(record.id)}">详情</button>
           <button type="button" class="workout-btn compact" data-history-edit="${escapeHtml(record.id)}">编辑</button>
           <button type="button" class="icon-action danger" data-history-delete="${escapeHtml(record.id)}" title="删除记录" aria-label="删除记录">×</button>
         </div>
       </article>`;
+      }).join("");
+      return `<section class="history-group-block"><h5 class="history-month">${label}</h5><div class="history-group">${cards}</div></section>`;
     }).join("")}</div>`;
   }
 
@@ -87,7 +99,11 @@
   }
 
   function idleHtml(selectedDay, records) {
-    return `<section class="workout-app"><div class="workout-head"><div><h2>运动健身</h2><p>按训练日快速安排动作，记录每一组重量与次数。</p></div><div class="workout-head-actions"><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划">☷</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn" id="workout-preferences">编辑运动偏好</button><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div></div>
+    return `<section class="workout-app"><div class="workout-head"><div><h2>运动健身</h2><p>按训练日快速安排动作，记录每一组重量与次数。</p></div>
+      <!-- AI 六天训练计划 UI 已注释：交互细节未定，见任务表 W-009，讨论完后再恢复。
+      <div class="workout-head-actions"><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划">☷</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn" id="workout-preferences">编辑运动偏好</button><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
+      -->
+      </div>
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       <div><button type="button" class="workout-btn primary" id="workout-start">开始${dayName(selectedDay)}</button></div>
       <section><div class="workout-panel-title">训练历史</div>${historyHtml(records)}</section>

@@ -88,6 +88,19 @@ test("首页与洞察接入周报槽，共享层含编辑/周报/番茄钟", () 
   assert.match(read("src/lib/pomodoro.js"), /export function ensurePomodoroController/);
 });
 
+test("响应式外壳：样式入口引入 responsive.css，App 含移动顶栏/底部导航/抽屉", () => {
+  const styles = read("src/styles.css");
+  assert.match(styles, /@import "\.\/responsive\.css";/);
+  const app = read("src/App.vue");
+  assert.match(app, /class="m-topbar"/);
+  assert.match(app, /class="m-tabs"/);
+  assert.match(app, /class="m-scrim"/);
+  assert.match(app, /'m-open'/); // 侧栏抽屉开合
+  assert.doesNotMatch(app, /deviceSwitcherRef|mountSwitcher/); // 设备切换已废弃
+  const sync = read("supabase-sync.js");
+  assert.match(sync, /querySelectorAll\("#sync-indicator"\)/); // 顶栏与侧栏同步指示器一并更新
+});
+
 test("构建产物（如存在）：相对路径、同步脚本与每个模块独立压缩 chunk", () => {
   if (!fs.existsSync(path.join(root, "dist/index.html"))) return; // 未构建时跳过
   const html = read("dist/index.html");

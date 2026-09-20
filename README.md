@@ -47,15 +47,9 @@ npm run build
 
 ## 端模式与数据互通
 
-端模式偏好保存在 `cat-newsroom-ui-mode-v1`：
+端模式已从「两个 HTML + 设备跳转」改为**同一页面的响应式样式切换**（Vue 入口）：≤820px 自动变为移动外壳（顶栏 + 底部导航 + 侧栏抽屉），PC 保持侧栏布局；`DeviceMode` 的页面跳转与设备切换器已废弃。
 
-| 模式 | 行为 |
-| --- | --- |
-| `auto` | 宽度不超过 820px，或粗指针设备宽度不超过 1024px 时使用移动版 |
-| `desktop` | 始终进入桌面版 |
-| `mobile` | 始终进入移动版 |
-
-当前模块保存在 `cat-newsroom-last-view-v1`，手动切换后会恢复该模块。桌面版和移动版在同一域名、协议和端口下共享 `cat-newsroom-data-v2`；不同浏览器或物理设备需登录同一正式账号后通过 Supabase 互通。
+当前模块保存在 `cat-newsroom-last-view-v1`，切换后会恢复该模块。桌面版和移动版共享 `cat-newsroom-data-v2`；不同浏览器或物理设备需登录同一正式账号后通过 Supabase 互通。
 
 ## 同步约束
 

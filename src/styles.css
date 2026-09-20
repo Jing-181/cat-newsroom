@@ -1,10 +1,11 @@
-/* 共享样式：主题、通用组件、弹窗、运动、媒体、整页桌面样式（原主站内联样式） */
+/* 共享样式：主题、通用组件、弹窗、运动、媒体、整页桌面样式（原主站内联样式）、响应式外壳 */
 @import "../css/theme.css";
 @import "../css/components.css";
 @import "../css/workout-ui.css";
 @import "../css/app-dialog.css";
 @import "../css/record-media.css";
 @import "./desktop.css";
+@import "./responsive.css";
 
 /* 页面基底 */
 html, body { background: var(--page-bg); color: var(--text); font-family: var(--font); }

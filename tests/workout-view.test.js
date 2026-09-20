@@ -53,3 +53,25 @@ test("训练详情展示动作组次且历史卡提供编辑入口", () => {
   assert.match(history, /data-history-view=/);
   assert.match(history, /data-history-edit=/);
 });
+
+test("训练历史按月份分组，无日期记录归入日期未记录", () => {
+  const view = loadView();
+  const a = workout.createSession("chest", new Date(2026, 8, 19));   // 2026-09-19
+  const b = workout.createSession("back", new Date(2026, 8, 5));     // 2026-09-05
+  const legacy = { id: 1, title: "旧记录", current: 10, target: 20, unit: "分钟" }; // 无日期
+  const html = view.idleHtml("chest", [legacy, b, a]);
+  assert.match(html, /class="history-month">2026 年 9 月</);
+  assert.match(html, /class="history-month">日期未记录</);
+  assert.match(html, /class="history-group"/);
+  assert.match(html, /class="history-meta"/);
+  assert.match(html, /data-history-view=/);
+});
+
+test("空闲视图已注释 AI 六天训练计划 UI，保留开始训练入口", () => {
+  const view = loadView();
+  const html = view.idleHtml("chest", []);
+  const dom = html.replace(/<!--[\s\S]*?-->/g, ""); // 剥离注释后校验真实 DOM
+  assert.doesNotMatch(dom, /workout-plan-menu|生成六天计划|workout-preferences/);
+  assert.match(html, /AI 六天训练计划 UI 已注释/); // 注释占位仍在
+  assert.match(dom, /id="workout-start"/);
+});

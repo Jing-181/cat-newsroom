@@ -3,6 +3,7 @@
 import { ref, computed, onMounted } from "vue";
 import { CONFIG } from "./lib/config.js";
 import { icon } from "./lib/icons.js";
+import { dateStr } from "./lib/utils.js";
 import { getData, save, bump, renderAfterWorkoutDialog } from "./lib/store.js";
 import { ensurePomodoroController } from "./lib/pomodoro.js";
 import { openAuthModal } from "./lib/auth-modal.js";
@@ -29,15 +30,22 @@ const current = computed(() => VIEWS[view.value] || HomeView);
 function go(key) {
   if (!VIEWS[key]) return;
   view.value = key;
+  drawerOpen.value = false; // 移动端选完模块后收起抽屉
   window.DeviceMode?.saveView?.(key);
   window.scrollTo({ top: 0 });
 }
 
 function onNavigate(key) { go(key); }
 
-const avatarRef = ref(null);
 const avatarInputRef = ref(null);
-const deviceSwitcherRef = ref(null);
+const drawerOpen = ref(false);
+const todayText = dateStr();
+
+function toggleDrawer(open) { drawerOpen.value = open ?? !drawerOpen.value; }
+
+function applyAvatar(src) {
+  document.querySelectorAll(".js-avatar").forEach(img => { img.src = src; });
+}
 
 async function syncNow() {
   await window.runFullSync?.({ reason: "manual" });
@@ -49,9 +57,9 @@ onMounted(() => {
 
   // 头像：读本地已存头像
   const avatar = getData().__avatar;
-  if (avatar && avatarRef.value) avatarRef.value.src = avatar;
-  // 同步指示器点击：在线→登出/登录，离线→重连
-  document.getElementById("sync-indicator").onclick = async () => {
+  if (avatar) applyAvatar(avatar);
+  // 同步指示器点击（桌面侧栏与移动顶栏两处）：在线→登出/登录，离线→重连
+  document.querySelectorAll("#sync-indicator").forEach(el => el.onclick = async () => {
     const s = window.getSyncStatus?.();
     if (s === "online") {
       const user = window.getCurrentUser?.();
@@ -62,7 +70,7 @@ onMounted(() => {
     } else if (s === "offline" || s === "error") {
       window.initSupabase?.().then(ok => { if (ok) syncNow(); });
     }
-  };
+  });
   document.getElementById("sync-now").onclick = () => syncNow();
   // 备份导入导出
   window.DataBackup?.mount({
@@ -75,8 +83,7 @@ onMounted(() => {
     moduleKeys: CONFIG.modules.map(module => module.key),
     confirm: message => window.AppDialog.confirm(message, { title: "导入本地备份", danger: true, okText: "覆盖本地数据" }),
   });
-  // 设备模式切换（桌面/移动/自动）
-  window.DeviceMode?.mountSwitcher?.(deviceSwitcherRef.value, "desktop", () => view.value);
+  // 设备模式切换已废弃：统一响应式样式切换，不再跳转 HTML
   updateAuthUI();
 });
 
@@ -88,7 +95,7 @@ function onAvatarChange(e) {
   reader.onload = () => {
     const data = getData();
     data.__avatar = reader.result;
-    if (avatarRef.value) avatarRef.value.src = reader.result;
+    applyAvatar(reader.result);
     save();
     if (window.getSyncStatus?.() === "online") window.saveMetaCloud?.("__avatar", reader.result);
   };
@@ -99,10 +106,16 @@ function onAvatarChange(e) {
 
 <template>
   <div class="layout">
-    <!-- sidebar -->
-    <aside class="sidebar">
+    <!-- 移动顶栏（≤820px 显示） -->
+    <header class="m-topbar">
+      <button class="m-menu-btn" type="button" aria-label="打开菜单" @click="toggleDrawer(true)"><span v-html="icon('menu', 20)"></span></button>
+      <div class="m-brand"><img class="js-avatar" src="/assets/avatar.jpg" alt="头像"/><div class="m-brand-tx"><h1>{{ CONFIG.owner }}</h1><p>{{ todayText }}</p></div></div>
+      <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
+    </header>
+    <!-- sidebar（PC 常驻；窄屏收起为抽屉） -->
+    <aside class="sidebar" :class="{ 'm-open': drawerOpen }">
       <div class="brand">
-        <div class="ava" title="点击更换头像" @click="onAvatarClick"><img src="/assets/avatar.jpg" alt="头像" ref="avatarRef"/><span class="cam" v-html="icon('camera', 18)"></span></div>
+        <div class="ava" title="点击更换头像" @click="onAvatarClick"><img class="js-avatar" src="/assets/avatar.jpg" alt="头像"/><span class="cam" v-html="icon('camera', 18)"></span></div>
         <input type="file" accept="image/*" hidden ref="avatarInputRef" @change="onAvatarChange"/>
         <div><h1 id="brandName">{{ CONFIG.owner }}</h1><p id="brandSlogan">{{ CONFIG.slogan }}</p></div>
       </div>
@@ -114,7 +127,6 @@ function onAvatarChange(e) {
         <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight')"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
       </nav>
       <div class="sync-area" id="syncArea">
-        <div ref="deviceSwitcherRef"></div>
         <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
         <span class="sync-user-email" id="syncEmail"></span>
         <button class="sync-now" id="sync-now" type="button">立即同步</button>
@@ -123,9 +135,17 @@ function onAvatarChange(e) {
       </div>
       <div class="foot" id="foot">猫咪编辑部 · 云端同步版</div>
     </aside>
-    <!-- main -->
+    <!-- 主视区 -->
     <main class="main">
       <component :is="current" :key="view" @navigate="onNavigate" />
     </main>
+    <!-- 移动底栏（≤820px 显示） -->
+    <nav class="m-tabs">
+      <button type="button" :class="{ active: view === 'home' }" @click="go('home')"><span v-html="icon('home', 19)"></span>首页</button>
+      <button type="button" :class="{ active: view === 'insight' }" @click="go('insight')"><span v-html="icon('chart', 19)"></span>洞察</button>
+      <button type="button" @click="toggleDrawer(true)"><span v-html="icon('grid', 19)"></span>更多</button>
+    </nav>
+    <!-- 抽屉遮罩 -->
+    <div class="m-scrim" :class="{ open: drawerOpen }" @click="toggleDrawer(false)"></div>
   </div>
 </template>
