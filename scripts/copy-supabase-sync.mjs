@@ -1,15 +1,33 @@
-// 构建前把根目录的 supabase-sync.js 拷入 src/public/js/，供 index.html 以普通 script 加载。
-// 该文件是顶层声明（非 IIFE/UMD），不能作为 ES module import，必须作为普通 script 进全局。
-import { mkdirSync, copyFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+// 预构建：把根目录的全局脚本与旧版静态站（桌面/移动页 + assets/css/js）拷贝进 src/public，
+// 由 Vite 原样输出到 dist，保证设备切换器与旧书签地址不失效
+import { mkdirSync, copyFileSync, cpSync, existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
-const source = resolve(root, "supabase-sync.js"); // 注意：位于项目根，不在 js/ 子目录
-const destDir = resolve(root, "src/public/js");
-if (existsSync(source)) {
-  mkdirSync(destDir, { recursive: true });
-  copyFileSync(source, resolve(destDir, "supabase-sync.js"));
-  console.log("[copy] supabase-sync.js -> src/public/js/");
-} else {
-  console.warn("[copy] supabase-sync.js 不存在，跳过");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, "..");
+const publicDir = resolve(root, "src/public");
+
+// [源, 目标（相对 public）]：文件逐字拷贝，目录递归拷贝
+const entries = [
+  ["supabase-sync.js", "js/supabase-sync.js"],
+  ["workbench-desktop.html", "workbench-desktop.html"],
+  ["workbench-mobile.html", "workbench-mobile.html"],
+  ["assets", "assets"],
+  ["css", "css"],
+  ["js", "js"],
+];
+
+mkdirSync(publicDir, { recursive: true });
+for (const [src, dest] of entries) {
+  const from = resolve(root, src);
+  const to = resolve(publicDir, dest);
+  if (!existsSync(from)) { console.error(`跳过：${src} 不存在`); continue; }
+  if (src.endsWith(".html") || src.endsWith(".js")) {
+    mkdirSync(dirname(to), { recursive: true });
+    copyFileSync(from, to);
+  } else {
+    cpSync(from, to, { recursive: true });
+  }
+  console.log(`已拷贝：${dest}`);
 }

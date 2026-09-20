@@ -1,27 +1,13 @@
-/* 共享样式与运动模块样式（与主站同一数据键、同一视觉基线） */
+/* 共享样式：主题、通用组件、弹窗、运动、媒体、整页桌面样式（原主站内联样式） */
 @import "../css/theme.css";
 @import "../css/components.css";
 @import "../css/workout-ui.css";
 @import "../css/app-dialog.css";
+@import "../css/record-media.css";
+@import "./desktop.css";
 
-/* 弹窗基底：主站内联样式的最小复刻，供 app-dialog.js 使用 */
-.overlay { position: fixed; inset: 0; background: rgba(58, 46, 32, 0.42); backdrop-filter: blur(2px);
-  z-index: 90; display: grid; place-items: center; }
-.modal { background: var(--surface-card); border: 1px solid var(--border-input); border-radius: var(--radius-sheet);
-  box-shadow: var(--shadow-overlay); width: min(480px, 92vw); padding: 22px; }
-.modal-actions { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
-.btn { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid var(--border-input); border-radius: var(--radius-tile); padding: 0 14px; color: var(--text);
-  background: var(--surface-card); font: 700 14px/1 var(--font-sans); cursor: pointer; }
-.btn.ghost { color: var(--text-secondary); }
-.btn.danger { border-color: var(--danger); color: var(--on-accent); background: var(--danger); }
-.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.grab { display: none; }
-
-/* 样板页面基底 */
+/* 页面基底 */
 html, body { background: var(--page-bg); color: var(--text); font-family: var(--font); }
-body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background-image: var(--page-texture); background-size: cover; background-position: center; opacity: 0.5; }
 
 @media (prefers-reduced-motion: reduce) {
   .btn, .modal { transition: none !important; }

@@ -20,6 +20,8 @@ export default defineConfig({
         manualChunks(id) {
           // vue 单独 vendor chunk，业务模块按模块目录独立 chunk
           if (id.includes("node_modules/vue") || id.includes("node_modules/@vue")) return "vue";
+          // 共享层（lib/components）打进一个共享 chunk，业务模块 chunk 再引用它
+          if (id.includes("/src/lib/") || id.includes("/src/components/")) return "shared";
           if (id.includes("/src/modules/")) return id.split("/src/modules/")[1].split("/")[0];
         },
       },

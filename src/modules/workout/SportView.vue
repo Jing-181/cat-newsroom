@@ -1,4 +1,5 @@
 <script setup>
+// 运动健身：复用主站 WorkoutUI 训练控制器（workout_session 模型不变）
 import { ref, onMounted, onBeforeUnmount } from "vue";
 
 const STORAGE_KEY = "cat-newsroom-data-v2";
@@ -11,9 +12,7 @@ function readSport() {
     const raw = localStorage.getItem(STORAGE_KEY);
     const data = raw ? JSON.parse(raw) : {};
     return Array.isArray(data.sport) ? data.sport : [];
-  } catch (_) {
-    return [];
-  }
+  } catch (_) { return []; }
 }
 
 // 写回本地数据，不改变其他模块内容
@@ -23,7 +22,7 @@ function writeSport(list) {
     const data = raw ? JSON.parse(raw) : {};
     data.sport = list;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (_) { /* 忽略写入失败 */ }
+  } catch (_) { }
 }
 
 // 挂载共享训练控制器（复用现有 WorkoutUI，不改运动模型）
@@ -44,7 +43,6 @@ function mountUI() {
   });
 }
 
-// 同源标签页数据变化时刷新（与主站行为一致）
 function onStorage(event) {
   if (event.key === STORAGE_KEY && event.newValue) mountUI();
 }
@@ -52,7 +50,6 @@ function onStorage(event) {
 onMounted(() => {
   mountUI();
   window.addEventListener("storage", onStorage);
-  window.initSupabase?.();
 });
 onBeforeUnmount(() => window.removeEventListener("storage", onStorage));
 </script>

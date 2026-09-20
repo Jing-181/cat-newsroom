@@ -200,11 +200,14 @@ node scripts/build-components.mjs
 
 ## 8. 当前进度（2026-09-20）
 
-已完成阶段 1（构建底座）和阶段 2 的运动样板：
+已完成阶段 1（构建底座）、阶段 2（运动样板）和阶段 3（桌面端全部业务模块组件化）：
 
-- `src/` 目录建立：`index.html`（入口）、`main.js`（副作用导入共享领域库 + CONFIG）、`App.vue`（布局）、`modules/workout/WorkoutSample.vue`（运动容器组件）。
-- `vite.config.js`：`base: "./"` + 无 hash 文件名 + `manualChunks`（vue 独立 vendor、`src/modules/` 每模块独立 chunk）。
-- `supabase-sync.js`（顶层声明，非 IIFE）通过 `scripts/copy-supabase-sync.mjs` 在 `prebuild` 拷入 `src/public/js/`，以普通 script 加载进入全局。
-- 运动样板复用现有 `WorkoutUI.mount`，读写 `cat-newsroom-data-v2` 的 `sport` 键，保存/删除通过全局 `syncRecord/syncDelete` 走原有同步层；与主站数据互通。
-- 验证：`npm run build` 产物为 `dist/assets/main.js + vue.js + workout.js`（模块独立、压缩混淆）+ `dist/js/supabase-sync.js`（原样）；`dist/index.html` 全部相对路径，子路径部署可访问；`npm test` 45 项通过（含新增 `tests/vue-build.test.js` 5 项）。
-- 遗留：浏览器实际操作验收（开始训练 → 记录 → 保存 → 与主站数据同步）待真实环境确认；旧入口 `workbench-desktop.html` / `workbench-mobile.html` 继续可用。
+- `src/` 目录：`index.html`（入口，`body` 带 `desktop-shell` 类以提供 `--sidebar-w` 等变量）+ `main.js`（副作用导入全部共享领域库、暴露全局 `CONFIG`/`data`、桥接同步回调）+ `App.vue`（桌面外壳：侧栏品牌/导航/同步区/备份/设备切换 + 主视区按导航切换组件）。
+- 业务模块全部为独立组件：`modules/home/HomeView.vue`（Bento 首页）、`modules/insight/InsightView.vue`（洞察复盘）、`modules/workout/SportView.vue`（WorkoutUI）、`modules/{todo,checkin,read,money,note,hot}/*View.vue`（6 个通用模块组件，包装共享引擎 `components/ModuleView.vue`）。
+- 共享层 `src/lib/`：`config.js`（CONFIG 与主站一致）、`icons.js`、`utils.js`、`store.js`（全局 `data` 绑定 + 持久化 + 同步 + 订阅刷新）、`record-view.js`（记录卡/侧栏统计/分页）、`editor.js`（新建/编辑/删除弹窗）、`weekly-report.js`（AI 周报状态机）、`pomodoro.js`（番茄钟共享控制器）、`auth-modal.js`、`auth-ui.js`。
+- 同步契约保持不变：`supabase-sync.js` 仍为全局经典脚本，`store.js` 绑定 `window.data` 供其读取；`sync-hooks.js`（经典脚本）把 `onSyncReady/onRemoteUpdate` 转发到 Vue 入口；跨标签 `storage` 事件、`pendingSyncRecords` 去重、`renderAfterWorkoutDialog` 等逻辑原样保留。
+- `vite.config.js`：`base: "./"` + 无 hash 文件名 + `manualChunks`（`vue` 独立 vendor、`src/lib|components` → `shared`、`src/modules/*` 每模块独立 chunk）。
+- 旧入口回退：`scripts/copy-supabase-sync.mjs` 在 `prebuild` 把 `workbench-desktop.html`、`workbench-mobile.html`、`assets/`、`css/`、`js/`、`supabase-sync.js` 一并拷入 `src/public/`，构建后旧书签与设备切换仍可用。
+- 验证：`npm run build` 产物为 `dist/assets/{main,vue,shared,home,insight,workout,todo,checkin,read,money,note,hot}.js`（各自独立、压缩混淆）+ `dist/js/{supabase-sync,sync-hooks}.js` + 旧站点回退文件；`dist/index.html` 全部相对路径；`npm test` 49 项通过（含 `tests/vue-build.test.js` 9 项结构断言）。
+- 浏览器冒烟验证通过：首页完整渲染（时钟/聚焦/快速记录/概览环/习惯表/待办/番茄钟/趋势/开销/在读/目标/周报槽）、新建待办保存并写入本地、待办/打卡/阅读/记账/运动（WorkoutUI）视图切换、Supabase 匿名在线同步（「已同步 · 匿名用户」）。
+- 遗留：移动端底栏/抽屉布局迁移（A1-02 剩余部分）；洞察/日记/收藏页与番茄钟完整训练流程待真实浏览器最终验收；正式账号登录后的云端同步/周报生成待实测。

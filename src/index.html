@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>猫咪生活报 · Vue 样板</title>
+  <title>猫咪生活报</title>
 </head>
-<body>
+<body class="desktop-shell">
   <div id="app"></div>
-  <!-- supabase-sync.js 是顶层声明，以普通 script 加载进入全局；绝对路径指向 public，Vite 不打包 -->
+  <!-- supabase-sync.js 是顶层声明，以普通 script 加载进入全局；sync-hooks.js 桥接其回调到 Vue 入口 -->
   <script src="/js/supabase-sync.js"></script>
+  <script src="/js/sync-hooks.js"></script>
   <script type="module" src="./main.js"></script>
 </body>
 </html>
