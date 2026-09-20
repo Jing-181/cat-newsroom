@@ -153,13 +153,13 @@ html, body { overflow-x:clip; }
 .workout-dialog .dialog-muscles { color:var(--text); }
 
 /* 手机版即使在宽浏览器中打开，也按内容容器保持 H5 排版。 */
-.mobile-shell .workout-app { gap:13px; padding-top:12px; }
+.mobile-shell .workout-app { gap:13px; padding-top:12px; padding-bottom:calc(var(--workout-tabbar-h, 62px) + 96px + env(safe-area-inset-bottom)); }
 .mobile-shell .set-list { padding:8px; }
 .mobile-shell .set-row { padding:8px; }
 .mobile-shell .set-fields { gap:6px; }
 .mobile-shell .set-fields input { height:40px; font-size:16px; }
 .mobile-shell .stepper-btn { flex-basis:32px; font-size:18px; }
-.mobile-shell .workout-add-floating { display:flex; justify-content:center; position:sticky; bottom:calc(140px + env(safe-area-inset-bottom)); z-index:3; padding:8px 0; margin-top:8px; }
+.mobile-shell .workout-add-floating { display:flex; justify-content:center; padding:0; margin:0; }
 .mobile-shell .workout-add-floating .workout-btn { width:100%; max-width:320px; }
 .mobile-shell .history-group { grid-template-columns:minmax(0,1fr); }
 .mobile-shell .workout-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -175,6 +175,7 @@ html, body { overflow-x:clip; }
 .mobile-shell .workout-completion { padding:10px; }
 .mobile-shell .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .mobile-shell .workout-fields .note { grid-column:1/-1; }
+.mobile-shell .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 62px) + env(safe-area-inset-bottom)); z-index:5; display:grid; gap:8px; }
 .mobile-shell .workout-submitbar { justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
 .mobile-shell .workout-submit-summary { display:grid; gap:2px; }
 .mobile-shell .workout-submitbar .workout-btn { flex:0 0 auto; }
@@ -188,7 +189,7 @@ html, body { overflow-x:clip; }
   .workout-head-actions { width:auto; margin-left:auto; justify-content:flex-end; }
   .workout-plan-actions { left:auto; right:0; width:min(220px,calc(100vw - 48px)); justify-content:stretch; flex-direction:column; align-items:stretch; }
   .workout-plan-actions .workout-btn { flex:0 0 auto; width:100%; min-width:0; min-height:44px; text-align:center; }
-  .workout-app { gap:13px; -webkit-tap-highlight-color: transparent; }
+  .workout-app { gap:13px; -webkit-tap-highlight-color: transparent; padding-bottom:calc(var(--workout-tabbar-h, 56px) + 96px + env(safe-area-inset-bottom)); }
   .workout-btn, .icon-action, .set-done, .stepper-btn, .quick-exercises button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .icon-action { width:38px; height:38px; font-size:20px; }
   .set-done { width:36px; height:36px; }
@@ -207,17 +208,18 @@ html, body { overflow-x:clip; }
   .workout-stat b { font-size:15px; }
   .workout-stat span { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .workout-completion { padding:10px; }
-  /* 字段与提交栏均恢复文档流，杜绝 sticky 悬浮覆盖输入区 */
+  /* 完成训练区：输入区垂直堆叠，杜绝日期/时长并排重叠；提交栏与添加按钮共用吸底容器，整体贴 tabbar 上方 */
   .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:10px 12px; }
   .workout-fields .note { grid-column:1/-1; }
   .workout-fields label { min-height:0; margin-bottom:5px; }
+  .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 56px) + env(safe-area-inset-bottom)); z-index:5; display:grid; gap:8px; }
   .workout-submitbar { justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
   .workout-submit-summary { display:grid; gap:2px; }
   .workout-submitbar .workout-btn { flex:0 0 auto; min-height:44px; }
   .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .record-set { grid-template-columns:58px minmax(0,1fr); }
   .record-set em { grid-column:2; }
-  .workout-add-floating { display:flex; justify-content:center; position:sticky; bottom:calc(140px + env(safe-area-inset-bottom)); z-index:3; padding:8px 0; margin-top:8px; }
+  .workout-add-floating { display:flex; justify-content:center; padding:0; margin:0; }
   .workout-add-floating .workout-btn { width:100%; max-width:320px; min-height:44px; }
   .workout-days button { min-height:40px; }
   .quick-exercises button { min-height:36px; }

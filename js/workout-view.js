@@ -84,7 +84,7 @@
           const lastText = previous ? (exercise.equipment === "有氧" || exercise.equipment === "恢复" ? `上次 ${escapeHtml(previous.date)} · ${escapeHtml(previous.set.duration_min || 0)} 分钟` : `上次 ${escapeHtml(previous.date)} · ${escapeHtml(previous.set.weight_kg)} kg × ${escapeHtml(previous.set.reps)}`) : "首次记录此动作";
           const completedSets = exercise.sets.filter(set => set.completed).length;
           return `<article class="session-exercise"><div class="session-exercise-head"><div><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)} · ${lastText}</span><em class="set-progress ${completedSets === exercise.sets.length ? "all-done" : ""}">${completedSets}/${exercise.sets.length} 组</em></div><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div><div class="set-list">${setRows(exercise, exerciseIndex)}</div><div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
-        }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div><div class="workout-add-floating"><button type="button" class="workout-btn primary" id="workout-add-floating">+ 添加动作</button></div></main>
+        }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
       </div>
       <section class="workout-completion" aria-label="完成训练">
         <div class="workout-fields">
@@ -92,8 +92,9 @@
           <div class="workout-field"><label for="workout-duration">训练时长（分钟）</label><input id="workout-duration" type="number" min="1" value="${escapeHtml(session.duration_min)}"></div>
           <div class="workout-field note"><label for="workout-note">备注</label><input id="workout-note" value="${escapeHtml(session.note)}" placeholder="今天的状态"></div>
         </div>
-        <div class="workout-submitbar"><div class="workout-submit-summary"><b data-submit-date>${escapeHtml(session.date)}</b><span><i data-submit-duration>${escapeHtml(session.duration_min)}</i> 分钟</span></div><button type="button" class="workout-btn primary" id="workout-finish">${editing ? "保存修改" : "完成训练"}</button></div>
       </section>
+      <div class="workout-submitbar"><div class="workout-submit-summary"><b data-submit-date>${escapeHtml(session.date)}</b><span><i data-submit-duration>${escapeHtml(session.duration_min)}</i> 分钟</span></div><button type="button" class="workout-btn primary" id="workout-finish">${editing ? "保存修改" : "完成训练"}</button></div>
+      <div class="workout-add-floating"><button type="button" class="workout-btn primary" id="workout-add-floating">+ 添加动作</button></div>
       ${dialogShell()}
     </section>`;
   }

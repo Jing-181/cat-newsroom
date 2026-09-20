@@ -44,7 +44,7 @@
   .m-scrim.open { opacity: 1; pointer-events: auto; }
 
   /* 主区 */
-  .main { margin-left: 0; padding: 14px 14px calc(76px + env(safe-area-inset-bottom)); }
+  .main { margin-left: 0; padding: 14px 14px calc(76px + env(safe-area-inset-bottom)); --workout-tabbar-h: 50px; }
 
   /* 首页 Bento 单列重排 */
   .bento { grid-template-columns: minmax(0, 1fr); }

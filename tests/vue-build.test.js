@@ -8,11 +8,11 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 const MODULE_KEYS = ["todo", "checkin", "read", "sport", "money", "note", "hot"];
 
-test("vite 配置使用无 hash 文件名、相对 base、模块独立 chunk 与共享层 chunk", () => {
+test("vite 配置使用带内容 hash 文件名、相对 base、模块独立 chunk 与共享层 chunk", () => {
   const config = read("vite.config.js");
   assert.match(config, /base:\s*"\.\/"/);
-  assert.match(config, /entryFileNames:\s*"assets\/\[name\]\.js"/);
-  assert.match(config, /chunkFileNames:\s*"assets\/\[name\]\.js"/);
+  assert.match(config, /entryFileNames:\s*"assets\/\[name\]-\[hash\]\.js"/);
+  assert.match(config, /chunkFileNames:\s*"assets\/\[name\]-\[hash\]\.js"/);
   assert.match(config, /outDir:\s*"\.\.\/dist"/);
   assert.match(config, /manualChunks/);
   assert.match(config, /src\/modules/);
@@ -104,13 +104,14 @@ test("响应式外壳：样式入口引入 responsive.css，App 含移动顶栏/
 test("构建产物（如存在）：相对路径、同步脚本与每个模块独立压缩 chunk", () => {
   if (!fs.existsSync(path.join(root, "dist/index.html"))) return; // 未构建时跳过
   const html = read("dist/index.html");
-  assert.match(html, /src="\.\/assets\/main\.js"/);
+  assert.match(html, /src="\.\/assets\/main-[^"]+\.js"/); // 带内容 hash 文件名
   assert.match(html, /src="\.\/js\/supabase-sync\.js"/);
   assert.match(html, /src="\.\/js\/sync-hooks\.js"/);
   for (const key of [...MODULE_KEYS, "home", "insight"]) {
-    const file = path.join(root, `dist/assets/${key === "sport" ? "workout" : key}.js`); // 运动目录名为 workout
-    assert.ok(fs.existsSync(file), `缺少 ${key}.js chunk`);
-    const size = fs.statSync(file).size;
-    assert.ok(size < 20000, `${key}.js 应为压缩后的独立 chunk（当前 ${size}B）`);
+    const name = key === "sport" ? "workout" : key; // 运动目录名为 workout
+    const matches = fs.readdirSync(path.join(root, "dist/assets")).filter(file => file.startsWith(`${name}-`) && file.endsWith(".js"));
+    assert.ok(matches.length === 1, `缺少 ${name}.js 的 hash chunk`);
+    const size = fs.statSync(path.join(root, "dist/assets", matches[0])).size;
+    assert.ok(size < 20000, `${name}.js 应为压缩后的独立 chunk（当前 ${size}B）`);
   }
 });

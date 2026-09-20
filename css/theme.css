@@ -38,4 +38,4 @@
 
 /* Layout tokens deliberately stay local to each entry. */
 .desktop-shell { --sidebar-w: 260px; --drawer-hover: rgba(240,232,213,.08); --drawer-active: rgba(240,232,213,.12); }
-.mobile-shell { --nav-h: 62px; }
+.mobile-shell { --nav-h: 62px; --workout-tabbar-h: 62px; }
