@@ -62,6 +62,11 @@ function wireModule() {
     updateModuleSummary();
   });
   scope.querySelectorAll("[data-edit]").forEach(el => el.onclick = () => openEditor(props.moduleKey, (getData()[props.moduleKey]).find(i => i.id == el.dataset.edit)));
+  // 点击卡片图片弹出完整原图，不触发展开编辑
+  scope.querySelectorAll(".rec .thumb").forEach(img => img.onclick = e => {
+    e.stopPropagation();
+    window.RecordMedia?.openImageViewer?.(img.getAttribute("src") || img.src);
+  });
   scope.querySelectorAll(".js-del").forEach(el => el.onclick = e => { e.stopPropagation(); confirmDelete(props.moduleKey, el.dataset.id); });
   scope.querySelectorAll(".js-pin").forEach(el => el.onclick = e => {
     e.stopPropagation();

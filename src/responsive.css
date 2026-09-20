@@ -90,3 +90,8 @@
   /* 负边距全宽容器不溢出 */
   .workout-head, .app > .topbar { margin-inline: 0; padding-inline: 0; }
 }
+
+/* 移动端：卡片大图留出更高空间，竖图完整显示 */
+@media (max-width: 820px) {
+  .rec.rec-layout-feature .thumb { height: 300px; }
+}

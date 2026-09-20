@@ -23,7 +23,7 @@ export function recHTML(m, x) {
   const layoutCls = `rec-layout-${layout}`;
   // 没有上传图时也按模块/样式补一张默认配图。
   const imageSrc = x.image || (typeof RecordMedia !== "undefined" ? RecordMedia.resolveRecordImage(x, m.key, layout) : "");
-  const thumb = imageSrc ? `<img class="thumb" src="${attr(imageSrc)}" alt="">` : "";
+  const thumb = imageSrc ? `<img class="thumb" src="${attr(imageSrc)}" alt="查看图片">` : "";
 
   // feature layout: 大图在上 + 标题 + 正文在下 (适合有图记录)
   if (layout === "feature" && imageSrc) {

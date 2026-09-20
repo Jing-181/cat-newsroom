@@ -238,11 +238,25 @@
     return PRESET_MAP[presetId]?.src || PRESET_MAP["paper-note"].src;
   }
 
+  // 全图查看器：点击卡片图片后弹出完整原图，点击任意处关闭。
+  function openImageViewer(src) {
+    const previous = document.getElementById("record-image-viewer");
+    if (previous) previous.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "record-image-viewer";
+    overlay.className = "record-image-viewer";
+    overlay.innerHTML = `<img src="${String(src ?? "").replace(/"/g, "&quot;")}" alt="查看图片"><button type="button" class="viewer-close" aria-label="关闭">×</button>`;
+    overlay.addEventListener("click", () => overlay.remove());
+    overlay.querySelector(".viewer-close")?.addEventListener("click", event => { event.stopPropagation(); overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+
   return {
     presets: PRESETS,
     getChoices,
     getPreset,
     defaultPresetId,
     resolveRecordImage,
+    openImageViewer,
   };
 });

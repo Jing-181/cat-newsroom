@@ -8,7 +8,12 @@
 @import "./responsive.css";
 
 /* 页面基底 */
-html, body { background: var(--page-bg); color: var(--text); font-family: var(--font); }
+html, body { background: var(--page-bg); color: var(--text); font-family: var(--font); touch-action: manipulation; }
+
+/* 全图查看器（点击卡片图片后弹出完整原图） */
+.record-image-viewer { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(10, 8, 5, .86); padding: 24px; cursor: zoom-out; }
+.record-image-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+.record-image-viewer .viewer-close { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: rgba(255, 255, 255, .12); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .btn, .modal { transition: none !important; }
