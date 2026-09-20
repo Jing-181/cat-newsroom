@@ -7,6 +7,13 @@
     return root.WorkoutCatalog.trainingDays.find(day => day.id === dayId)?.name || "训练";
   }
 
+  // 计划生成的训练记录使用"力量训练·推/拉/腿"作为徽标，普通训练日仍显示原名（如胸日）。
+  function recordKicker(record) {
+    const title = String(record.title || "");
+    if (title.startsWith("力量训练")) return title.split(" · ")[0] || title;
+    return dayName(record.training_day);
+  }
+
   function dayButtons(selectedDay) {
     return root.WorkoutCatalog.trainingDays.map(day => `<button type="button" data-day="${day.id}" class="${selectedDay === day.id ? "on" : ""}">${day.name}</button>`).join("");
   }
@@ -124,7 +131,7 @@
         <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date || "未记录")}</dd></div><div><dt>当前</dt><dd>${escapeHtml(record.current || 0)} ${escapeHtml(record.unit || "")}</dd></div><div><dt>目标</dt><dd>${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}</dd></div></dl>
         ${record.note ? `<p class="record-note">${escapeHtml(record.note)}</p>` : ""}`;
     }
-    return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(record.training_day))}</span><h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+    return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(recordKicker(record))}</span><h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${escapeHtml(record.duration_min || 0)} 分钟</dd></div><div><dt>完成</dt><dd>${info.setCount} 组</dd></div><div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div></dl>
       <div class="record-exercises">${(record.exercises || []).map(exercise => `<section><h4>${escapeHtml(exercise.name)}</h4>${(exercise.sets || []).map((set, index) => `<div class="record-set"><span>第 ${index + 1} 组</span><b>${escapeHtml(set.weight_kg || 0)} kg × ${escapeHtml(set.reps || 0)}</b><em>${set.completed ? "已完成" : "未完成"}${set.rpe ? ` · RPE ${escapeHtml(set.rpe)}` : ""}</em></div>`).join("")}</section>`).join("") || `<div class="session-empty">本次训练没有动作记录。</div>`}</div>
       ${record.note ? `<p class="record-note">${escapeHtml(record.note)}</p>` : ""}`;

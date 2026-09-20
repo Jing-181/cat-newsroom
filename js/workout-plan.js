@@ -60,9 +60,9 @@
   // 生成原理见 docs/workout-plan-generation-principles.md，改规则须同步改文档。
 
   const SPLIT_SEQUENCE = [
-    { split_day: "push", training_day: "chest", name: "推日", focus: "胸 + 前束 + 三头" },
-    { split_day: "pull", training_day: "back", name: "拉日", focus: "背 + 后束 + 二头" },
-    { split_day: "legs", training_day: "legs", name: "腿日", focus: "股四头 + 腘绳 + 臀 + 小腿" },
+    { split_day: "push", training_day: "chest", name: "力量训练·推", focus: "胸 + 前束 + 三头" },
+    { split_day: "pull", training_day: "back", name: "力量训练·拉", focus: "背 + 后束 + 二头" },
+    { split_day: "legs", training_day: "legs", name: "力量训练·腿", focus: "股四头 + 腘绳 + 臀 + 小腿" },
   ];
 
   const POOLS = {
@@ -130,7 +130,10 @@
     return null;
   }
 
-  function suggestWeight(records, exerciseId) {
+  // 渐进超负荷：最近一次完成记录驱动。
+  // 用户较少记录 RPE：只要最近一次全部组完成即视为可进阶（未填 RPE 不影响判定）；
+  // 若填写了 RPE 且平均 ≥ 9 则视为强度过高，维持重量。
+  function suggestWeight(records, exerciseId, stepKg = 2.5) {
     const entry = lastCompleted(records, exerciseId);
     if (!entry) return null;
     const completed = entry.sets.filter(set => set.completed);
@@ -138,7 +141,7 @@
     const rated = completed.filter(set => set.rpe);
     const avgRpe = rated.length ? rated.reduce((sum, set) => sum + Number(set.rpe || 0), 0) / rated.length : 8;
     const base = Number(completed.at(-1)?.weight_kg || 0);
-    if (allDone && avgRpe <= 8) return Math.round((base + 2.5) * 10) / 10;
+    if (allDone && avgRpe <= 8) return Math.round((base + stepKg) * 10) / 10;
     return base;
   }
 
@@ -150,8 +153,10 @@
       const round1 = days.find(item => item.split_day === day.split_day && item.round === 1);
       const round1Compounds = day.round === 2 && round1 ? round1.exercises.slice(0, COMPOUND_COUNT).map(e => e.exercise_id) : null;
       fillExercises(day, pool, round1Compounds, day.round === 1 ? 1 : 2);
+      // 上下肢步进区分：推/拉日 +2.5kg，腿日 +5kg（下肢通常进步更快）。
+      const stepKg = day.split_day === "legs" ? 5 : 2.5;
       day.exercises.forEach(exercise => {
-        exercise.weight_kg = suggestWeight(records, exercise.exercise_id);
+        exercise.weight_kg = suggestWeight(records, exercise.exercise_id, stepKg);
       });
     });
     return {

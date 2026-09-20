@@ -29,8 +29,8 @@ test("生成 2 轮 × 3 天 PPL 结构", () => {
   assert.deepEqual(splits, ["push", "pull", "legs", "push", "pull", "legs"]);
   assert.deepEqual(result.days.map(d => d.round), [1, 1, 1, 2, 2, 2]);
   assert.deepEqual(result.days.map(d => d.training_day), ["chest", "back", "legs", "chest", "back", "legs"]);
-  assert.equal(result.days[0].title, "推日 · 第 1 轮");
-  assert.equal(result.days[3].title, "推日 · 第 2 轮");
+  assert.equal(result.days[0].title, "力量训练·推 · 第 1 轮");
+  assert.equal(result.days[3].title, "力量训练·推 · 第 2 轮");
 });
 
 test("每天 4 复合 + 2 孤立，第 2 轮复合相同、孤立替换", () => {
@@ -81,6 +81,36 @@ test("存在未完成组或 RPE≥9 → 维持上次重量", () => {
 test("无历史 → 建议重量为空", () => {
   const result = plan.generatePlan({ preferences: {}, records: [] });
   assert.equal(result.days[0].exercises[0].weight_kg, null);
+});
+
+test("上肢动作全部完成但未填 RPE → 仍 +2.5kg（少记 RPE 场景）", () => {
+  const records = [completedSession("2026-09-10", [["barbell_bench_press", [
+    { weight_kg: 50, reps: 10, completed: true },
+    { weight_kg: 50, reps: 9, completed: true },
+  ]]])];
+  const result = plan.generatePlan({ preferences: {}, records });
+  const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
+  assert.equal(bench.weight_kg, 52.5);
+});
+
+test("下肢动作全部完成 → +5kg", () => {
+  const records = [completedSession("2026-09-10", [["barbell_squat", [
+    { weight_kg: 80, reps: 8, completed: true },
+    { weight_kg: 80, reps: 7, completed: true },
+  ]]])];
+  const result = plan.generatePlan({ preferences: {}, records });
+  const squat = result.days[2].exercises.find(e => e.exercise_id === "barbell_squat");
+  assert.equal(squat.weight_kg, 85);
+});
+
+test("下肢动作有未完成组 → 维持上次重量", () => {
+  const records = [completedSession("2026-09-10", [["barbell_squat", [
+    { weight_kg: 80, reps: 8, completed: true },
+    { weight_kg: 80, reps: 5, completed: false },
+  ]]])];
+  const result = plan.generatePlan({ preferences: {}, records });
+  const squat = result.days[2].exercises.find(e => e.exercise_id === "barbell_squat");
+  assert.equal(squat.weight_kg, 80);
 });
 
 test("保存与读取完成进度", () => {
