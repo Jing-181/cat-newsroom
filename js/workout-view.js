@@ -118,15 +118,42 @@
 
   function detailHtml(record) {
     const info = root.Workout.summary(record);
+    const copy = `<button type="button" class="workout-btn compact" data-copy-workout="${escapeHtml(record.id)}">复制数据</button>`;
     if (info.legacy) {
-      return `<div class="dialog-head"><div><span class="dialog-kicker">历史记录</span><h3>${escapeHtml(info.title)}</h3></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+      return `<div class="dialog-head"><div><span class="dialog-kicker">历史记录</span><h3>${escapeHtml(info.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
         <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date || "未记录")}</dd></div><div><dt>当前</dt><dd>${escapeHtml(record.current || 0)} ${escapeHtml(record.unit || "")}</dd></div><div><dt>目标</dt><dd>${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}</dd></div></dl>
         ${record.note ? `<p class="record-note">${escapeHtml(record.note)}</p>` : ""}`;
     }
-    return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(record.training_day))}</span><h3>${escapeHtml(record.title)}</h3></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+    return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(record.training_day))}</span><h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${escapeHtml(record.duration_min || 0)} 分钟</dd></div><div><dt>完成</dt><dd>${info.setCount} 组</dd></div><div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div></dl>
       <div class="record-exercises">${(record.exercises || []).map(exercise => `<section><h4>${escapeHtml(exercise.name)}</h4>${(exercise.sets || []).map((set, index) => `<div class="record-set"><span>第 ${index + 1} 组</span><b>${escapeHtml(set.weight_kg || 0)} kg × ${escapeHtml(set.reps || 0)}</b><em>${set.completed ? "已完成" : "未完成"}${set.rpe ? ` · RPE ${escapeHtml(set.rpe)}` : ""}</em></div>`).join("")}</section>`).join("") || `<div class="session-empty">本次训练没有动作记录。</div>`}</div>
       ${record.note ? `<p class="record-note">${escapeHtml(record.note)}</p>` : ""}`;
+  }
+
+  function buildCopyText(record) {
+    const info = root.Workout.summary(record);
+    if (info.legacy) {
+      const lines = [`${record.title || "运动记录"}${record.date ? `（${record.date}）` : ""}`];
+      lines.push(`当前 ${record.current || 0} / 目标 ${record.target || 0} ${record.unit || ""}`);
+      if (record.note) lines.push(`备注：${record.note}`);
+      return lines.join("\n");
+    }
+    const lines = [`${record.title || "训练"}（${record.date}）${record.duration_min ? ` · ${record.duration_min} 分钟` : ""}`];
+    (record.exercises || []).forEach((exercise, index) => {
+      lines.push(`${index + 1}. ${exercise.name}${exercise.body_part ? `（${exercise.body_part}）` : ""}`);
+      (exercise.sets || []).forEach((set, setIndex) => {
+        const part = [];
+        if (set.completed === false) part.push("未完成");
+        if (exercise.equipment === "有氧" || exercise.equipment === "恢复") {
+          part.push(`${set.duration_min || 0} 分钟${set.distance_km ? ` · ${set.distance_km} km` : ""}`);
+        } else {
+          part.push(`${set.weight_kg || 0} kg × ${set.reps || 0}${set.rpe ? ` · RPE ${set.rpe}` : ""}`);
+        }
+        lines.push(`   第 ${setIndex + 1} 组 ${part.join(" ")}`);
+      });
+    });
+    if (record.note) lines.push(`备注：${record.note}`);
+    return lines.join("\n");
   }
 
   function exerciseLibraryHtml(selectedDay, selectedExercises) {
@@ -162,5 +189,5 @@
       <div class="plan-day-grid">${(plan.days || []).map(day => planDayCard(day, progress)).join("")}</div>`;
   }
 
-  root.WorkoutView = { editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, legacyEditHtml, planDayCard, planViewHtml };
+  root.WorkoutView = { editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, legacyEditHtml, planDayCard, planViewHtml, buildCopyText };
 })(typeof window !== "undefined" ? window : null);

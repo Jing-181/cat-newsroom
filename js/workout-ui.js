@@ -299,6 +299,29 @@
       });
     }
 
+    // 训练详情“复制数据”：把整次训练复制到剪贴板。
+    if (!container.__copyWorkoutBound) {
+      container.__copyWorkoutBound = true;
+      container.addEventListener("click", async event => {
+        const button = event.target.closest("[data-copy-workout]");
+        if (!button) return;
+        const record = findRecord(button.dataset.copyWorkout);
+        if (!record || !root.WorkoutView?.buildCopyText) return;
+        const text = root.WorkoutView.buildCopyText(record);
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (_) {
+          const area = document.createElement("textarea");
+          area.value = text;
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand("copy");
+          area.remove();
+        }
+        root.AppDialog.alert("已把训练数据复制到剪贴板", { title: "已复制" });
+      });
+    }
+
     render();
     return { render, getSession:() => session };
   }

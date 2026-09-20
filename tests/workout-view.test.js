@@ -75,3 +75,34 @@ test("空闲视图恢复训练计划菜单，保留开始训练入口", () => {
   assert.match(html, /id="workout-preferences"/);
   assert.match(html, /id="workout-start"/);
 });
+
+test("训练详情提供复制数据按钮", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 8, 20));
+  session.status = "completed";
+  workout.addExercise(session, "dumbbell_bench_press");
+  session.exercises[0].sets[0] = { weight_kg: 20, reps: 10, rpe: 8, completed: true };
+  const detail = view.detailHtml(session);
+  assert.match(detail, /data-copy-workout=/);
+  assert.match(detail, />复制数据</);
+  const legacy = view.detailHtml({ id: 1, title: "旧记录", current: 10, target: 20, unit: "分钟" });
+  assert.match(legacy, /data-copy-workout=/);
+});
+
+test("复制文本包含日期、时长与每组重量次数", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 8, 20));
+  session.status = "completed";
+  session.duration_min = 45;
+  workout.addExercise(session, "dumbbell_bench_press");
+  session.exercises[0].sets = [
+    { weight_kg: 20, reps: 10, rpe: 8, completed: true },
+    { weight_kg: 20, reps: 9, rpe: 9, completed: true },
+  ];
+  const text = view.buildCopyText(session);
+  assert.match(text, /2026-09-20/);
+  assert.match(text, /45 分钟/);
+  assert.match(text, /哑铃卧推/);
+  assert.match(text, /20 kg × 10 · RPE 8/);
+  assert.match(text, /第 2 组 20 kg × 9 · RPE 9/);
+});
