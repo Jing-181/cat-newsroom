@@ -96,7 +96,7 @@ html, body { overflow-x:clip; }
 .stepper-btn:first-child { border-radius:6px 0 0 6px; border-right:0; }
 .stepper-btn:last-child { border-radius:0 6px 6px 0; border-left:0; }
 .stepper input { border-radius:0 !important; flex:1; min-width:0; }
-.workout-add-floating { display:none; }
+.workout-add-floating { display:flex; justify-content:center; padding:8px 0; margin-top:8px; }
 .set-done { width:30px; height:30px; border:1px solid var(--border-input); border-radius:7px; color:transparent; background:var(--surface-card); cursor:pointer; }
 .set-done.on { color:var(--surface-card); border-color:var(--module-1); background:var(--module-1); }
 .session-exercise-foot { display:flex; gap:16px; padding:10px 12px; border-top:1px solid var(--border); }
@@ -159,7 +159,7 @@ html, body { overflow-x:clip; }
 .mobile-shell .set-fields { gap:6px; }
 .mobile-shell .set-fields input { height:40px; font-size:16px; }
 .mobile-shell .stepper-btn { flex-basis:32px; font-size:18px; }
-.mobile-shell .workout-add-floating { display:flex; justify-content:center; position:sticky; bottom:80px; z-index:3; padding:8px 0; margin-top:8px; }
+.mobile-shell .workout-add-floating { display:flex; justify-content:center; position:sticky; bottom:calc(140px + env(safe-area-inset-bottom)); z-index:3; padding:8px 0; margin-top:8px; }
 .mobile-shell .workout-add-floating .workout-btn { width:100%; max-width:320px; }
 .mobile-shell .history-group { grid-template-columns:minmax(0,1fr); }
 .mobile-shell .workout-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -175,7 +175,7 @@ html, body { overflow-x:clip; }
 .mobile-shell .workout-completion { padding:10px; }
 .mobile-shell .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .mobile-shell .workout-fields .note { grid-column:1/-1; }
-.mobile-shell .workout-submitbar { position:sticky; bottom:64px; z-index:3; justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
+.mobile-shell .workout-submitbar { justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
 .mobile-shell .workout-submit-summary { display:grid; gap:2px; }
 .mobile-shell .workout-submitbar .workout-btn { flex:0 0 auto; }
 .mobile-shell .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -207,15 +207,17 @@ html, body { overflow-x:clip; }
   .workout-stat b { font-size:15px; }
   .workout-stat span { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .workout-completion { padding:10px; }
-  .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  /* 字段与提交栏均恢复文档流，杜绝 sticky 悬浮覆盖输入区 */
+  .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:10px 12px; }
   .workout-fields .note { grid-column:1/-1; }
-  .workout-submitbar { position:sticky; bottom:calc(72px + env(safe-area-inset-bottom)); z-index:3; justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
+  .workout-fields label { min-height:0; margin-bottom:5px; }
+  .workout-submitbar { justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
   .workout-submit-summary { display:grid; gap:2px; }
   .workout-submitbar .workout-btn { flex:0 0 auto; min-height:44px; }
   .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .record-set { grid-template-columns:58px minmax(0,1fr); }
   .record-set em { grid-column:2; }
-  .workout-add-floating { display:flex; justify-content:center; position:sticky; bottom:calc(80px + env(safe-area-inset-bottom)); z-index:3; padding:8px 0; margin-top:8px; }
+  .workout-add-floating { display:flex; justify-content:center; position:sticky; bottom:calc(140px + env(safe-area-inset-bottom)); z-index:3; padding:8px 0; margin-top:8px; }
   .workout-add-floating .workout-btn { width:100%; max-width:320px; min-height:44px; }
   .workout-days button { min-height:40px; }
   .quick-exercises button { min-height:36px; }
