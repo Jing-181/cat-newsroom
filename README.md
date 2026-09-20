@@ -109,7 +109,7 @@ supabase functions deploy generate-weekly-report
 
 ## 部署
 
-将仓库完整部署到 GitHub Pages，并让站点默认打开根目录的 `index.html`。保留 `workbench-desktop.html` 和 `workbench-mobile.html`，旧书签仍可访问，页面会根据已保存的端模式偏好纠正布局。
+将仓库完整部署到 GitHub Pages，并让站点默认打开根目录的 `index.html`。仓库已内置 `.github/workflows/deploy.yml`：推送 `main` 后自动 `npm run build` 并把 `dist/` 发布到 Pages 根路径，因此直接访问 `https://jing-181.github.io/cat-newsroom/` 即可看到完整页面（无需 `/dist/` 后缀）。需在仓库 Settings → Pages 把构建来源设为「GitHub Actions」一次。保留 `workbench-desktop.html` 和 `workbench-mobile.html`，旧书签仍可访问，页面会根据已保存的端模式偏好纠正布局。
 
 ## 项目结构
 

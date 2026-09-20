@@ -107,11 +107,11 @@ function onAvatarChange(e) {
         <div><h1 id="brandName">{{ CONFIG.owner }}</h1><p id="brandSlogan">{{ CONFIG.slogan }}</p></div>
       </div>
       <nav class="nav">
-        <a class="navi" :class="{ active: view === 'home' }" @click="go('home')">{{ icon("home", 19) }}首页</a>
+        <a class="navi" :class="{ active: view === 'home' }" @click="go('home')"><span v-html="icon('home', 19)"></span>首页</a>
         <div class="nav-sep">功能模块</div>
-        <a v-for="m in CONFIG.modules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key)">{{ icon(m.icon, 19) }}{{ m.name }}</a>
+        <a v-for="m in CONFIG.modules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
         <div class="nav-sep">统计</div>
-        <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight')">{{ icon("chart", 19) }}洞察复盘</a>
+        <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight')"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
       </nav>
       <div class="sync-area" id="syncArea">
         <div ref="deviceSwitcherRef"></div>

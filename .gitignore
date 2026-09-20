@@ -2,5 +2,8 @@ node_modules/
 dist/
 dist-vue/
 supabase/.temp/
-src/public/
+src/public/*
+!src/public/favicon.svg
+!src/public/favicon.png
+!src/public/apple-touch-icon.png
 .trae-html-share-packages/
