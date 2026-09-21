@@ -160,12 +160,10 @@
       }));
       container.querySelector("#workout-date")?.addEventListener("input", event => {
         session.date = event.target.value;
-        container.querySelector("[data-submit-date]").textContent = session.date;
         updateSession({ rerender:false });
       });
       container.querySelector("#workout-duration")?.addEventListener("input", event => {
         session.duration_min = Math.max(1, Number(event.target.value || 1));
-        container.querySelector("[data-submit-duration]").textContent = session.duration_min;
         updateSession({ rerender:false });
       });
       container.querySelector("#workout-note")?.addEventListener("input", event => { session.note = event.target.value; updateSession({ rerender:false }); });

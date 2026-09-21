@@ -101,8 +101,8 @@
         </div>
       </section>
       <div class="workout-bottom-bar">
-        <div class="workout-submitbar"><div class="workout-submit-summary"><b data-submit-date>${escapeHtml(session.date)}</b><span><i data-submit-duration>${escapeHtml(session.duration_min)}</i> 分钟</span></div><button type="button" class="workout-btn primary" id="workout-finish">${editing ? "保存修改" : "完成训练"}</button></div>
-        <div class="workout-add-floating"><button type="button" class="workout-btn primary" id="workout-add-floating">+ 添加动作</button></div>
+        <button type="button" class="workout-btn" id="workout-add-floating">+ 添加动作</button>
+        <button type="button" class="workout-btn primary" id="workout-finish">${editing ? "保存修改" : "完成训练"}</button>
       </div>
       ${dialogShell()}
     </section>`;

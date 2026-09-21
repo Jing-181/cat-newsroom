@@ -96,7 +96,11 @@ html, body { overflow-x:clip; }
 .stepper-btn:first-child { border-radius:6px 0 0 6px; border-right:0; }
 .stepper-btn:last-child { border-radius:0 6px 6px 0; border-left:0; }
 .stepper input { border-radius:0 !important; flex:1; min-width:0; }
-.workout-add-floating { display:flex; justify-content:center; padding:8px 0; margin-top:8px; }
+/* 底部悬浮操作栏：添加动作（次要）+ 完成训练（主按钮）并排，留出呼吸感 */
+.workout-bottom-bar { display:flex; align-items:stretch; gap:10px; padding:12px 2px calc(8px + env(safe-area-inset-bottom)); }
+.workout-bottom-bar .workout-btn { flex:0 0 auto; min-height:48px; border-radius:12px; }
+.workout-bottom-bar #workout-finish { flex:1; min-width:0; }
+.workout-bottom-bar #workout-add-floating { padding:0 16px; }
 .set-done { width:30px; height:30px; border:1px solid var(--border-input); border-radius:7px; color:transparent; background:var(--surface-card); cursor:pointer; }
 .set-done.on { color:var(--surface-card); border-color:var(--module-1); background:var(--module-1); }
 .session-exercise-foot { display:flex; gap:16px; padding:10px 12px; border-top:1px solid var(--border); }
@@ -110,11 +114,6 @@ html, body { overflow-x:clip; }
 .workout-field { min-width:0; }
 .workout-field label { display:block; min-height:1lh; margin-bottom:5px; font-size:11px; color:var(--text-secondary); }
 .workout-field input { width:100%; height:40px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:7px; padding:0 10px; color:var(--text); background:var(--surface-card); }
-.workout-submitbar { display:flex; align-items:center; justify-content:flex-end; gap:14px; }
-.workout-submit-summary { display:none; min-width:0; }
-.workout-submit-summary b, .workout-submit-summary span { white-space:nowrap; }
-.workout-submit-summary span { color:var(--text-secondary); font-size:11px; }
-.workout-submit-summary i { font-style:normal; }
 .workout-history { display:flex; flex-direction:column; gap:16px; }
 .history-group-block { min-width:0; }
 .history-month { display:flex; align-items:center; gap:10px; margin:2px 2px 10px; font-size:12px; font-weight:800; letter-spacing:.06em; color:var(--text-tertiary); }
@@ -159,8 +158,6 @@ html, body { overflow-x:clip; }
 .mobile-shell .set-fields { gap:6px; }
 .mobile-shell .set-fields input { height:40px; font-size:16px; }
 .mobile-shell .stepper-btn { flex-basis:32px; font-size:18px; }
-.mobile-shell .workout-add-floating { display:flex; justify-content:center; padding:0; margin:0; }
-.mobile-shell .workout-add-floating .workout-btn { width:100%; max-width:320px; }
 .mobile-shell .history-group { grid-template-columns:minmax(0,1fr); }
 .mobile-shell .workout-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .mobile-shell .workout-stat { padding:8px; }
@@ -175,10 +172,7 @@ html, body { overflow-x:clip; }
 .mobile-shell .workout-completion { padding:10px; }
 .mobile-shell .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .mobile-shell .workout-fields .note { grid-column:1/-1; }
-.mobile-shell .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 62px) + env(safe-area-inset-bottom)); z-index:5; display:grid; gap:8px; }
-.mobile-shell .workout-submitbar { justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
-.mobile-shell .workout-submit-summary { display:grid; gap:2px; }
-.mobile-shell .workout-submitbar .workout-btn { flex:0 0 auto; }
+.mobile-shell .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 62px) + env(safe-area-inset-bottom)); z-index:5; }
 .mobile-shell .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .mobile-shell .record-set { grid-template-columns:58px minmax(0,1fr); }
 .mobile-shell .record-set em { grid-column:2; }
@@ -212,15 +206,11 @@ html, body { overflow-x:clip; }
   .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:10px 12px; }
   .workout-fields .note { grid-column:1/-1; }
   .workout-fields label { min-height:0; margin-bottom:5px; }
-  .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 56px) + env(safe-area-inset-bottom)); z-index:5; display:grid; gap:8px; }
-  .workout-submitbar { justify-content:space-between; margin:0; padding:10px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
-  .workout-submit-summary { display:grid; gap:2px; }
-  .workout-submitbar .workout-btn { flex:0 0 auto; min-height:44px; }
+  .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 56px) + env(safe-area-inset-bottom)); z-index:5; }
   .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .record-set { grid-template-columns:58px minmax(0,1fr); }
   .record-set em { grid-column:2; }
   .workout-add-floating { display:flex; justify-content:center; padding:0; margin:0; }
-  .workout-add-floating .workout-btn { width:100%; max-width:320px; min-height:44px; }
   .workout-days button { min-height:40px; }
   .quick-exercises button { min-height:36px; }
 }
@@ -229,9 +219,8 @@ html, body { overflow-x:clip; }
   .dialog-library { grid-template-columns:minmax(0,1fr); }
   .workout-fields, .legacy-fields { grid-template-columns:minmax(0,1fr); }
   .workout-fields .note, .legacy-fields .note { grid-column:auto; }
-  .workout-submitbar { gap:8px; }
-  .workout-submit-summary b { font-size:12px; }
-  .workout-submitbar .workout-btn { padding:0 10px; }
+  .workout-bottom-bar { gap:8px; }
+  .workout-bottom-bar .workout-btn { min-height:46px; border-radius:10px; }
 }
 
 @media (prefers-reduced-motion:reduce) {
@@ -239,7 +228,7 @@ html, body { overflow-x:clip; }
 }
 
 /* 防溢出加固：完成区与吸底栏在任何宽度下都不超出视口、不与相邻元素重叠 */
-.workout-completion, .workout-bottom-bar, .workout-submitbar, .workout-fields, .workout-field, .workout-add-floating { min-width:0; max-width:100%; box-sizing:border-box; }
+.workout-completion, .workout-bottom-bar, .workout-fields, .workout-field { min-width:0; max-width:100%; box-sizing:border-box; }
 .workout-fields input, .workout-field input { min-width:0; }
 
 /* 训练计划日卡视图 */
