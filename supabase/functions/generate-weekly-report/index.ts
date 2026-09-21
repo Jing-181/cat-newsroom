@@ -212,6 +212,15 @@ async function generateWithAI(provider: Provider, model: string, snapshot: unkno
   return parsed;
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const value = (error as { message?: unknown }).message;
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return "生成失败";
+}
+
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 45000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -294,16 +303,17 @@ Deno.serve(async (request) => {
       }
       if (report !== null) break;
     }
-    if (report === null) throw lastError instanceof Error ? lastError : new Error("所有 AI 通道均失败");
+    if (report === null) throw lastError instanceof Error ? lastError : new Error(errorMessage(lastError));
 
     const { error: saveError } = await supabase.from("weekly_reports").update({ status: "ready", payload: report, source_snapshot: snapshot, model: usedModel, provider: usedProvider, generated_at: new Date().toISOString(), error: null }).eq("user_id", user.id).eq("week_start", start);
     if (saveError) throw saveError;
     return json({ report, meta: { week_start: start, week_end: end, model: usedModel, provider: usedProvider, generated_at: new Date().toISOString() } });
   } catch (error) {
     console.error("[weekly-report]", error);
+    const message = errorMessage(error);
     if (activeUserId && activeWeekStart) {
-      await dbClient?.from("weekly_reports").update({ status: "error", error: error instanceof Error ? error.message : "生成失败" }).eq("user_id", activeUserId).eq("week_start", activeWeekStart);
+      await dbClient?.from("weekly_reports").update({ status: "error", error: message }).eq("user_id", activeUserId).eq("week_start", activeWeekStart);
     }
-    return json({ error: error instanceof Error ? error.message : "生成失败" }, 500);
+    return json({ error: message }, 500);
   }
 });
