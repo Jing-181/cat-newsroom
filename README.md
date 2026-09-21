@@ -44,7 +44,7 @@ npm run build
 ```
 
 `npm test` 执行设备模式、番茄钟、训练模型和同步核心测试；`npm run check` 额外检查同步脚本语法。
-`npm run dev:vue` 启动 Vue 组件入口（`src/`）开发服务；`npm run build` 构建 `src/` 为 `dist/`，每个业务模块独立压缩 chunk，文件名带内容 hash（部署后强制浏览器拉取新样式，规避 Pages 缓存导致旧样式残留），部署到子路径时访问地址不变。桌面端全部 7 个业务模块已组件化（首页/洞察/待办/打卡/阅读/运动/记账/日记/收藏），构建后的 `dist/index.html` 即为完整页面；旧的 `workbench-desktop.html` / `workbench-mobile.html` 也会一并拷贝进 `dist/` 作为回退入口，旧书签与设备切换仍可用。
+`npm run dev:vue` 启动 Vue 组件入口（`src/`）开发服务；`npm run build` 构建 `src/` 为 `dist/`，每个业务模块独立压缩 chunk，文件名带内容 hash（部署后强制浏览器拉取新样式，规避 Pages 缓存导致旧样式残留），部署到子路径时访问地址不变。桌面端全部 7 个业务模块已组件化（首页/洞察/待办/打卡/阅读/运动/记账/日记/收藏），构建后的 `dist/index.html` 即为完整页面；旧的 `workbench-desktop.html` / `workbench-mobile.html` 已退役，仅保留自动跳转到 `index.html`，旧书签访问时直接进入最新版。
 
 ## 端模式与数据互通
 
@@ -104,7 +104,7 @@ supabase functions deploy generate-weekly-report
 
 ## 部署
 
-将仓库完整部署到 GitHub Pages，并让站点默认打开根目录的 `index.html`。仓库已内置 `.github/workflows/deploy.yml`：推送 `main` 后自动 `npm run build` 并把 `dist/` 发布到 Pages 根路径，因此直接访问 `https://jing-181.github.io/cat-newsroom/` 即可看到完整页面（无需 `/dist/` 后缀）。需在仓库 Settings → Pages 把构建来源设为「GitHub Actions」一次。保留 `workbench-desktop.html` 和 `workbench-mobile.html`，旧书签仍可访问，页面会根据已保存的端模式偏好纠正布局。
+将仓库完整部署到 GitHub Pages，并让站点默认打开根目录的 `index.html`。仓库已内置 `.github/workflows/deploy.yml`：推送 `main` 后自动 `npm run build` 并把 `dist/` 发布到 Pages 根路径，因此直接访问 `https://jing-181.github.io/cat-newsroom/` 即可看到完整页面（无需 `/dist/` 后缀）。需在仓库 Settings → Pages 把构建来源设为「GitHub Actions」一次。`workbench-desktop.html` 和 `workbench-mobile.html` 为旧版退役入口，访问会自动跳转到 `index.html` 最新版。
 
 ## 项目结构
 
