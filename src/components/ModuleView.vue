@@ -106,7 +106,7 @@ function render() {
       <div class="mini"><div class="l">笔数</div><div class="v">${all.length}</div></div></div>`;
   } else if (m.type === "todo") {
     const done = all.filter(x => x.done).length;
-    head = headHero(m, `${done}/${all.length}`, "今日已完成");
+    head = headHero(m, `${done}/${all.length}`, "已完成");
   } else if (m.type === "checkin") {
     const done = all.filter(x => x.log && x.log[t]).length;
     head = headHero(m, `${done}/${all.length}`, "今日已打卡");

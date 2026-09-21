@@ -19,7 +19,7 @@ export const CONFIG = {
 
   // 今日概览环形（value 为 0-100 的完成度，calc 返回 {value, sub}）
   overview: [
-    { key: "todo", label: "今日待办", icon: "list", color: "var(--accent)",
+    { key: "todo", label: "待办事项", icon: "list", color: "var(--accent)",
       calc: d => { const it = d.todo || []; const done = it.filter(x => x.done).length; return { value: it.length ? Math.round(done / it.length * 100) : 0, sub: `${done}/${it.length} 项` }; } },
     { key: "checkin", label: "打卡", icon: "leaf", color: "var(--module-1)",
       calc: d => { const it = d.checkin || []; const t = today(); const done = it.filter(x => x.log && x.log[t]).length; return { value: it.length ? Math.round(done / it.length * 100) : 0, sub: `${done}/${it.length} 项` }; } },
@@ -43,7 +43,7 @@ export const CONFIG = {
 
   // ============ 模块定义 ============
   modules: [
-    { key: "todo", name: "今日待办", icon: "list", tint: "#f5e8cf", color: "var(--accent)", type: "todo", desc: "今日任务清单与进度追踪",
+    { key: "todo", name: "待办事项", icon: "list", tint: "#f5e8cf", color: "var(--accent)", type: "todo", desc: "待办清单与进度追踪",
       priorities: [{ key: "P0", label: "重要", color: "#f0dccd", text: "#b8482e" }, { key: "P1", label: "一般", color: "#f5e8cf", text: "#c47128" }, { key: "P2", label: "随手", color: "#e8efd8", text: "#5c7a3e" }],
       seed: [{ id: 11, title: "给猫主子换水换粮", priority: "P0", done: false, note: "记得检查自动喂食器余量" },
              { id: 12, title: "整理本周工作纪要", priority: "P1", done: false, note: "" },

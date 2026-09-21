@@ -96,7 +96,7 @@ function todoTileHTML() {
     return `<div class="tk-row"><div class="tk-chk js-pin-chk ${x.done ? "on" : ""}" data-mkey="todo" data-id="${x.id}">${chk}</div>
       <span class="tk-name ${x.done ? "done" : ""} js-pin-open" data-mkey="todo" data-id="${x.id}">${esc(x.title)}</span>
       ${p ? `<span class="badge" style="background:${p.color};color:${p.text}"><span class="dot"></span>${p.label}</span>` : ""}</div>`; }).join("")
-    : `<div class="focus-empty">还没有待办，去「今日计划」添加吧</div>`;
+    : `<div class="focus-empty">还没有待办，去「待办事项」添加吧</div>`;
   return `<div class="tile b5"><div class="tile-h"><span class="tic">${icon("list", 16)}</span><div class="tt"><span class="en">TODO LIST</span><span class="zh">待办清单</span></div><span class="r js-open" data-open="todo">查看全部</span></div>
     <div class="tk-head"><span class="pct">${done}<span style="color:var(--text-secondary)">/${it.length}</span></span><span class="cnt">完成 ${pct}%</span><span class="bar"><i style="width:${pct}%"></i></span></div>
     <div class="tk-list">${list}</div></div>`;

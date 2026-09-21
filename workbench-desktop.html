@@ -666,7 +666,7 @@ const CONFIG = {
 
   // 今日概览环形（value 为 0-100 的完成度，calc 返回 {value, sub}）
   overview: [
-    { key:"todo", label:"今日待办", icon:"list", color:"var(--accent)",
+    { key:"todo", label:"待办事项", icon:"list", color:"var(--accent)",
       calc: d => { const it=d.todo||[]; const done=it.filter(x=>x.done).length; return { value: it.length?Math.round(done/it.length*100):0, sub:`${done}/${it.length} 项` }; } },
     { key:"checkin", label:"打卡", icon:"leaf", color:"var(--module-1)",
       calc: d => { const it=d.checkin||[]; const t=today(); const done=it.filter(x=>x.log&&x.log[t]).length; return { value: it.length?Math.round(done/it.length*100):0, sub:`${done}/${it.length} 项` }; } },
@@ -690,7 +690,7 @@ const CONFIG = {
 
   // ============ 模块定义 ============
   modules: [
-    { key:"todo", name:"今日待办", icon:"list", tint:"#f5e8cf", color:"var(--accent)", type:"todo", desc:"今日任务清单与进度追踪",
+    { key:"todo", name:"待办事项", icon:"list", tint:"#f5e8cf", color:"var(--accent)", type:"todo", desc:"待办清单与进度追踪",
       priorities:[ {key:"P0",label:"重要",color:"#f0dccd",text:"#b8482e"}, {key:"P1",label:"一般",color:"#f5e8cf",text:"#c47128"}, {key:"P2",label:"随手",color:"#e8efd8",text:"#5c7a3e"} ],
       seed:[ {id:11,title:"给猫主子换水换粮",priority:"P0",done:false,note:"记得检查自动喂食器余量"},
              {id:12,title:"整理本周工作纪要",priority:"P1",done:false,note:""},
@@ -1021,7 +1021,7 @@ function todoTileHTML(){
     return `<div class="tk-row"><div class="tk-chk js-pin-chk ${x.done?'on':''}" data-mkey="todo" data-id="${x.id}">${chk}</div>
       <span class="tk-name ${x.done?'done':''} js-pin-open" data-mkey="todo" data-id="${x.id}">${esc(x.title)}</span>
       ${p?`<span class="badge" style="background:${p.color};color:${p.text}"><span class="dot"></span>${p.label}</span>`:''}</div>`; }).join("")
-    : `<div class="focus-empty">还没有待办，去「今日计划」添加吧</div>`;
+    : `<div class="focus-empty">还没有待办，去「待办事项」添加吧</div>`;
   return `<div class="tile b5"><div class="tile-h"><span class="tic">${icon("list",16)}</span><div class="tt"><span class="en">TODO LIST</span><span class="zh">待办清单</span></div><span class="r js-open" data-open="todo">查看全部</span></div>
     <div class="tk-head"><span class="pct">${done}<span style="color:var(--text-secondary)">/${it.length}</span></span><span class="cnt">完成 ${pct}%</span><span class="bar"><i style="width:${pct}%"></i></span></div>
     <div class="tk-list">${list}</div></div>`;
@@ -1200,7 +1200,7 @@ function renderModule(key){
       <div class="mini"><div class="l">笔数</div><div class="v">${all.length}</div></div></div>`;
   } else if(m.type==="todo"){
     const done=all.filter(x=>x.done).length;
-    head=headHero(m, `${done}/${all.length}`, "今日已完成");
+    head=headHero(m, `${done}/${all.length}`, "已完成");
   } else if(m.type==="checkin"){
     const done=all.filter(x=>x.log&&x.log[t]).length;
     head=headHero(m, `${done}/${all.length}`, "今日已打卡");
