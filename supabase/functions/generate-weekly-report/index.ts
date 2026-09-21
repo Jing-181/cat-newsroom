@@ -1,4 +1,5 @@
 // 生成每周 AI 生活报；AI key 只从 Supabase Secret 读取。
+// 主链路 aixluv + 兜底 SU8（主链路失败自动切换）；模型白名单优先可用文本模型，避免 codex/音频/实时模型被上游拒绝。
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
 const cors = {
@@ -123,40 +124,70 @@ function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, un
   };
 }
 
-async function chooseModel(apiKey: string) {
-  const normalizedKey = apiKey.trim();
-  if (!/^[\x21-\x7E]+$/.test(normalizedKey)) throw new Error("AI 密钥格式无效，请检查 Supabase Secret");
-  const configured = Deno.env.get("AIXLUV_MODEL");
-  if (configured?.trim()) return configured.trim();
-  const response = await fetchWithTimeout("https://api.aixluv.com/v1/models", { headers: { Authorization: `Bearer ${normalizedKey}` } }, 15000);
+// ---------- AI Provider 链（主链路失败自动切换兜底） ----------
+
+// 已知可用的通用文本模型优先级（gpt-5.5 已实测可用；codex/音频/实时模型会被上游拒绝，不参与挑选）。
+const MODEL_PREFERENCE = ["gpt-5.5", "gpt-5.4", "gpt-5.2-chat-latest", "gpt-5.2", "gpt-5", "gpt-4o"];
+
+type Provider = { name: string; key: string; base: string; model: string; temperature?: number; attempts: number };
+
+function buildProviders(): Provider[] {
+  const list: Provider[] = [];
+  const aixluvKey = Deno.env.get("AIXLUV_API_KEY")?.trim();
+  if (aixluvKey) {
+    list.push({
+      name: "aixluv",
+      key: aixluvKey,
+      base: (Deno.env.get("AIXLUV_BASE_URL")?.trim() || "https://api.aixluv.com").replace(/\/+$/, ""),
+      model: Deno.env.get("AIXLUV_MODEL")?.trim() || "",
+      temperature: 0.6,
+      attempts: 3,
+    });
+  }
+  const su8Key = Deno.env.get("SU8_API_KEY")?.trim();
+  if (su8Key) {
+    list.push({
+      name: "su8",
+      key: su8Key,
+      base: (Deno.env.get("SU8_BASE_URL")?.trim() || "https://www.su8.codes").replace(/\/+$/, ""),
+      model: Deno.env.get("SU8_MODEL")?.trim() || "gpt-5.5",
+      attempts: 2, // SU8 网关拒绝带 temperature 的请求，按兼容模式提交
+    });
+  }
+  if (!list.length) throw new Error("未配置 AI 密钥（AIXLUV_API_KEY 或 SU8_API_KEY）");
+  return list;
+}
+
+async function pickModel(base: string, apiKey: string, configured: string) {
+  if (configured) return configured;
+  const response = await fetchWithTimeout(`${base}/v1/models`, { headers: { Authorization: `Bearer ${apiKey}` } }, 15000);
   if (!response.ok) throw new Error(await providerError(response, `读取 AI 模型失败：${response.status}`));
   const body = await response.json();
   const ids = Array.isArray(body.data)
     ? body.data.map((x: { id?: string }) => x?.id).filter((id: unknown): id is string => typeof id === "string" && id.trim())
     : [];
-  // 优先选择已验证可用的通用模型，避免音频/实时模型在文本请求中返回上游流错误。
-  const model = ids.find((id: string) => /^codex-auto-review$/i.test(id))
-    || ids.find((id: string) => /gpt-5|claude|gemini/i.test(id))
-    || ids[0];
-  if (!model) throw new Error("AI 服务未返回可用模型，请配置 AIXLUV_MODEL");
-  return model;
+  for (const candidate of MODEL_PREFERENCE) {
+    if (ids.includes(candidate)) return candidate;
+  }
+  const anyChat = ids.find((id: string) => /chat|gpt|claude|gemini/i.test(id));
+  return anyChat || ids[0];
 }
 
-async function generateWithAI(apiKey: string, model: string, snapshot: unknown) {
-  const normalizedKey = apiKey.trim();
-  const response = await fetchWithTimeout("https://api.aixluv.com/v1/chat/completions", {
+async function generateWithAI(provider: Provider, model: string, snapshot: unknown) {
+  const payload: Record<string, unknown> = {
+    model,
+    stream: false,
+    messages: [
+      { role: "system", content: "你是温柔、具体、克制的生活报主编与分析师。只返回合法 JSON，不要 Markdown。输出字段必须是 daily、review、insight、editor_note。daily 是 7 项数组，每项包含 date、title、summary、quote、reminder。review 包含 overview、highlights、unfinished、suggestions。insight 包含 patterns、risks、next_actions。所有结论都必须基于输入数据，不要编造。" },
+      { role: "user", content: `请根据以下本周数据生成七日生活报、周复盘和分析洞察。不要编造数据；没有数据的日期写成轻量的鼓励。数据：${JSON.stringify(snapshot)}` },
+    ],
+  };
+  if (provider.temperature !== undefined) payload.temperature = provider.temperature;
+  const response = await fetchWithTimeout(`${provider.base}/v1/chat/completions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${normalizedKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      stream: false,
-      temperature: 0.6,
-      messages: [
-        { role: "system", content: "你是温柔、具体、克制的生活报主编与分析师。只返回合法 JSON，不要 Markdown。输出字段必须是 daily、review、insight、editor_note。daily 是 7 项数组，每项包含 date、title、summary、quote、reminder。review 包含 overview、highlights、unfinished、suggestions。insight 包含 patterns、risks、next_actions。所有结论都必须基于输入数据，不要编造。" },
-        { role: "user", content: `请根据以下本周数据生成七日生活报、周复盘和分析洞察。不要编造数据；没有数据的日期写成轻量的鼓励。数据：${JSON.stringify(snapshot)}` },
-      ],
-    }),
-  }, 60000);
+    headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }, 90000);
   if (!response.ok) throw new Error(await providerError(response, `AI 请求失败：${response.status}`));
   const body = await response.json();
   const rawContent = body.choices?.[0]?.message?.content;
@@ -240,13 +271,34 @@ Deno.serve(async (request) => {
     const { data: rows, error: rowsError } = await supabase.from("workbench_records").select("module_key,data,deleted_at").eq("user_id", user.id);
     if (rowsError) throw rowsError;
     const snapshot = buildSnapshot(rows || [], start, end);
-    const apiKey = Deno.env.get("AIXLUV_API_KEY");
-    if (!apiKey) throw new Error("未配置 AIXLUV_API_KEY");
-    const model = await chooseModel(apiKey);
-    const report = await generateWithAI(apiKey, model, snapshot);
-    const { error: saveError } = await supabase.from("weekly_reports").update({ status: "ready", payload: report, source_snapshot: snapshot, model, generated_at: new Date().toISOString(), error: null }).eq("user_id", user.id).eq("week_start", start);
+
+    // 按配置顺序尝试主链路与兜底链路；主链路上游抖动时按 attempts 重试，全部失败才报错。
+    const providers = buildProviders();
+    let lastError: unknown = null;
+    let report: Record<string, unknown> | null = null;
+    let usedProvider = "";
+    let usedModel = "";
+    for (const provider of providers) {
+      const model = await pickModel(provider.base, provider.key, provider.model).catch((error) => { lastError = error; return ""; });
+      for (let attempt = 1; attempt <= provider.attempts; attempt++) {
+        if (!model) break;
+        try {
+          report = await generateWithAI(provider, model, snapshot);
+          usedProvider = provider.name;
+          usedModel = model;
+          break;
+        } catch (error) {
+          lastError = error;
+          console.error(`[weekly-report] provider ${provider.name} 第 ${attempt} 次失败:`, error instanceof Error ? error.message : error);
+        }
+      }
+      if (report !== null) break;
+    }
+    if (report === null) throw lastError instanceof Error ? lastError : new Error("所有 AI 通道均失败");
+
+    const { error: saveError } = await supabase.from("weekly_reports").update({ status: "ready", payload: report, source_snapshot: snapshot, model: usedModel, provider: usedProvider, generated_at: new Date().toISOString(), error: null }).eq("user_id", user.id).eq("week_start", start);
     if (saveError) throw saveError;
-    return json({ report, meta: { week_start: start, week_end: end, model, generated_at: new Date().toISOString() } });
+    return json({ report, meta: { week_start: start, week_end: end, model: usedModel, provider: usedProvider, generated_at: new Date().toISOString() } });
   } catch (error) {
     console.error("[weekly-report]", error);
     if (activeUserId && activeWeekStart) {

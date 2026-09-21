@@ -368,7 +368,7 @@ async function generateWeeklyReport(options = {}) {
       url: `${SUPABASE_CONFIG.url}/functions/v1/${SUPABASE_CONFIG.reportFunction}`,
       headers,
       body: { week_start: localWeekStartKey(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...options },
-      timeoutMs: 50000,
+      timeoutMs: 100000,
     });
   } catch (error) {
     if (/ByteString|invalid character/i.test(String(error?.message || error))) {

@@ -7,3 +7,5 @@ src/public/*
 !src/public/favicon.png
 !src/public/apple-touch-icon.png
 .trae-html-share-packages/
+.env
+.env.local
