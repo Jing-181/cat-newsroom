@@ -25,7 +25,7 @@ function render() {
       <span class="arw" style="color:var(--text-tertiary)">${icon("chevron", 16, 2)}</span></div>`;
   }).join("");
   root.value.innerHTML = `<div class="header"><div><h2>洞察</h2><p>各模块进展一览 · 记录—执行—统计—反馈</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
-    <div class="sec-title">模块概况</div><div class="pin-list" style="grid-template-columns:repeat(3,1fr)">${cards}</div>`;
+    <div class="sec-title">模块概况</div><div class="pin-list pin-list-3">${cards}</div>`;
   root.value.querySelectorAll("[data-open]").forEach(el => el.onclick = () => emit("navigate", el.dataset.open));
   root.value.insertAdjacentHTML("beforeend", weeklyReportSlotHTML());
   initWeeklyReport(root.value);

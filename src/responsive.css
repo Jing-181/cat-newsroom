@@ -66,7 +66,7 @@
   .mod-side { position: static; }
   .mod-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .modcard-grid { grid-template-columns: minmax(0, 1fr); }
-  .pin-list { grid-template-columns: minmax(0, 1fr); }
+  .pin-list, .pin-list-3 { grid-template-columns: minmax(0, 1fr); }
   .header h2 { font-size: 22px; }
   .toolbar { flex-wrap: wrap; }
   .search-box { width: 100%; }
@@ -78,9 +78,13 @@
   .habit-tb .hcell { width: 18px; height: 18px; }
   .habit-tb td { padding: 4px 0; }
 
-  /* 记录卡片按钮区 */
-  .rec .acts { position: static; transform: none; opacity: 1; margin-top: 8px; background: transparent; }
-  .rec .top { flex-wrap: wrap; }
+  /* 记录卡片按钮区：内容在上，操作按钮收拢为底部右对齐的操作栏，避免挤到顶部形成孤立一行 */
+  .rec { display: flex; flex-direction: column; }
+  .rec .acts { position: static; order: 1; transform: none; opacity: 1; margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border); background: transparent; justify-content: flex-end; gap: 2px; }
+  .rec .acts button { width: 34px; height: 34px; border-radius: 9px; }
+  .rec .top { flex-wrap: wrap; order: 0; }
+  .rec-layout-default .top { padding-right: 0; }
 
   /* 周报操作区可换行 */
   .report-actions { flex-wrap: wrap; }

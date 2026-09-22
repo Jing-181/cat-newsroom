@@ -128,7 +128,8 @@
     color: var(--text-tertiary); font-size: 13px; margin-top: 8px; }
 
   /* ---------- pinned tasks ---------- */
-  .pin-list { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pin-list { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+  .pin-list-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .pin { display:flex; align-items:center; gap: 13px; padding: 15px 16px; border-radius: var(--radius-tile);
     background: var(--surface-card); border: 1px solid var(--border); box-shadow: var(--shadow-card); transition: box-shadow .15s, transform .12s; }
   .pin:hover { box-shadow: var(--shadow-overlay); transform: translateY(-1px); }
@@ -239,6 +240,8 @@
   .rec { position:relative; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-tile); box-shadow:var(--shadow-card); padding:14px 16px; transition: border-color .12s, box-shadow .15s; }
   .rec:hover { border-color: var(--border-input); box-shadow: var(--shadow-overlay); }
   .rec .top { display:flex; align-items:center; gap:12px; }
+  /* 默认布局右侧预留操作按钮组空间（拖动/置顶/删除），避免标题被遮挡 */
+  .rec-layout-default .top { padding-right: 92px; }
   .rec .chk { flex:0 0 auto; width:23px; height:23px; border-radius:7px; border:1.6px solid var(--border-input); display:grid; place-items:center;
     cursor:pointer; background:var(--surface-card); color:var(--on-accent); transition: all .15s; }
   .rec .chk.on { background:var(--module-1); border-color:var(--module-1); }
@@ -251,10 +254,11 @@
     overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .badge { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:700; }
   .badge .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
-  .rec .acts { position:absolute; top:50%; right:8px; transform:translateY(-50%); display:flex; gap:1px; opacity:0; transition: opacity .15s; background:var(--surface-card); }
+  .rec .acts { position:absolute; top:50%; right:8px; transform:translateY(-50%); display:flex; gap:1px; opacity:.55; transition: opacity .15s; background:var(--surface-card); }
   .rec:hover .acts { opacity:1; }
   .rec .acts button { border:none; background:transparent; color:var(--text-tertiary); cursor:pointer;
     width:28px; height:28px; border-radius:7px; display:grid; place-items:center; transition: all .15s; }
+  .rec .acts button:hover { background:var(--surface-nested); color:var(--text-secondary); }
   .rec .pin-btn:hover { background:var(--surface-nested); color:var(--module-3); }
   .rec .pin-btn.on { color:var(--module-3); opacity:1; } .rec .pin-btn.on svg { fill: var(--module-3); }
   .rec:has(.pin-btn.on) .acts { opacity:1; }

@@ -7,10 +7,13 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon.png">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <!-- 统一入口：跳转最新构建产物（Vue 单页应用），避免与旧版 workbench-*.html 相互跳转形成死循环 -->
+  <meta http-equiv="refresh" content="0; url=./dist/index.html" />
+  <script>location.replace("./dist/index.html");</script>
 </head>
 <body>
-  <noscript>请启用 JavaScript 后使用猫咪生活报。</noscript>
-  <script src="js/device-mode.js"></script>
-  <script>DeviceMode.redirectFromEntry();</script>
+  <noscript>
+    <p style="font-family:sans-serif;text-align:center;padding:40px 16px;color:#6e5a44;"><a href="./dist/index.html">继续访问猫咪生活报</a></p>
+  </noscript>
 </body>
 </html>

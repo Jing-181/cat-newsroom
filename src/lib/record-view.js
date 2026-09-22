@@ -46,33 +46,33 @@ export function recHTML(m, x) {
   // default layout
   if (m.type === "todo") {
     const p = (m.priorities || []).find(p => p.key === x.priority);
-    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top" style="padding-right:60px"><div class="chk js-chk ${x.done ? "on" : ""}" data-id="${x.id}">${chkMark}</div>
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top"><div class="chk js-chk ${x.done ? "on" : ""}" data-id="${x.id}">${chkMark}</div>
       ${thumb}
       <div class="body" data-edit="${x.id}"><span class="rname ${x.done ? "done" : ""}">${esc(x.title)}</span>
       ${p ? `<span class="badge" style="background:${p.color};color:${p.text}"><span class="dot"></span>${p.label}</span>` : ""}
       ${x.note ? `<span class="rdate" style="margin-left:0;color:var(--text-tertiary)">${esc(x.note).slice(0, 40)}</span>` : ""}${customBlock}</div></div></div>`; }
   if (m.type === "checkin") {
     const on = !!(x.log && x.log[today()]); const st = streak(x.log);
-    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top" style="padding-right:60px"><div class="chk js-chk ${on ? "on" : ""}" data-id="${x.id}">${chkMark}</div>
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top"><div class="chk js-chk ${on ? "on" : ""}" data-id="${x.id}">${chkMark}</div>
       ${thumb}
       <div class="body" data-edit="${x.id}"><span class="rname">${esc(x.title)}</span>
       <span class="streak">${icon("flame", 13)} 连续 ${st} 天</span>${on ? '<span class="badge" style="background:var(--accent-muted);color:var(--accent)">今日已打卡</span>' : ""}${customBlock}</div></div></div>`; }
   if (m.type === "progress") {
     const pct = Math.min(100, Math.round((x.current / x.target) * 100 || 0));
-    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top" style="padding-right:60px">${thumb}<div class="body" data-edit="${x.id}">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
       <span class="rname">${esc(x.title)}</span>
       <div class="pbar"><i style="width:${pct}%;background:${m.color}"></i></div>
       <span class="rdate" style="margin-left:0;color:var(--text-secondary)">${x.current}/${x.target} ${x.unit || m.unit || ""} · ${pct}%</span>
       ${x.note ? `<div class="rnote">${esc(x.note)}</div>` : ""}${customBlock}</div></div></div>`; }
   if (m.type === "finance") {
     const inc = x.type === "income";
-    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top" style="padding-right:60px">${thumb}<div class="body" data-edit="${x.id}">
+    return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
       <span class="rname">${esc(x.title)}</span>
       <span class="badge" style="background:var(--surface-nested);color:var(--text-secondary)">${esc(x.category || "其他")}</span>
       <span class="rdate">${x.date || ""}</span>${customBlock}</div>
       <div class="amt ${inc ? "inc" : "exp"}">${inc ? "+" : "-"}¥${x.amount}</div></div></div>`; }
   // note
-  return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top" style="padding-right:60px">${thumb}<div class="body" data-edit="${x.id}">
+  return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
     <span class="rname">${esc(x.title || "无标题")}</span>
     ${x.mood ? `<span class="badge" style="background:var(--accent-muted);color:var(--accent)">${esc(x.mood)}</span>` : ""}
     ${x.content ? `<span class="rdate" style="margin-left:0;color:var(--text-tertiary)">${esc(x.content).slice(0, 40)}</span>` : ""}
