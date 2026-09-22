@@ -22,8 +22,8 @@ test("vite 配置使用带内容 hash 文件名、相对 base、模块独立 chu
 test("Vue 入口以普通 script 加载同步脚本并挂载 main", () => {
   const html = read("src/index.html");
   assert.match(html, /<body class="desktop-shell">/); // 提供 --sidebar-w 等变量
-  assert.match(html, /<script src="\/js\/supabase-sync\.js"><\/script>/);
-  assert.match(html, /<script src="\/js\/sync-hooks\.js"><\/script>/); // 回调桥接
+  assert.match(html, /<script src="(?:\.\/)?js\/supabase-sync\.js"><\/script>/);
+  assert.match(html, /<script src="(?:\.\/)?js\/sync-hooks\.js"><\/script>/); // 回调桥接
   assert.match(html, /<script type="module" src="\.\/main\.js"><\/script>/);
   assert.match(html, /<div id="app"><\/div>/);
 });
