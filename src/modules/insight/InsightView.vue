@@ -5,7 +5,7 @@ import { CONFIG } from "../../lib/config.js";
 import { icon } from "../../lib/icons.js";
 import { today, dateStr, avgProgress } from "../../lib/utils.js";
 import { getData, subscribe } from "../../lib/store.js";
-import { weeklyReportSlotHTML, refreshWeeklyReportSlot, exportWeeklyReport } from "../../lib/weekly-report.js";
+import { weeklyReportSlotHTML, initWeeklyReport, exportWeeklyReport } from "../../lib/weekly-report.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
@@ -28,9 +28,7 @@ function render() {
     <div class="sec-title">模块概况</div><div class="pin-list" style="grid-template-columns:repeat(3,1fr)">${cards}</div>`;
   root.value.querySelectorAll("[data-open]").forEach(el => el.onclick = () => emit("navigate", el.dataset.open));
   root.value.insertAdjacentHTML("beforeend", weeklyReportSlotHTML());
-  refreshWeeklyReportSlot(root.value);
-  root.value.querySelector("#report-export-md")?.addEventListener("click", () => exportWeeklyReport("md"));
-  root.value.querySelector("#report-export-json")?.addEventListener("click", () => exportWeeklyReport("json"));
+  initWeeklyReport(root.value);
 }
 
 let unsub = null;

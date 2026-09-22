@@ -82,9 +82,15 @@ test("首页与洞察接入周报槽，共享层含编辑/周报/番茄钟", () 
   const insight = read("src/modules/insight/InsightView.vue");
   assert.match(home, /weeklyReportSlotHTML/);
   assert.match(insight, /weeklyReportSlotHTML/);
+  assert.match(home, /initWeeklyReport\(root\.value\)/);
+  assert.match(insight, /initWeeklyReport\(root\.value\)/);
   const lib = read("src/lib/editor.js");
   assert.match(lib, /export function openEditor/);
-  assert.match(read("src/lib/weekly-report.js"), /export async function maybeGenerateWeeklyReport/);
+  const reportLib = read("src/lib/weekly-report.js");
+  assert.match(reportLib, /export async function maybeGenerateWeeklyReport/);
+  assert.match(reportLib, /export async function initWeeklyReport/);
+  assert.match(reportLib, /action: "list"/);
+  assert.match(reportLib, /report-history/);
   assert.match(read("src/lib/pomodoro.js"), /export function ensurePomodoroController/);
 });
 

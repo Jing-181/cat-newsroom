@@ -559,6 +559,9 @@
   .report-day { padding:10px 0; border-top:1px dashed var(--border); }
   .report-day summary { cursor:pointer; font-weight:700; }
   .report-text { color:var(--text-secondary); margin-top:6px; line-height:1.7; }
+  .report-history { display:flex; align-items:center; gap:8px; margin-top:14px; }
+  .report-history label { color:var(--text-tertiary); font-size:12px; white-space:nowrap; }
+  .report-history select { flex:1; min-width:0; height:34px; border:1px solid var(--border-input); border-radius:6px; padding:0 8px; color:var(--text); background:var(--surface-card); font-size:13px; }
 
   /* 登录弹窗 */
   .auth-modal { width:380px; }

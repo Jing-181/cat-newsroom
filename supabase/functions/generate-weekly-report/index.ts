@@ -256,6 +256,21 @@ Deno.serve(async (request) => {
     const start = weekStartFor(dateOnly(body.week_start) || today);
     const end = addDays(start, 6);
     activeWeekStart = start;
+    // 只读查询：list（往期列表）/ fetch（指定周详情），不触发生成。
+    const action = body.action === "list" || body.action === "fetch" ? body.action : "generate";
+    if (action === "list") {
+      const { data: reports, error: listError } = await supabase.from("weekly_reports")
+        .select("week_start,week_end,status,generated_at,model,error")
+        .eq("user_id", user.id).eq("status", "ready")
+        .order("week_start", { ascending: false }).limit(12);
+      if (listError) throw listError;
+      return json({ reports: reports || [] });
+    }
+    if (action === "fetch") {
+      const { data: existing } = await supabase.from("weekly_reports").select("*").eq("user_id", user.id).eq("week_start", start).maybeSingle();
+      if (!existing || existing.status !== "ready") return json({ report: null, meta: existing || null });
+      return json({ report: existing.payload, meta: existing });
+    }
     const force = body.force === true;
     const { data: existing } = await supabase.from("weekly_reports").select("*").eq("user_id", user.id).eq("week_start", start).maybeSingle();
     if (existing && !force && existing.status === "ready") return json({ report: existing.payload, meta: existing });

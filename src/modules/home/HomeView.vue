@@ -7,7 +7,7 @@ import { today, dateStr, weekDates, weekNum, streak, grp, ringSVG, trendSVG, pad
 import { getData, persist, subscribe } from "../../lib/store.js";
 import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
-import { weeklyReportSlotHTML, refreshWeeklyReportSlot } from "../../lib/weekly-report.js";
+import { weeklyReportSlotHTML, initWeeklyReport } from "../../lib/weekly-report.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
@@ -204,7 +204,7 @@ function render() {
     <div class="bento">${spendTileHTML()}${booksTileHTML()}${goalsTileHTML()}</div>`;
   wireHome();
   root.value.insertAdjacentHTML("beforeend", weeklyReportSlotHTML());
-  refreshWeeklyReportSlot(root.value);
+  initWeeklyReport(root.value);
   startClock();
 }
 
