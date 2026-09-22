@@ -14,6 +14,9 @@
   html, body { min-width: 0; overflow-x: clip; -webkit-tap-highlight-color: transparent; }
   .layout { overflow-x: clip; }
   button, a, .navi, .m-tabs button, .qbtn, .modcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  /* iOS Safari：聚焦输入框时若字号 <16px 会自动放大整个页面；统一提到 16px 彻底禁用该行为 */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select, textarea { font-size: 16px !important; }
   /* 顶栏 */
   .m-topbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 40;
     padding: 10px 14px; background: linear-gradient(180deg, var(--drawer-bg-top), var(--drawer-bg)); color: var(--drawer-text); }
