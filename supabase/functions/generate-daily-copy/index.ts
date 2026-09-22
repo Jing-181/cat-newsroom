@@ -203,9 +203,14 @@ Deno.serve(async (request) => {
     console.error("[daily-copy]", error);
     const message = errorMessage(error);
     if (activeUserId) {
-      await createClient(Deno.env.get("SUPABASE_URL")!, supabaseApiKey(), {
-        global: { headers: { Authorization: `Bearer ${request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || ""}` } },
-      }).from("daily_cards").update({ status: "error", error: message }).eq("user_id", activeUserId).catch(() => null);
+      try {
+        const markClient = createClient(Deno.env.get("SUPABASE_URL")!, supabaseApiKey(), {
+          global: { headers: { Authorization: `Bearer ${request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || ""}` } },
+        });
+        await markClient.from("daily_cards").update({ status: "error", error: message }).eq("user_id", activeUserId);
+      } catch (markError) {
+        console.error("[daily-copy] 标记失败状态时出错:", markError);
+      }
     }
     return json({ error: message }, 500);
   }
