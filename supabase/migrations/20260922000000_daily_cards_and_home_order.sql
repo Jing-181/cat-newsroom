@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS daily_cards (
   items          JSONB NOT NULL DEFAULT '[]',
   status         TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('generating', 'ready', 'error')),
   model          TEXT,
+  provider       TEXT,
   generated_at   TIMESTAMPTZ,
   error          TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
