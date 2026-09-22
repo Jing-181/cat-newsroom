@@ -316,7 +316,8 @@
           document.execCommand("copy");
           area.remove();
         }
-        root.AppDialog.alert("已把训练数据复制到剪贴板", { title: "已复制" });
+        if (root.Toast) root.Toast.show("已把训练数据复制到剪贴板");
+        else root.AppDialog.alert("已把训练数据复制到剪贴板", { title: "已复制" });
       });
     }
 

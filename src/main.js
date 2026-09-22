@@ -8,6 +8,7 @@ import "../js/api-client.js";      // window.ApiClient
 import "../js/workbench-core.js";  // window.WorkbenchCore
 import "../js/data-backup.js";     // window.DataBackup
 import "../js/app-dialog.js";      // window.AppDialog
+import "../js/toast.js";           // window.Toast（轻提示，替代简单场景的模态弹窗）
 import "../js/pomodoro.js";        // window.Pomodoro
 import "../js/device-mode.js";     // window.DeviceMode
 import "../js/workout-catalog.js"; // window.WorkoutCatalog
