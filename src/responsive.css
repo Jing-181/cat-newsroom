@@ -92,6 +92,12 @@
   /* 周报操作区可换行 */
   .report-actions { flex-wrap: wrap; }
 
+  /* 个人配置页窄屏：按钮换行铺满 */
+  .set-row { flex-wrap: wrap; }
+  .set-row .btn { width: 100%; }
+  .daily-card .dc-foot { flex-wrap: wrap; }
+  .daily-card .dc-btn { align-self: stretch; }
+
   /* 弹窗窄屏适配 */
   .auth-modal { width: 100%; max-width: 92vw; }
   .modal { width: 100%; max-width: 92vw; }

@@ -7,7 +7,7 @@ const SUPABASE_CONFIG = {
 };
 
 const SYNC_OUTBOX_KEY = "cat-newsroom-sync-outbox-v1";
-const META_FIELDS = { __avatar: "avatar", __pomo: "pomo_stats", __trend: "trend_data" };
+const META_FIELDS = { __avatar: "avatar", __pomo: "pomo_stats", __trend: "trend_data", __homeOrder: "home_order" };
 let sb = null;
 let syncStatus = "offline";
 let currentUser = null;
@@ -385,13 +385,34 @@ async function generateWorkoutPlan(options = {}) {
   return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-workout-plan`, headers, body: options, timeoutMs: 50000 });
 }
 
-// 每日一卡：通用趣味文案/知识，不依赖用户数据，匿名会话也可生成。
+// 每日一卡：一次生成一批（count 条）存入 daily_cards，仅正式账号可调用。
 async function generateDailyCopy(options = {}) {
-  const apiKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
-  const headers = { apikey: apiKey, "Content-Type": "application/json" };
-  const token = await getAccessToken().catch(() => null);
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-daily-copy`, headers, body: options, timeoutMs: 60000 });
+  if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成每日一卡");
+  const token = normalizeHeaderValue(await getAccessToken(), "登录令牌");
+  const headers = { apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-daily-copy`, headers, body: options, timeoutMs: 120000 });
+}
+
+// 读取当前用户每日一卡批次（不调 AI，只查表）
+async function fetchDailyCards() {
+  if (!sb || !currentUser) return null;
+  try {
+    const { data } = await sb.from("daily_cards").select("*").eq("user_id", currentUser.id).maybeSingle();
+    return data || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// 读取用户网站配置（当前：首页排序 home_order）
+async function fetchUserSettings() {
+  if (!sb || !currentUser) return null;
+  try {
+    const { data } = await sb.from("workbench_meta").select("home_order").eq("user_id", currentUser.id).maybeSingle();
+    return data || null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function updateSyncIndicator() {

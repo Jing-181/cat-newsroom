@@ -9,10 +9,12 @@ import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
 import { weeklyReportSlotHTML, initWeeklyReport } from "../../lib/weekly-report.js";
 import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
+import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, groupOf } from "../../lib/home-layout.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
 let clockTimer = null;
+let homeOrderConfig = null; // 云端排序配置；null = 使用默认顺序
 
 function go(key) { emit("navigate", key); }
 function data() { return getData(); }
@@ -173,43 +175,60 @@ function goalsTileHTML() {
     <div class="book-list">${rows}</div></div>`;
 }
 
-function render() {
+function clockCardHTML() {
   const now = new Date();
   const dow = (now.getDay() + 6) % 7;
   const q = CONFIG.quotes[dow % CONFIG.quotes.length];
   const hour = now.getHours();
   const hi = hour < 5 ? "夜深了" : hour < 11 ? "早上好" : hour < 13 ? "中午好" : hour < 18 ? "下午好" : "晚上好";
-
-  // 时钟卡
-  const clockCard = `<div class="clock-card b4">
+  return `<div class="clock-card b4">
     <div><div class="hi">${hi}，${esc(CONFIG.owner)}</div><div class="sub">${esc(q)}</div></div>
     <div><div class="clk" id="clk">${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}</div>
       <div class="cmeta"><span>${dateStr()}</span><span class="dot"></span><span>第 ${weekNum()} 周</span></div></div></div>`;
+}
 
-  root.value.innerHTML = `
-    ${grp("今日节奏", "TODAY&nbsp;&nbsp;·&nbsp;&nbsp;RHYTHM")}
-    <div class="bento">
-      ${clockCard}
-      ${focusTileHTML()}
-      ${quickTileHTML()}
-      ${overviewTileHTML()}
-    </div>
+// key → 渲染函数（与 home-layout.js 的 HOME_CARDS 对应）
+const RENDER_MAP = {
+  clock: clockCardHTML, focus: focusTileHTML, quick: quickTileHTML, overview: overviewTileHTML,
+  daily: dailyCopySlotHTML, habit: habitTileHTML, todo: todoTileHTML,
+  pomo: pomoTileHTML, trend: trendTileHTML, spend: spendTileHTML, books: booksTileHTML, goals: goalsTileHTML,
+  report: weeklyReportSlotHTML,
+};
 
-    ${dailyCopySlotHTML()}
-
-    ${grp("习惯与待办", "HABITS&nbsp;&nbsp;&&nbsp;&nbsp;TASKS")}
-    <div class="bento">${habitTileHTML()}${todoTileHTML()}</div>
-
-    ${grp("专注与状态", "FOCUS&nbsp;&nbsp;&&nbsp;&nbsp;MOOD")}
-    <div class="bento">${pomoTileHTML()}${trendTileHTML()}</div>
-
-    ${grp("收支与成长", "MONEY&nbsp;&nbsp;&&nbsp;&nbsp;GROWTH")}
-    <div class="bento">${spendTileHTML()}${booksTileHTML()}${goalsTileHTML()}</div>`;
+function render() {
+  const order = (Array.isArray(homeOrderConfig) && homeOrderConfig.length ? homeOrderConfig : DEFAULT_HOME_ORDER)
+    .filter(key => RENDER_MAP[key]);
+  // 按组分段：同组卡片包进一个 bento 网格并排，组头自动跟随
+  const sections = [];
+  order.forEach(key => {
+    const group = groupOf(key);
+    const last = sections[sections.length - 1];
+    if (!last || last.group !== group) sections.push({ group, cards: [key] });
+    else last.cards.push(key);
+  });
+  let html = "";
+  sections.forEach(section => {
+    const g = HOME_GROUPS[section.group];
+    if (g) html += grp(g.zh, g.en);
+    html += `<div class="bento">${section.cards.map(key => RENDER_MAP[key]()).join("")}</div>`;
+  });
+  root.value.innerHTML = html;
   wireHome();
-  root.value.insertAdjacentHTML("beforeend", weeklyReportSlotHTML());
   initWeeklyReport(root.value);
   initDailyCopy(root.value);
   startClock();
+}
+
+// 拉取云端排序配置（多设备同步）；云端缺失时回退本地配置，都没有则用默认顺序
+async function loadHomeOrder() {
+  try {
+    const settings = await window.fetchUserSettings?.();
+    const remote = settings && Array.isArray(settings.home_order) && settings.home_order.length ? settings.home_order : null;
+    const local = Array.isArray(getData().__homeOrder) && getData().__homeOrder.length ? getData().__homeOrder : null;
+    const order = remote || local || null;
+    if (order && order.every(key => RENDER_MAP[key])) homeOrderConfig = order;
+    render();
+  } catch (_) { /* 拉取失败保持当前顺序 */ }
 }
 
 function updateHabitCell(cell, item, day) {
@@ -259,13 +278,18 @@ function startClock() {
 }
 
 let unsub = null;
+// 个人配置页保存排序后触发，重新拉取云端配置并重渲染
+const onOrderChanged = () => loadHomeOrder();
 onMounted(() => {
   render();
   ensurePomodoroController();
   unsub = subscribe(render);
+  window.addEventListener("home-order-changed", onOrderChanged);
+  loadHomeOrder();
 });
 onBeforeUnmount(() => {
   if (unsub) unsub();
+  window.removeEventListener("home-order-changed", onOrderChanged);
   if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
 });
 </script>

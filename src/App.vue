@@ -17,10 +17,12 @@ import SportView from "./modules/workout/SportView.vue";
 import MoneyView from "./modules/money/MoneyView.vue";
 import NoteView from "./modules/note/NoteView.vue";
 import HotView from "./modules/hot/HotView.vue";
+import SettingsView from "./modules/settings/SettingsView.vue";
 
 const VIEWS = {
   home: HomeView, insight: InsightView, todo: TodoView, checkin: CheckinView,
   read: ReadView, sport: SportView, money: MoneyView, note: NoteView, hot: HotView,
+  settings: SettingsView,
 };
 
 const saved = typeof window.DeviceMode?.restoreView === "function" ? window.DeviceMode.restoreView() : "home";
@@ -125,6 +127,8 @@ function onAvatarChange(e) {
         <a v-for="m in CONFIG.modules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
         <div class="nav-sep">统计</div>
         <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight')"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
+        <div class="nav-sep">配置</div>
+        <a class="navi" :class="{ active: view === 'settings' }" @click="go('settings')"><span v-html="icon('settings', 19)"></span>个人配置</a>
       </nav>
       <div class="sync-area" id="syncArea">
         <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>

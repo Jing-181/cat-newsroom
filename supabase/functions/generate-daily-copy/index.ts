@@ -1,5 +1,5 @@
-// 生成每日一卡：AI 生成一段有趣文案 / 知识讲解 / 治愈金句，通用内容、轻量稳定、不依赖用户数据。
-// AI key 只从 Supabase Secret 读取；主链路 aixluv + 兜底 SU8（失败自动切换）。
+// 每日一卡批次生成：一次生成 N 条（7/14）有趣文案/知识/金句，存入 daily_cards，供首页顺序循环轮换。
+// 仅正式账号可调用；读取不经过本函数（前端直接查表）。AI key 只从 Supabase Secret 读取。
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
 const cors = {
@@ -52,7 +52,7 @@ function buildProviders(): Provider[] {
       key: aixluvKey,
       base: (Deno.env.get("AIXLUV_BASE_URL")?.trim() || "https://api.aixluv.com").replace(/\/+$/, ""),
       model: Deno.env.get("AIXLUV_MODEL")?.trim() || "",
-      temperature: 0.8,
+      temperature: 0.85,
       attempts: 3,
     });
   }
@@ -85,19 +85,13 @@ async function pickModel(base: string, apiKey: string, configured: string) {
   return anyChat || ids[0];
 }
 
-async function generateWithAI(provider: Provider, model: string, style: string) {
-  const styleHint: Record<string, string> = {
-    funny: "写一段有趣、俏皮、让人会心一笑的文案",
-    knowledge: "写一个简短、准确的知识讲解或冷知识",
-    quote: "写一句治愈或激励的中文金句",
-  };
-  const hint = styleHint[style] || "从「有趣文案、知识讲解、治愈金句、冷知识」中随机选一种风格";
+async function generateBatch(provider: Provider, model: string, count: number) {
   const payload: Record<string, unknown> = {
     model,
     stream: false,
     messages: [
-      { role: "system", content: "你是「猫咪生活报」的每日一卡栏目编辑，笔风轻松、克制、治愈。只返回合法 JSON，不要 Markdown。输出字段：type（知识/趣味/金句）、title（栏目小标题，8 字内）、content（一段 60-130 字的中文正文）。知识类内容必须准确、不编造；普通趣味文案要生动不油腻。" },
-      { role: "user", content: `请生成今天的每日一卡。要求：${hint}。` },
+      { role: "system", content: `你是「猫咪生活报」的每日一卡栏目编辑，笔风轻松、克制、治愈。只返回合法 JSON，不要 Markdown。输出字段：items（数组，恰好 ${count} 个对象，每个对象含 type（知识/趣味/金句）、title（栏目小标题，8 字内）、content（一段 60-130 字的中文正文））。${count} 条内容互不重复、风格尽量多样（知识、趣味、金句混合穿插）。知识类内容必须准确、不编造；普通趣味文案要生动不油腻。` },
+      { role: "user", content: `请一次生成 ${count} 条每日一卡文案，组成一整周的轮换内容。` },
     ],
   };
   if (provider.temperature !== undefined) payload.temperature = provider.temperature;
@@ -105,7 +99,7 @@ async function generateWithAI(provider: Provider, model: string, style: string) 
     method: "POST",
     headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  }, 60000);
+  }, 90000);
   if (!response.ok) throw new Error(await providerError(response, `AI 请求失败：${response.status}`));
   const body = await response.json();
   const rawContent = body.choices?.[0]?.message?.content;
@@ -123,10 +117,14 @@ async function generateWithAI(provider: Provider, model: string, style: string) 
     if (start < 0 || end <= start) throw new Error("AI 返回格式无效");
     parsed = JSON.parse(clean.slice(start, end + 1));
   }
-  parsed.type ||= "趣味";
-  parsed.title ||= "每日一卡";
-  parsed.content ||= "";
-  return parsed;
+  const items = Array.isArray(parsed.items) ? parsed.items : [];
+  const normalized = items.slice(0, count).map((item: Record<string, unknown>, index: number) => ({
+    type: String(item?.type || "趣味").slice(0, 8),
+    title: String(item?.title || `每日一卡 ${index + 1}`).slice(0, 16),
+    content: String(item?.content || "").slice(0, 300),
+  }));
+  if (!normalized.length) throw new Error("AI 返回内容为空");
+  return normalized;
 }
 
 function errorMessage(error: unknown) {
@@ -154,15 +152,27 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (request.method !== "POST") return json({ error: "仅支持 POST" }, 405);
-  // 内容通用、不依赖用户数据：仅要求 apikey（或 Authorization）存在即可调用，保持轻量稳定。
-  const hasCredential = !!request.headers.get("apikey") || !!request.headers.get("Authorization");
-  if (!hasCredential) return json({ error: "缺少调用凭据" }, 401);
+  let activeUserId: string | null = null;
   try {
+    const authHeader = request.headers.get("Authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (!token) return json({ error: "缺少登录凭据" }, 401);
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, supabaseApiKey(), { global: { headers: { Authorization: `Bearer ${token}` } } });
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) return json({ error: "登录状态无效" }, 401);
+    if (user.is_anonymous) return json({ error: "请登录正式账号后生成每日一卡" }, 403);
+    activeUserId = user.id;
+
     const body = await request.json().catch(() => ({}));
-    const style = String(body.style || "").trim();
+    const rawCount = Number(body.count);
+    const count = rawCount === 14 ? 14 : 7; // 首页首批 7 条，个人配置页重新生成 14 条
+
+    // 生成中锁
+    await supabase.from("daily_cards").upsert({ user_id: user.id, item_count: 0, items: [], status: "generating", error: null }, { onConflict: "user_id" });
+
     const providers = buildProviders();
     let lastError: unknown = null;
-    let item: Record<string, unknown> | null = null;
+    let items: Array<Record<string, unknown>> | null = null;
     let usedProvider = "";
     let usedModel = "";
     for (const provider of providers) {
@@ -170,7 +180,7 @@ Deno.serve(async (request) => {
       for (let attempt = 1; attempt <= provider.attempts; attempt++) {
         if (!model) break;
         try {
-          item = await generateWithAI(provider, model, style);
+          items = await generateBatch(provider, model, count);
           usedProvider = provider.name;
           usedModel = model;
           break;
@@ -179,12 +189,24 @@ Deno.serve(async (request) => {
           console.error(`[daily-copy] provider ${provider.name} 第 ${attempt} 次失败:`, error instanceof Error ? error.message : error);
         }
       }
-      if (item !== null) break;
+      if (items !== null) break;
     }
-    if (item === null) throw lastError instanceof Error ? lastError : new Error(errorMessage(lastError));
-    return json({ item, meta: { model: usedModel, provider: usedProvider, generated_at: new Date().toISOString() } });
+    if (items === null) throw lastError instanceof Error ? lastError : new Error(errorMessage(lastError));
+
+    const now = new Date().toISOString();
+    const { error: saveError } = await supabase.from("daily_cards")
+      .update({ item_count: items.length, items, status: "ready", model: usedModel, provider: usedProvider, generated_at: now, error: null })
+      .eq("user_id", user.id);
+    if (saveError) throw saveError;
+    return json({ items, count: items.length, meta: { model: usedModel, provider: usedProvider, generated_at: now } });
   } catch (error) {
     console.error("[daily-copy]", error);
-    return json({ error: errorMessage(error) }, 500);
+    const message = errorMessage(error);
+    if (activeUserId) {
+      await createClient(Deno.env.get("SUPABASE_URL")!, supabaseApiKey(), {
+        global: { headers: { Authorization: `Bearer ${request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || ""}` } },
+      }).from("daily_cards").update({ status: "error", error: message }).eq("user_id", activeUserId).catch(() => null);
+    }
+    return json({ error: message }, 500);
   }
 });
