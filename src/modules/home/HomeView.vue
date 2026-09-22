@@ -8,6 +8,7 @@ import { getData, persist, subscribe } from "../../lib/store.js";
 import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
 import { weeklyReportSlotHTML, initWeeklyReport } from "../../lib/weekly-report.js";
+import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
@@ -194,6 +195,8 @@ function render() {
       ${overviewTileHTML()}
     </div>
 
+    ${dailyCopySlotHTML()}
+
     ${grp("习惯与待办", "HABITS&nbsp;&nbsp;&&nbsp;&nbsp;TASKS")}
     <div class="bento">${habitTileHTML()}${todoTileHTML()}</div>
 
@@ -205,6 +208,7 @@ function render() {
   wireHome();
   root.value.insertAdjacentHTML("beforeend", weeklyReportSlotHTML());
   initWeeklyReport(root.value);
+  initDailyCopy(root.value);
   startClock();
 }
 

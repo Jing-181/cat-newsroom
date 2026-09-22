@@ -317,6 +317,17 @@
   .tile-h .tt { display:flex; flex-direction:column; gap:3px; }
   .tile-h .r { margin-left:auto; font-size:12px; color:var(--text-secondary); font-weight:700; }
 
+  /* 每日一卡：AI 趣味文案/知识卡片（报刊专栏风） */
+  .daily-card .dc-body { display:flex; flex-direction:column; gap:10px; }
+  .daily-card .dc-tag { align-self:flex-start; display:inline-flex; align-items:center; padding:2px 11px; border-radius:999px;
+    font-size:11.5px; font-weight:800; letter-spacing:.04em; }
+  .daily-card .dc-content { font-size:15.5px; line-height:1.75; color:var(--text); letter-spacing:.01em; }
+  .daily-card .dc-loading, .daily-card .dc-empty, .daily-card .dc-error { color:var(--text-secondary); font-size:13.5px; line-height:1.6; padding:6px 0; }
+  .daily-card .dc-error { color:var(--danger); }
+  .daily-card .dc-btn { align-self:flex-end; min-height:32px; padding:0 15px; border:1px solid var(--border-input); border-radius:999px;
+    background:var(--surface-card); color:var(--text); font-weight:700; font-size:12.5px; cursor:pointer; transition: all .15s; }
+  .daily-card .dc-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-muted); }
+
   /* 整体情况瓷砖 */
   .ov2-body { display:grid; grid-template-columns:1fr 300px; gap:22px; flex:1; align-items:stretch; }
   .ov2-body .rings { align-content:center; }

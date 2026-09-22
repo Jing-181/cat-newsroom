@@ -385,6 +385,15 @@ async function generateWorkoutPlan(options = {}) {
   return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-workout-plan`, headers, body: options, timeoutMs: 50000 });
 }
 
+// 每日一卡：通用趣味文案/知识，不依赖用户数据，匿名会话也可生成。
+async function generateDailyCopy(options = {}) {
+  const apiKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
+  const headers = { apikey: apiKey, "Content-Type": "application/json" };
+  const token = await getAccessToken().catch(() => null);
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-daily-copy`, headers, body: options, timeoutMs: 60000 });
+}
+
 function updateSyncIndicator() {
   const elements = document.querySelectorAll("#sync-indicator");
   if (!elements.length) return;
