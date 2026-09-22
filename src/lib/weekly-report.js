@@ -13,11 +13,11 @@ function historySelectHTML() {
 }
 
 export function weeklyReportTileHTML() {
-  if (weeklyReportLoading || weeklyReportWaiting) return `<div class="report-card"><h3>本周生活报</h3><div class="report-text">正在生成，完成后会自动显示…</div></div>`;
-  if (weeklyReportError) return `<div class="report-card"><h3>本周生活报</h3><div class="report-text">${esc(weeklyReportError)}</div><div class="report-actions"><button class="primary" id="report-generate">重新生成</button></div></div>`;
+  if (weeklyReportLoading || weeklyReportWaiting) return `<div class="tile b12 report-card"><h3>本周生活报</h3><div class="report-text">正在生成，完成后会自动显示…</div></div>`;
+  if (weeklyReportError) return `<div class="tile b12 report-card"><h3>本周生活报</h3><div class="report-text">${esc(weeklyReportError)}</div><div class="report-actions"><button class="primary" id="report-generate">重新生成</button></div></div>`;
   if (!weeklyReport) {
     const user = window.getCurrentUser?.();
-    return `<div class="report-card"><h3>本周生活报</h3><div class="report-text">${user?.is_anonymous || !user ? "登录正式账号后生成本周生活报。" : "准备好了，可以生成本周生活报。"}</div><div class="report-actions">${user?.is_anonymous || !user ? '<button class="primary" id="report-login">登录账号</button>' : '<button class="primary" id="report-generate">生成本周生活报</button>'}</div>${historySelectHTML()}</div>`;
+    return `<div class="tile b12 report-card"><h3>本周生活报</h3><div class="report-text">${user?.is_anonymous || !user ? "登录正式账号后生成本周生活报。" : "准备好了，可以生成本周生活报。"}</div><div class="report-actions">${user?.is_anonymous || !user ? '<button class="primary" id="report-login">登录账号</button>' : '<button class="primary" id="report-generate">生成本周生活报</button>'}</div>${historySelectHTML()}</div>`;
   }
   const days = (weeklyReport.daily || []).map(function (day) { return `<details class="report-day"><summary>${esc(day.date || "本日")} · ${esc(day.title || "生活记录")}</summary><div class="report-text">${esc(day.summary || "")} ${esc(day.quote || "")}</div></details>`; }).join("");
   const review = weeklyReport.review || {};
@@ -26,11 +26,12 @@ export function weeklyReportTileHTML() {
   const metaText = weeklyReportMeta?.generated_at ? `生成于 ${new Date(weeklyReportMeta.generated_at).toLocaleString()}${weeklyReportMeta.model ? " · " + weeklyReportMeta.model : ""}${weeklyReportMeta.provider ? " · " + weeklyReportMeta.provider : ""}` : "AI 主编";
   const isPast = !!weeklyReportViewWeek;
   const viewLabel = isPast ? `往期生活报 · ${esc(weeklyReportViewWeek)} 周` : "本周生活报";
-  return `<div class="report-card"><div class="report-head"><h3>${viewLabel}</h3><span class="report-meta">${esc(metaText)}</span></div><div class="report-text">${esc(weeklyReport.editor_note || review.overview || "")}</div>${days}<details class="report-day" open><summary>AI 分析洞察</summary><div class="report-text"><b>行为模式</b></div>${list(insight.patterns)}<div class="report-text"><b>风险提示</b></div>${list(insight.risks)}<div class="report-text"><b>下一步行动</b></div>${list(insight.next_actions)}</details><details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：${esc((review.highlights || []).join("、"))}<br>未完成：${esc((review.unfinished || []).join("、"))}<br>下周建议：${esc((review.suggestions || []).join("、"))}</div></details><div class="report-actions">${isPast ? '<button id="report-current" class="primary">返回本周</button>' : '<button id="report-refresh" class="primary">重新生成</button>'}<button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div>${isPast ? "" : historySelectHTML()}</div>`;
+  return `<div class="tile b12 report-card"><div class="report-head"><h3>${viewLabel}</h3><span class="report-meta">${esc(metaText)}</span></div><div class="report-text">${esc(weeklyReport.editor_note || review.overview || "")}</div>${days}<details class="report-day" open><summary>AI 分析洞察</summary><div class="report-text"><b>行为模式</b></div>${list(insight.patterns)}<div class="report-text"><b>风险提示</b></div>${list(insight.risks)}<div class="report-text"><b>下一步行动</b></div>${list(insight.next_actions)}</details><details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：${esc((review.highlights || []).join("、"))}<br>未完成：${esc((review.unfinished || []).join("、"))}<br>下周建议：${esc((review.suggestions || []).join("、"))}</div></details><div class="report-actions">${isPast ? '<button id="report-current" class="primary">返回本周</button>' : '<button id="report-refresh" class="primary">重新生成</button>'}<button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div>${isPast ? "" : historySelectHTML()}</div>`;
 }
 
 export function weeklyReportSlotHTML() {
-  return `<div id="weekly-report-slot">${weeklyReportTileHTML()}</div>`;
+  // b12：在首页 12 列 bento 网格中占满整行，避免排序后周报被压缩成窄条（洞察页为块级插入，grid-column 不生效，无副作用）
+  return `<div id="weekly-report-slot" class="b12">${weeklyReportTileHTML()}</div>`;
 }
 
 export function refreshWeeklyReportSlot(container = document) {

@@ -22,8 +22,8 @@ test("vite 配置使用带内容 hash 文件名、相对 base、模块独立 chu
 test("Vue 入口以普通 script 加载同步脚本并挂载 main", () => {
   const html = read("src/index.html");
   assert.match(html, /<body class="desktop-shell">/); // 提供 --sidebar-w 等变量
-  assert.match(html, /<script src="(?:\.\/)?js\/supabase-sync\.js"><\/script>/);
-  assert.match(html, /<script src="(?:\.\/)?js\/sync-hooks\.js"><\/script>/); // 回调桥接
+  assert.match(html, /<script src="\/js\/supabase-sync\.js"><\/script>/);
+  assert.match(html, /<script src="\/js\/sync-hooks\.js"><\/script>/); // 回调桥接
   assert.match(html, /<script type="module" src="\.\/main\.js"><\/script>/);
   assert.match(html, /<div id="app"><\/div>/);
 });
@@ -105,6 +105,15 @@ test("响应式外壳：样式入口引入 responsive.css，App 含移动顶栏/
   assert.doesNotMatch(app, /deviceSwitcherRef|mountSwitcher/); // 设备切换已废弃
   const sync = read("supabase-sync.js");
   assert.match(sync, /querySelectorAll\("#sync-indicator"\)/); // 顶栏与侧栏同步指示器一并更新
+});
+
+test("本周生活报槽位带 b12 全宽类，首页 bento 网格中不被压缩成窄条", () => {
+  const reportLib = read("src/lib/weekly-report.js");
+  assert.match(reportLib, /weekly-report-slot" class="b12"/);
+  assert.match(reportLib, /tile b12 report-card/); // 复用 tile 卡片外观并占满整行
+  const styles = read("src/desktop.css");
+  assert.match(styles, /\.report-card \{ margin-top:16px; \}/); // 洞察页块级上下文保留间距
+  assert.match(styles, /\.bento \.report-card \{ margin-top:0; \}/); // 首页 bento 内由 gap 控制间距
 });
 
 test("构建产物（如存在）：相对路径、同步脚本与每个模块独立压缩 chunk", () => {

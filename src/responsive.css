@@ -92,6 +92,17 @@
   /* 周报操作区可换行 */
   .report-actions { flex-wrap: wrap; }
 
+  /* 本周生活报移动端呼吸空间：增大内边距与内容间距，避免拥挤 */
+  .report-card { padding: 20px 16px; }
+  .report-card .report-head { flex-wrap: wrap; gap: 6px 10px; }
+  .report-card .report-head h3 { font-size: 16px; }
+  .report-card .report-meta { margin-top: 2px; }
+  .report-day { padding: 14px 0; }
+  .report-day summary { padding: 2px 0; }
+  .report-text { line-height: 1.78; }
+  .report-actions { gap: 8px; margin-top: 16px; }
+  .report-history { margin-top: 16px; }
+
   /* 个人配置页窄屏：按钮换行铺满 */
   .set-row { flex-wrap: wrap; }
   .set-row .btn { width: 100%; }

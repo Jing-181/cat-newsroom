@@ -584,7 +584,9 @@
   .sync-user-email { font-size:10.5px; color: var(--drawer-text-mute); font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sync-now { border:1px solid var(--drawer-active); background:transparent; color:var(--drawer-text-mute); border-radius:6px; padding:5px 8px; cursor:pointer; font-size:11px; }
   .sync-now:hover { color:var(--drawer-text); background:var(--drawer-hover); }
-  .report-card { margin-top:16px; padding:18px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); box-shadow:var(--shadow-card); }
+  /* report-card 复用 .tile 的 padding/border/background/shadow；洞察页块级上下文保留 16px 顶部间距，首页 bento 内由 gap 控制 */
+  .report-card { margin-top:16px; }
+  .bento .report-card { margin-top:0; }
   .report-card .report-head { display:flex; align-items:center; gap:10px; }
   .report-card .report-head h3 { flex:1; font-size:18px; }
   .report-card .report-meta { color:var(--text-tertiary); font-size:12px; margin-top:4px; }
