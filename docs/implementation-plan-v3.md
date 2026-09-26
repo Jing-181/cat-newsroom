@@ -223,7 +223,7 @@ stateDiagram-v2
 
 ### 7.2 数据模型
 
-新记录使用 `schema_version: 2`，仍存放在 `data.sport` 和 `workbench_records`，无需新增数据库表。
+新记录使用 `schema_version: 2`，仍存放在 `data.sport` 和 `workbench_records`，无需新增数据库表。已落地实现：不设组级 `completed`，一组留下任意数值（重量/次数/时长/距离）即为一条训练记录；空组在保存前由 `pruneSession` 清理。
 
 ```js
 {
@@ -232,19 +232,24 @@ stateDiagram-v2
   kind: "workout_session",
   title: "胸日",
   training_day: "chest",
+  status: "completed",            // 草稿为 "draft"，保存后为 "completed"
   date: "2026-08-31",
-  duration_min: 65,
+  duration_min: 65,               // 完全由用户填写，无自动计时字段
   exercises: [
     {
-      id: "set-group-1",
+      id: "exercise-1788105600001",
       exercise_id: "dumbbell_bench_press",
       name: "哑铃卧推",
-      body_part: "chest",
-      equipment: "dumbbell",
-      angle: "flat",
+      body_part: "胸",             // 与动作库一致，用中文肌群名
+      equipment: "哑铃",
+      angle: "水平",
+      icon: "卧推",
+      tips: "仰卧水平凳，双脚踩实，肩胛收紧后收……",
+      muscles: "胸大肌、三角肌前束、肱三头肌",
+      planned_sets: 2,             // "这次打算练几组"，历史里只保留真实记录组
       sets: [
-        { weight_kg: 24, reps: 10, rpe: 8, completed: true },
-        { weight_kg: 24, reps: 9, rpe: 9, completed: true }
+        { weight_kg: 24, reps: 10, rpe: 8, note: "" },
+        { weight_kg: 24, reps: 9, rpe: 9, note: "" }
       ],
       note: "肩胛保持稳定"
     }
@@ -256,11 +261,13 @@ stateDiagram-v2
 
 派生指标：
 
-- 总组数：所有 `completed` 组数量。
-- 总次数：完成组的 `reps` 合计。
+- 总组数：有记录（有数值）的组数量，`calculateStats` 按 `recordedSets` 统计。
+- 总次数：有记录组的 `reps` 合计。
 - 训练容量：`weight_kg × reps` 合计，不额外乘组数，因为每组单独存储。
-- 动作最佳重量：同一 `exercise_id` 历史完成组的最大重量。
-- 上次参数：最近一次同动作的最后完成组，用于快捷填充。
+- 动作最佳重量：同一 `exercise_id` 历史有记录组的最大重量。
+- 上次参数：最近一次同动作的全部记录组（每组明细），用于训练区展示“上次 20×10 / 20×10 / 17.5×12”并带入新组。
+- 时长：不自动计时，也不从开始时间推算；`duration_min` 完全由用户在训练区填写（单位分钟）。
+- 组间歇：不倒计时、不写入记录。训练区动作脚部与训练计划卡按动作所属肌群给出建议文案（大肌群 2-3 分钟、小肌群 1 分钟），数值仅供参考。
 
 ### 7.3 训练日
 

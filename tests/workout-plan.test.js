@@ -58,21 +58,33 @@ test("动作名从目录补齐且顺序为 1..6", () => {
   }
 });
 
-test("全部完成且 RPE≤8 → 建议 +2.5kg", () => {
+test("全部练满且 RPE≤8 → 建议 +2.5kg", () => {
   const records = [completedSession("2026-09-10", [["barbell_bench_press", [
-    { weight_kg: 50, reps: 10, rpe: 8, completed: true },
-    { weight_kg: 50, reps: 9, rpe: 7, completed: true },
+    { weight_kg: 50, reps: 10, rpe: 8 },
+    { weight_kg: 50, reps: 9, rpe: 7 },
   ]]])];
   const result = plan.generatePlan({ preferences: {}, records });
   const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
   assert.equal(bench.weight_kg, 52.5);
 });
 
-test("存在未完成组或 RPE≥9 → 维持上次重量", () => {
+test("练满但 RPE≥9 → 维持上次重量", () => {
   const records = [completedSession("2026-09-10", [["barbell_bench_press", [
-    { weight_kg: 50, reps: 10, rpe: 8, completed: true },
-    { weight_kg: 50, reps: 6, rpe: 9, completed: false },
+    { weight_kg: 50, reps: 10, rpe: 8 },
+    { weight_kg: 50, reps: 6, rpe: 9 },
   ]]])];
+  const result = plan.generatePlan({ preferences: {}, records });
+  const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
+  assert.equal(bench.weight_kg, 50);
+});
+
+test("没练满计划组数（记录组数 < planned_sets）→ 维持上次重量", () => {
+  const records = [completedSession("2026-09-10", [["barbell_bench_press", [
+    { weight_kg: 50, reps: 10 },
+    { weight_kg: 50, reps: 9 },
+  ]]])];
+  // 上次打算练 3 组，实际只留下 2 组记录（有一组删掉了），视为没练满。
+  records[0].exercises[0].planned_sets = 3;
   const result = plan.generatePlan({ preferences: {}, records });
   const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
   assert.equal(bench.weight_kg, 50);
@@ -83,31 +95,32 @@ test("无历史 → 建议重量为空", () => {
   assert.equal(result.days[0].exercises[0].weight_kg, null);
 });
 
-test("上肢动作全部完成但未填 RPE → 仍 +2.5kg（少记 RPE 场景）", () => {
+test("上肢动作全部练满但未填 RPE → 仍 +2.5kg（少记 RPE 场景）", () => {
   const records = [completedSession("2026-09-10", [["barbell_bench_press", [
-    { weight_kg: 50, reps: 10, completed: true },
-    { weight_kg: 50, reps: 9, completed: true },
+    { weight_kg: 50, reps: 10 },
+    { weight_kg: 50, reps: 9 },
   ]]])];
   const result = plan.generatePlan({ preferences: {}, records });
   const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
   assert.equal(bench.weight_kg, 52.5);
 });
 
-test("下肢动作全部完成 → +5kg", () => {
+test("下肢动作全部练满 → +5kg", () => {
   const records = [completedSession("2026-09-10", [["barbell_squat", [
-    { weight_kg: 80, reps: 8, completed: true },
-    { weight_kg: 80, reps: 7, completed: true },
+    { weight_kg: 80, reps: 8 },
+    { weight_kg: 80, reps: 7 },
   ]]])];
   const result = plan.generatePlan({ preferences: {}, records });
   const squat = result.days[2].exercises.find(e => e.exercise_id === "barbell_squat");
   assert.equal(squat.weight_kg, 85);
 });
 
-test("下肢动作有未完成组 → 维持上次重量", () => {
+test("下肢动作没练满计划组数 → 维持上次重量", () => {
   const records = [completedSession("2026-09-10", [["barbell_squat", [
-    { weight_kg: 80, reps: 8, completed: true },
-    { weight_kg: 80, reps: 5, completed: false },
+    { weight_kg: 80, reps: 8 },
+    { weight_kg: 80, reps: 5 },
   ]]])];
+  records[0].exercises[0].planned_sets = 3;
   const result = plan.generatePlan({ preferences: {}, records });
   const squat = result.days[2].exercises.find(e => e.exercise_id === "barbell_squat");
   assert.equal(squat.weight_kg, 80);

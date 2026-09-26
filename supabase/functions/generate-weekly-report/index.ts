@@ -57,16 +57,21 @@ function weekStartFor(iso: string) {
 
 function trimRecord(value: Record<string, unknown>) {
   const exercises = Array.isArray(value.exercises) ? value.exercises as Array<Record<string, unknown>> : [];
-  const completedSets = exercises.flatMap(exercise => Array.isArray(exercise.sets) ? exercise.sets as Array<Record<string, unknown>> : [])
-    .filter(set => set.completed === true);
+  // 统计口径与前端一致：一组有数值就是一条训练记录；删掉的空组不会同步上来。
+  const hasRecord = (set: Record<string, unknown>) => Number(set.weight_kg || 0) > 0
+    || Number(set.reps || 0) > 0
+    || Number(set.duration_min || 0) > 0
+    || Number(set.distance_km || 0) > 0;
+  const recordedSets = exercises.flatMap(exercise => Array.isArray(exercise.sets) ? exercise.sets as Array<Record<string, unknown>> : [])
+    .filter(hasRecord);
   const workout = value.kind === "workout_session" ? {
     training_day: value.training_day,
     duration_min: value.duration_min,
     exercise_count: exercises.length,
     exercise_names: exercises.map(exercise => String(exercise.name || "")).filter(Boolean),
-    set_count: completedSets.length,
-    reps: completedSets.reduce((sum, set) => sum + Number(set.reps || 0), 0),
-    volume_kg: completedSets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0),
+    set_count: recordedSets.length,
+    reps: recordedSets.reduce((sum, set) => sum + Number(set.reps || 0), 0),
+    volume_kg: recordedSets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0),
   } : undefined;
   return {
     id: value.id,

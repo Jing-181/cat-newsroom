@@ -119,28 +119,39 @@
 
   // ---- 渐进超负荷：最近一次完成记录驱动 ----
 
+  // 一组有数值就是一条真实训练记录（与数据层口径一致；删掉的空组不会进历史）。
+  function setHasRecordValue(set) {
+    return Number(set?.weight_kg || 0) > 0
+      || Number(set?.reps || 0) > 0
+      || Number(set?.duration_min || 0) > 0
+      || Number(set?.distance_km || 0) > 0;
+  }
+
   function lastCompleted(records, exerciseId) {
     const sessions = (records || [])
       .filter(r => r?.kind === "workout_session" && r.schema_version === 2 && r.status !== "draft" && !r.deleted_at)
       .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
     for (const session of sessions) {
       const entry = (session.exercises || []).find(e => e.exercise_id === exerciseId);
-      if (entry?.sets?.length) return entry;
+      if ((entry?.sets || []).some(setHasRecordValue)) return entry;
     }
     return null;
   }
 
   // 渐进超负荷：最近一次完成记录驱动。
-  // 用户较少记录 RPE：只要最近一次全部组完成即视为可进阶（未填 RPE 不影响判定）；
+  // 用户较少记录 RPE：只要最近一次练满了计划组数即视为可进阶（未填 RPE 不影响判定）；
   // 若填写了 RPE 且平均 ≥ 9 则视为强度过高，维持重量。
+  // planned_sets 记录"这次打算练几组"（含删掉没练的组），历史里只保留真实记录组，
+  // 因此"记录组数 ≥ planned_sets"才是练满；旧数据没有 planned_sets 时按全部组数兜底。
   function suggestWeight(records, exerciseId, stepKg = 2.5) {
     const entry = lastCompleted(records, exerciseId);
     if (!entry) return null;
-    const completed = entry.sets.filter(set => set.completed);
-    const allDone = completed.length === entry.sets.length;
-    const rated = completed.filter(set => set.rpe);
+    const done = (entry.sets || []).filter(setHasRecordValue);
+    const planned = Math.max(Number(entry.planned_sets || 0), entry.sets.length);
+    const allDone = done.length >= planned;
+    const rated = done.filter(set => set.rpe);
     const avgRpe = rated.length ? rated.reduce((sum, set) => sum + Number(set.rpe || 0), 0) / rated.length : 8;
-    const base = Number(completed.at(-1)?.weight_kg || 0);
+    const base = Number(done.at(-1)?.weight_kg || 0);
     if (allDone && avgRpe <= 8) return Math.round((base + stepKg) * 10) / 10;
     return base;
   }

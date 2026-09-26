@@ -158,7 +158,7 @@ function booksTileHTML() {
     <div class="book-list">${rows}</div></div>`;
 }
 
-/* 本周目标：sport (progress) 各项进度条 */
+/* 本周目标：sport (workout) 训练记录摘要（旧版进度记录仍兼容展示） */
 function goalsTileHTML() {
   const all = data().sport || []; const colors = ["var(--module-3)", "var(--module-1)", "var(--module-2)", "var(--module-4)", "var(--module-5)"];
   const sessions = all.filter(x => typeof Workout !== "undefined" && Workout.isSession(x));

@@ -10,11 +10,6 @@
     return !matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  function localDateKey() {
-    const date = new Date();
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  }
-
   function loadPlan() {
     return root.WorkoutPlan?.load?.() || readJson("cat-newsroom-weekly-workout-plan-v1");
   }
@@ -25,6 +20,9 @@
     root.Workout.sortRecords(records);
     let session = readJson(DRAFT_KEY);
     let selectedDay = localStorage.getItem(DAY_KEY) || "chest";
+    // 用户手动展开的组：key 为动作实例 id，值为组索引；-1 表示整组收起。
+    // 没点过时自动展开"第一个没录的组"。
+    let openSets = {};
 
     function persistDraft() {
       if (session) localStorage.setItem(DRAFT_KEY, JSON.stringify(session));
@@ -42,6 +40,25 @@
       Object.entries({ ...stats, volume: Math.round(stats.volume) }).forEach(([key, value]) => {
         const target = container.querySelector(`[data-workout-stat="${key}"]`);
         if (target) target.textContent = value;
+      });
+    }
+
+    // 只更新某动作的"已录 N/M 组"进度文本，避免整个重渲染。
+    function refreshExerciseProgress(exerciseIndex) {
+      const exercise = session.exercises[exerciseIndex];
+      if (!exercise) return;
+      const element = container.querySelector(`[data-exercise-card="${exerciseIndex}"] .set-progress`);
+      if (!element) return;
+      const done = root.Workout.recordedSets(exercise).length;
+      const total = exercise.sets.length;
+      element.textContent = `${done}/${total} 组`;
+      element.classList.toggle("all-done", done === total && done > 0);
+    }
+
+    // 只把"当前正在练的动作"留在展开态：切到别的动作时收起其余动作，列表不会越撑越长。
+    function collapseOtherExercises(activeId) {
+      session?.exercises?.forEach(exercise => {
+        if (exercise.id !== activeId) openSets[exercise.id] = -1;
       });
     }
 
@@ -66,6 +83,7 @@
         session._editing_record_id = record.id;
         session.status = "draft";
         selectedDay = session.training_day;
+        openSets = {};
         persistDraft();
         render();
         window.scrollTo({ top:0, behavior:shouldAnimate() ? "smooth" : "auto" });
@@ -98,80 +116,151 @@
       dialog.addEventListener("close", render, { once:true });
     }
 
+    // 记录当前组并进入下一组：最后一组时自动新增一组并继承数据，随后滚动定位到新活动组。
+    function nextSet(exerciseIndex, setIndex) {
+      const exercise = session.exercises[exerciseIndex];
+      if (!exercise) return;
+      const isLast = setIndex === exercise.sets.length - 1;
+      if (isLast) {
+        root.Workout.addSet(session, exerciseIndex);
+        openSets[exercise.id] = exercise.sets.length - 1;
+      } else {
+        openSets[exercise.id] = setIndex + 1;
+      }
+      updateSession();
+      requestAnimationFrame(() => {
+        const active = container.querySelector(`[data-exercise-card="${exerciseIndex}"] .set-row.is-active`);
+        if (!active) return;
+        active.scrollIntoView({ behavior: shouldAnimate() ? "smooth" : "auto", block: "center" });
+        active.querySelector("[data-set-field]")?.focus?.({ preventScroll:true });
+      });
+    }
+
     function wireEditor() {
       container.querySelector("#workout-cancel")?.addEventListener("click", async () => {
         if (!(await root.AppDialog.confirm(session._editing_record_id ? "退出编辑并放弃本次修改？" : "放弃当前训练草稿？", { title:"放弃训练", danger:true, okText:"放弃" }))) return;
         session = null;
+        openSets = {};
         persistDraft();
         render();
       });
       container.querySelector("#workout-add-exercise")?.addEventListener("click", openExerciseLibrary);
       container.querySelector("#workout-add-floating")?.addEventListener("click", openExerciseLibrary);
+      // 训练中的"动作进展"：点开弹窗看某个动作的长期变化，不打断记录。
+      container.querySelector("[data-tracked-progress]")?.addEventListener("click", () => {
+        openDialog(root.WorkoutView.progressDialogHtml(records));
+      });
       container.querySelector("[data-open-library]")?.addEventListener("click", openExerciseLibrary);
       container.querySelectorAll("[data-quick-add]").forEach(button => button.addEventListener("click", () => {
         root.Workout.addExercise(session, button.dataset.quickAdd, records);
         updateSession();
       }));
-      container.querySelectorAll("[data-exercise-delete]").forEach(button => button.addEventListener("click", () => { session.exercises.splice(Number(button.dataset.exerciseDelete), 1); updateSession(); }));
-      container.querySelectorAll("[data-set-add]").forEach(button => button.addEventListener("click", () => {
-        const index = Number(button.dataset.setAdd);
-        const exercise = session.exercises[index];
-        const previous = exercise.sets.at(-1) || { weight_kg:0, reps:10, rpe:"" };
-        exercise.sets.push({ ...previous, completed:true });
+      container.querySelectorAll("[data-exercise-delete]").forEach(button => button.addEventListener("click", () => {
+        const exercise = session.exercises[Number(button.dataset.exerciseDelete)];
+        if (exercise) delete openSets[exercise.id];
+        session.exercises.splice(Number(button.dataset.exerciseDelete), 1);
         updateSession();
+      }));
+      // 加一组：继承上一组数据并展开新组。
+      container.querySelectorAll("[data-set-add]").forEach(button => button.addEventListener("click", () => {
+        const exerciseIndex = Number(button.dataset.setAdd);
+        const exercise = session.exercises[exerciseIndex];
+        if (!exercise) return;
+        root.Workout.addSet(session, exerciseIndex);
+        openSets[exercise.id] = exercise.sets.length - 1;
+        updateSession();
+      }));
+      // 展开已收起的组（手动定位到某一组去修改）；此时收起其它动作，保持只有一个动作展开。
+      container.querySelectorAll("[data-set-open]").forEach(button => button.addEventListener("click", () => {
+        const exercise = session.exercises[Number(button.dataset.exercise)];
+        if (!exercise) return;
+        collapseOtherExercises(exercise.id);
+        openSets[exercise.id] = Number(button.dataset.set);
+        updateSession();
+      }));
+      // 记录并进入下一组。
+      container.querySelectorAll("[data-set-next]").forEach(button => button.addEventListener("click", () => {
+        nextSet(Number(button.dataset.exercise), Number(button.dataset.set));
+      }));
+      // 收起当前组：整组回到一行，需要时再点开修改。
+      container.querySelectorAll("[data-set-collapse]").forEach(button => button.addEventListener("click", () => {
+        const exercise = session.exercises[Number(button.dataset.exercise)];
+        if (!exercise) return;
+        openSets[exercise.id] = -1;
+        updateSession();
+      }));
+      // 更多面板：RPE / RIR / 备注只切换显隐，不重渲染。
+      container.querySelectorAll("[data-set-more]").forEach(button => button.addEventListener("click", () => {
+        const panel = button.closest(".set-more")?.querySelector(".set-more-panel");
+        if (!panel) return;
+        panel.hidden = !panel.hidden;
+        button.setAttribute("aria-expanded", String(!panel.hidden));
       }));
       container.querySelectorAll("[data-exercise-info]").forEach(button => button.addEventListener("click", () => {
         const ex = session.exercises[Number(button.dataset.exerciseInfo)];
         const tips = (ex.tips || "保持动作稳定，按自身能力调整重量和次数。").replace(/。/g, "。\n");
         openDialog(`<div class="dialog-head"><div><span class="dialog-kicker">动作说明</span><h3>${ex.name}</h3></div><button type="button" class="icon-action" data-dialog-close>×</button></div><p class="dialog-muscles"><strong>锻炼部位</strong><br>${ex.muscles || ex.body_part || "全身"}</p><p class="dialog-tips"><strong>动作要点</strong><br>${tips}</p>`);
       }));
-      container.querySelectorAll("[data-set-delete]").forEach(button => button.addEventListener("click", () => { session.exercises[Number(button.dataset.exercise)].sets.splice(Number(button.dataset.set), 1); updateSession(); }));
-      container.querySelectorAll("[data-set-done]").forEach(button => button.addEventListener("click", () => {
-        const set = session.exercises[Number(button.dataset.exercise)].sets[Number(button.dataset.set)];
-        set.completed = !set.completed;
-        // 完成组只更新当前按钮和统计，保留用户当前滚动位置。
-        button.classList.toggle("on", set.completed);
-        button.closest(".set-row")?.classList.toggle("completed", set.completed);
-        const card = button.closest(".session-exercise");
-        const progress = card?.querySelector(".set-progress");
-        if (progress) { const done = session.exercises[Number(button.dataset.exercise)].sets.filter(item => item.completed).length; const count = session.exercises[Number(button.dataset.exercise)].sets.length; progress.textContent = `${done}/${count} 组`; progress.classList.toggle("all-done", done === count); }
-        updateSession({ rerender:false });
-        refreshStats();
+      // 删组：走数据层 removeSet 同步下调计划组数，并修正展开位置。
+      container.querySelectorAll("[data-set-delete]").forEach(button => button.addEventListener("click", () => {
+        const exerciseIndex = Number(button.dataset.exercise);
+        const setIndex = Number(button.dataset.set);
+        const exercise = session.exercises[exerciseIndex];
+        if (!exercise) return;
+        root.Workout.removeSet(session, exerciseIndex, setIndex);
+        if (openSets[exercise.id] != null) {
+          if (openSets[exercise.id] === setIndex) openSets[exercise.id] = Math.min(setIndex, Math.max(0, exercise.sets.length - 1));
+          else if (openSets[exercise.id] > setIndex) openSets[exercise.id] -= 1;
+        }
+        // 一组不剩：整个动作也不再保留。
+        if (!exercise.sets.length) {
+          session.exercises.splice(exerciseIndex, 1);
+          delete openSets[exercise.id];
+        }
+        updateSession();
       }));
-      // 输入即写入草稿，避免切换动作时丢失最后一次修改。
+      // 输入即写入草稿，避免切换动作时丢失最后一次修改；有数值即算训练记录。
       container.querySelectorAll("[data-set-field]").forEach(input => input.addEventListener("input", () => {
-        const set = session.exercises[Number(input.dataset.exercise)].sets[Number(input.dataset.set)];
+        const exerciseIndex = Number(input.dataset.exercise);
+        const set = session.exercises[exerciseIndex]?.sets[Number(input.dataset.set)];
+        if (!set) return;
         set[input.dataset.setField] = input.dataset.setField === "pace" ? input.value : (input.value === "" ? "" : Number(input.value));
         updateSession({ rerender:false });
         refreshStats();
+        refreshExerciseProgress(exerciseIndex);
       }));
       container.querySelectorAll("[data-set-adjust]").forEach(button => button.addEventListener("click", () => {
         const exerciseIndex = Number(button.dataset.exercise);
         const setIndex = Number(button.dataset.set);
         const field = button.dataset.setAdjust;
         const step = Number(button.dataset.step);
-        const set = session.exercises[exerciseIndex].sets[setIndex];
+        const set = session.exercises[exerciseIndex]?.sets[setIndex];
+        if (!set) return;
         const minimum = field === "reps" ? 1 : 0;
         set[field] = Math.max(minimum, Number(set[field] || 0) + step);
         const input = container.querySelector(`[data-set-field="${field}"][data-exercise="${exerciseIndex}"][data-set="${setIndex}"]`);
         if (input) input.value = set[field];
         updateSession({ rerender:false });
         refreshStats();
+        refreshExerciseProgress(exerciseIndex);
       }));
       container.querySelector("#workout-date")?.addEventListener("input", event => {
         session.date = event.target.value;
         updateSession({ rerender:false });
       });
+      // 训练时长完全由用户填写，不做自动计时。
       container.querySelector("#workout-duration")?.addEventListener("input", event => {
-        session.duration_min = Math.max(1, Number(event.target.value || 1));
+        const value = Number(event.target.value);
+        session.duration_min = value > 0 ? value : 0;
         updateSession({ rerender:false });
       });
       container.querySelector("#workout-note")?.addEventListener("input", event => { session.note = event.target.value; updateSession({ rerender:false }); });
       container.querySelector("#workout-finish")?.addEventListener("click", async () => {
         if (!session.date) return root.AppDialog.alert("请选择训练日期。", { title:"还差一步" });
-        if (!root.Workout.calculateStats(session).setCount && !(await root.AppDialog.confirm("还没有标记完成的训练组，仍要保存吗？", { title:"训练尚未完成", okText:"仍然保存" }))) return;
-        session.duration_min = Math.max(1, Number(container.querySelector("#workout-duration").value || 1));
-        session.note = container.querySelector("#workout-note").value.trim();
+        // 没有任何一组留下数值时不构成训练记录，提示后仍允许保存（可能是纯备注）。
+        const hasRecord = root.Workout.calculateStats(session).setCount > 0;
+        if (!hasRecord && !(await root.AppDialog.confirm("还没有记录任何一组，仍要保存吗？", { title:"训练尚未开始", okText:"仍然保存" }))) return;
+        session.note = container.querySelector("#workout-note")?.value.trim() || "";
         const saved = root.Workout.upsertSession(records, session);
         options.onSave(saved);
         if (session._plan_generated_at && session._plan_day_index != null) {
@@ -183,6 +272,7 @@
           });
         }
         session = null;
+        openSets = {};
         persistDraft();
         render();
       });
@@ -191,13 +281,16 @@
     function startFromPlanDay(day, plan) {
       session = root.Workout.createSession(day.training_day, new Date());
       session.title = day.title;
+      openSets = {};
       const history = records.filter(record => root.Workout.isSession(record));
       for (const item of day.exercises || []) {
         root.Workout.addExercise(session, item.exercise_id, history);
         const entry = session.exercises.find(exercise => exercise.exercise_id === item.exercise_id);
         if (!entry) continue;
+        // 计划写了组数就补齐到目标组数，新组继承上一组数据并同步 planned_sets。
         const target = item.sets || entry.sets.length;
-        while (entry.sets.length < target) entry.sets.push(JSON.parse(JSON.stringify(entry.sets[0])));
+        const entryIndex = session.exercises.indexOf(entry);
+        while (entry.sets.length < target) root.Workout.addSet(session, entryIndex);
         entry.sets.forEach(set => { if (item.weight_kg) set.weight_kg = item.weight_kg; });
       }
       session._plan_day_index = day.day_index;
@@ -251,7 +344,7 @@
           updateSession();
         } else render();
       }));
-      container.querySelector("#workout-start")?.addEventListener("click", () => { session = root.Workout.createSession(selectedDay); persistDraft(); render(); });
+      container.querySelector("#workout-start")?.addEventListener("click", () => { session = root.Workout.createSession(selectedDay); openSets = {}; persistDraft(); render(); });
       container.querySelectorAll("[data-history-view]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyView); if (record) openDialog(root.WorkoutView.detailHtml(record)); }));
       container.querySelectorAll("[data-history-edit]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyEdit); if (record) editRecord(record); }));
       container.querySelectorAll("[data-history-delete]").forEach(button => button.addEventListener("click", async () => {
@@ -266,8 +359,10 @@
 
     function render() {
       if (session) selectedDay = session.training_day;
+      // uiState.previous 由渲染层自行计算上次表现；openSets 是这里的交互态。
+      const uiState = { previous: null, openSets };
       container.innerHTML = session
-        ? root.WorkoutView.editorHtml(session, selectedDay, records)
+        ? root.WorkoutView.editorHtml(session, selectedDay, records, uiState)
         : root.WorkoutView.idleHtml(selectedDay, records);
       wire();
     }
@@ -318,6 +413,16 @@
         }
         if (root.Toast) root.Toast.show("已把训练数据复制到剪贴板");
         else root.AppDialog.alert("已把训练数据复制到剪贴板", { title: "已复制" });
+      });
+    }
+
+    // 动作进展：历史页入口与详情弹窗里的“进展”按钮都打开该动作的长期记录。
+    if (!container.__exerciseTrendBound) {
+      container.__exerciseTrendBound = true;
+      container.addEventListener("click", event => {
+        const button = event.target.closest("[data-exercise-trend]");
+        if (!button) return;
+        openDialog(root.WorkoutView.exerciseProgressHtml(records, button.dataset.exerciseTrend));
       });
     }
 

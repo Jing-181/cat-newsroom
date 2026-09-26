@@ -217,21 +217,23 @@ function completedSession(date, entries) {
   return session;
 }
 
-test("全部完成且 RPE≤8 → 建议 +2.5kg", () => {
+test("全部练满且 RPE≤8 → 建议 +2.5kg", () => {
   const records = [completedSession("2026-09-10", [["barbell_bench_press", [
-    { weight_kg: 50, reps: 10, rpe: 8, completed: true },
-    { weight_kg: 50, reps: 9, rpe: 7, completed: true },
+    { weight_kg: 50, reps: 10, rpe: 8 },
+    { weight_kg: 50, reps: 9, rpe: 7 },
   ]]])];
   const result = plan.generatePlan({ preferences: {}, records });
   const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
   assert.equal(bench.weight_kg, 52.5);
 });
 
-test("存在未完成组或 RPE≥9 → 维持上次重量", () => {
+test("没练满计划组数（记录组数 < planned_sets）→ 维持上次重量", () => {
   const records = [completedSession("2026-09-10", [["barbell_bench_press", [
-    { weight_kg: 50, reps: 10, rpe: 8, completed: true },
-    { weight_kg: 50, reps: 6, rpe: 9, completed: false },
+    { weight_kg: 50, reps: 10 },
+    { weight_kg: 50, reps: 9 },
   ]]])];
+  // 上次打算练 3 组，实际只留下 2 组记录（有一组删掉了），视为没练满。
+  records[0].exercises[0].planned_sets = 3;
   const result = plan.generatePlan({ preferences: {}, records });
   const bench = result.days[0].exercises.find(e => e.exercise_id === "barbell_bench_press");
   assert.equal(bench.weight_kg, 50);
@@ -265,11 +267,16 @@ function lastCompleted(records, exerciseId) {
 function suggestWeight(records, exerciseId) {
   const entry = lastCompleted(records, exerciseId);
   if (!entry) return null;
-  const completed = entry.sets.filter(s => s.completed);
-  const allDone = completed.length === entry.sets.length;
-  const rated = completed.filter(s => s.rpe);
+  // 已落地：组级 completed 已移除。一组有数值即为记录；planned_sets 记录本次打算练几组，
+  // “记录组数 ≥ planned_sets”才算练满（删掉的空组不算）。旧数据无 planned_sets 时按全部组数兜底。
+  const hasRecord = s => Number(s?.weight_kg || 0) > 0 || Number(s?.reps || 0) > 0
+    || Number(s?.duration_min || 0) > 0 || Number(s?.distance_km || 0) > 0;
+  const done = entry.sets.filter(hasRecord);
+  const planned = Math.max(Number(entry.planned_sets || 0), entry.sets.length);
+  const allDone = done.length >= planned;
+  const rated = done.filter(s => s.rpe);
   const avgRpe = rated.length ? rated.reduce((sum, s) => sum + Number(s.rpe || 0), 0) / rated.length : 8;
-  const base = Number(completed.at(-1)?.weight_kg || 0);
+  const base = Number(done.at(-1)?.weight_kg || 0);
   if (allDone && avgRpe <= 8) return Math.round((base + 2.5) * 10) / 10;
   return base;
 }

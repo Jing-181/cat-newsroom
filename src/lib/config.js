@@ -1,5 +1,23 @@
 // 全局配置：与主站 workbench-desktop.html 的 CONFIG 完全一致（数据键、模块定义、快速记录、概览环、每日一句）
-import { isoToday, today, avgProgress } from "./utils.js";
+import { isoToday, today, avgProgress, localDateKey } from "./utils.js";
+
+// mock 训练记录用的相对日期：n 天前的 ISO 日期，让历史列表和「动作进展」一打开就有内容。
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return localDateKey(d); };
+// 运动 seed 里的动作实例统一走这里，字段与 Workout.addExercise 产出的结构保持一致。
+const seedExercise = (slot, id, name, bodyPart, equipment, extra, sets) => ({
+  id: `seed-exercise-${slot}-${id}`, exercise_id: id, name, body_part: bodyPart, equipment,
+  angle: extra.angle || "", icon: extra.icon || name.slice(0, 2),
+  muscles: extra.muscles || bodyPart,
+  tips: extra.tips || "控制动作节奏，保持躯干稳定；重量以动作质量为先。",
+  planned_sets: sets.length,
+  sets: sets.map(([weight_kg, reps, rpe]) => ({ weight_kg, reps, rpe, note: "" })),
+  note: "",
+});
+const seedSession = (slot, { title, training_day, days, duration_min, note, exercises }) => ({
+  id: `seed-workout-${slot}`, schema_version: 2, kind: "workout_session", status: "completed",
+  title, training_day, date: daysAgo(days), duration_min, note: note || "",
+  updated_at: new Date().toISOString(), exercises,
+});
 
 export const CONFIG = {
   storageKey: "cat-newsroom-data-v2",   // 桌面与手机版共享数据
@@ -52,8 +70,53 @@ export const CONFIG = {
       seed: [{ id: 21, title: "喂猫粮 + 换水", log: {} }, { id: 22, title: "铲猫砂", log: {} }, { id: 23, title: "陪猫玩耍 15min", log: {} }] },
     { key: "read", name: "阅读进度", icon: "book", tint: "#f5e8cf", color: "var(--module-2)", type: "progress", unit: "页", desc: "书籍进度·摘录·想法",
       seed: [{ id: 31, title: "《猫的优雅》", current: 128, target: 240, unit: "页", note: "了解猫的行为语言，和主子更好地沟通" }, { id: 32, title: "《认知觉醒》", current: 90, target: 300, unit: "页", note: "专注力训练，每天早晚各读 30 分钟" }] },
-    { key: "sport", name: "运动健身", icon: "activity", tint: "#f5ead0", color: "var(--module-3)", type: "progress", unit: "分钟", desc: "跑步·力量训练·拉伸",
-      seed: [{ id: 41, title: "力量训练", current: 12, target: 20, unit: "分钟", note: "核心 + 上肢，组间休息 60 秒" }, { id: 42, title: "跑步", current: 30, target: 40, unit: "分钟", note: "慢跑热身，配速 6 分半保持心率" }] },
+    { key: "sport", name: "运动健身", icon: "activity", tint: "#f5ead0", color: "var(--module-3)", type: "workout", desc: "力量训练·有氧·拉伸，按组记录",
+      // seed 全部是 workout_session v2：与 Workout.createSession / addExercise 产出的结构一致。
+      // 同一天里安排两次胸日，是为了让「动作进展」一打开就能看到卧推重量从 18kg 涨到 22.5kg。
+      seed: [
+        seedSession("chest-1", {
+          title: "胸日", training_day: "chest", days: 20, duration_min: 50,
+          note: "先把卧推的动作轨迹练稳，重量慢慢加。",
+          exercises: [
+            seedExercise("chest-1", "dumbbell_bench_press", "哑铃卧推", "胸", "哑铃", { angle: "水平", icon: "卧推", muscles: "胸大肌、三角肌前束、肱三头肌" },
+              [[18, 10, 8], [18, 10, 8], [18, 8, 9]]),
+            seedExercise("chest-1", "pec_deck", "蝴蝶机夹胸", "胸", "器械", { icon: "蝴蝶", muscles: "胸大肌、前锯肌" },
+              [[30, 12, 8], [30, 12, 8], [30, 10, 9]]),
+          ],
+        }),
+        seedSession("chest-2", {
+          title: "胸日", training_day: "chest", days: 6, duration_min: 55,
+          note: "卧推 +2.5kg，最后一组有点吃力但姿势没散。",
+          exercises: [
+            seedExercise("chest-2", "dumbbell_bench_press", "哑铃卧推", "胸", "哑铃", { angle: "水平", icon: "卧推", muscles: "胸大肌、三角肌前束、肱三头肌" },
+              [[22.5, 10, 8], [22.5, 9, 9], [22.5, 8, 9]]),
+            seedExercise("chest-2", "cable_fly_mid", "绳索夹胸（中位）", "胸", "绳索", { icon: "中夹", muscles: "胸大肌中束、前锯肌" },
+              [[15, 12, 8], [15, 12, 8], [15, 10, 9]]),
+          ],
+        }),
+        seedSession("legs-1", {
+          title: "腿日", training_day: "legs", days: 2, duration_min: 62,
+          note: "深蹲先稳定站距，腿举最后一组降到 10 次。",
+          exercises: [
+            seedExercise("legs-1", "barbell_squat", "杠铃深蹲", "股四头、臀部、腘绳肌", "杠铃", { icon: "深蹲", muscles: "股四头肌、臀大肌、腘绳肌、核心" },
+              [[60, 8, 8], [60, 8, 8], [60, 6, 9]]),
+            seedExercise("legs-1", "leg_press", "腿举", "腿", "器械", { icon: "腿举", muscles: "股四头肌、臀大肌、腘绳肌" },
+              [[100, 12, 8], [100, 12, 8], [100, 10, 9]]),
+          ],
+        }),
+        seedSession("cardio-1", {
+          title: "有氧恢复", training_day: "cardio", days: 1, duration_min: 35,
+          note: "慢跑把心率压在能说话的强度，收尾做拉伸。",
+          exercises: [
+            { id: "seed-exercise-cardio-1-treadmill", exercise_id: "treadmill", name: "跑步机", body_part: "心肺", equipment: "有氧", angle: "", icon: "跑步",
+              muscles: "心肺、臀腿", tips: "抬头、收紧核心，步频自然。先以能完整说话的强度热身，再逐步提速。",
+              planned_sets: 1, sets: [{ duration_min: 30, distance_km: 4.5, pace: "6'40\"", rpe: 7, note: "" }], note: "" },
+            { id: "seed-exercise-cardio-1-stretch", exercise_id: "stretch", name: "拉伸与泡沫轴", body_part: "恢复", equipment: "恢复", angle: "", icon: "拉伸",
+              muscles: "全身筋膜与关节活动度", tips: "保持舒适牵拉感，不要弹震。每个位置平稳呼吸 20 到 30 秒。",
+              planned_sets: 1, sets: [{ duration_min: 5, distance_km: 0, pace: "", rpe: "", note: "" }], note: "" },
+          ],
+        }),
+      ] },
     { key: "money", name: "记账本", icon: "wallet", tint: "#f0e6d0", color: "var(--module-4)", type: "finance", desc: "收入·支出·分类·月度占比",
       categories: ["餐饮", "交通", "购物", "猫物", "居家", "娱乐", "工资", "其他"],
       seed: [{ id: 51, title: "猫粮 5kg", type: "expense", amount: 168, category: "猫物", date: isoToday() },
