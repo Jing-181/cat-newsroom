@@ -208,6 +208,6 @@ node scripts/build-components.mjs
 - 同步契约保持不变：`supabase-sync.js` 仍为全局经典脚本，`store.js` 绑定 `window.data` 供其读取；`sync-hooks.js`（经典脚本）把 `onSyncReady/onRemoteUpdate` 转发到 Vue 入口；跨标签 `storage` 事件、`pendingSyncRecords` 去重、`renderAfterWorkoutDialog` 等逻辑原样保留。
 - `vite.config.js`：`base: "./"` + 无 hash 文件名 + `manualChunks`（`vue` 独立 vendor、`src/lib|components` → `shared`、`src/modules/*` 每模块独立 chunk）。
 - 旧入口回退：`scripts/copy-supabase-sync.mjs` 在 `prebuild` 把 `workbench-desktop.html`、`workbench-mobile.html`、`assets/`、`css/`、`js/`、`supabase-sync.js` 一并拷入 `src/public/`，构建后旧书签与设备切换仍可用。
-- 验证：`npm run build` 产物为 `dist/assets/{main,vue,shared,home,insight,workout,todo,checkin,read,money,note,hot}.js`（各自独立、压缩混淆）+ `dist/js/{supabase-sync,sync-hooks}.js` + 旧站点回退文件；`dist/index.html` 全部相对路径；`npm test` 49 项通过（含 `tests/vue-build.test.js` 9 项结构断言）。
+- 验证：`npm run build` 产物为 `dist/assets/{main,vue,shared,home,insight,workout,todo,checkin,read,money,note,hot}.js`（各自独立、压缩混淆）+ `dist/js/{supabase-sync,sync-hooks}.js` + 旧站点回退文件；`dist/index.html` 全部相对路径；`npm run check` 全量通过（含 `tests/vue-build.test.js` 的入口/产物结构断言与 `tests/sync-hooks.test.js` 的回调桥接用例）。
 - 浏览器冒烟验证通过：首页完整渲染（时钟/聚焦/快速记录/概览环/习惯表/待办/番茄钟/趋势/开销/在读/目标/周报槽）、新建待办保存并写入本地、待办/打卡/阅读/记账/运动（WorkoutUI）视图切换、Supabase 匿名在线同步（「已同步 · 匿名用户」）。
 - 遗留：移动端底栏/抽屉布局迁移（A1-02 剩余部分）；洞察/日记/收藏页与番茄钟完整训练流程待真实浏览器最终验收；正式账号登录后的云端同步/周报生成待实测。

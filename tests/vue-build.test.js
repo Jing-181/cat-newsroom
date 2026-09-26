@@ -26,6 +26,9 @@ test("Vue 入口以普通 script 加载同步脚本并挂载 main", () => {
   assert.match(html, /<script src="\/js\/sync-hooks\.js"><\/script>/); // 回调桥接
   assert.match(html, /<script type="module" src="\.\/main\.js"><\/script>/);
   assert.match(html, /<div id="app"><\/div>/);
+  // 顺序：先声明钩子的 supabase-sync，再桥接，最后才是挂处理函数的入口模块
+  assert.ok(html.indexOf("/js/supabase-sync.js") < html.indexOf("/js/sync-hooks.js"), "sync-hooks 应在 supabase-sync 之后加载");
+  assert.ok(html.indexOf("/js/sync-hooks.js") < html.indexOf('type="module" src="./main.js"'), "sync-hooks 应在入口模块之前加载");
 });
 
 test("main.js 副作用导入全部领域库并暴露全局 CONFIG/同步钩子", () => {
@@ -122,6 +125,7 @@ test("构建产物（如存在）：相对路径、同步脚本与每个模块�
   assert.match(html, /src="\.\/assets\/main-[^"]+\.js"/); // 带内容 hash 文件名
   assert.match(html, /src="\.\/js\/supabase-sync\.js"/);
   assert.match(html, /src="\.\/js\/sync-hooks\.js"/);
+  assert.ok(fs.existsSync(path.join(root, "dist/js/sync-hooks.js"))); // 预构建脚本整目录拷贝 js/
   for (const key of [...MODULE_KEYS, "home", "insight"]) {
     const name = key === "sport" ? "workout" : key; // 运动目录名为 workout
     const matches = fs.readdirSync(path.join(root, "dist/assets")).filter(file => file.startsWith(`${name}-`) && file.endsWith(".js"));
