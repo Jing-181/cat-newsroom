@@ -26,6 +26,27 @@ test("训练容量按有记录的组计算，空组不计入", () => {
   assert.deepEqual(workout.calculateStats(session), { exerciseCount: 1, setCount: 2, reps: 18, volume: 360 });
 });
 
+test("力量组以次数为准：只填了重量没练次数不算有效组", () => {
+  const session = workout.createSession("chest", new Date(2026, 7, 31));
+  workout.addExercise(session, "dumbbell_bench_press");
+  session.exercises[0].sets = [
+    { weight_kg: 20, reps: 0 },   // 摆了重量但一次没练，不算
+    { weight_kg: 20, reps: 10 },
+    { weight_kg: 0, reps: 12 },   // 自重（重量为 0）也算练过
+  ];
+  assert.equal(workout.setHasRecord(session.exercises[0].sets[0]), false);
+  assert.equal(workout.setHasRecord(session.exercises[0].sets[1]), true);
+  assert.equal(workout.setHasRecord(session.exercises[0].sets[2]), true);
+  assert.equal(workout.setHasRecord(null), false);
+  assert.deepEqual(workout.calculateStats(session), { exerciseCount: 1, setCount: 2, reps: 22, volume: 200 });
+});
+
+test("有氧组按时长或距离任一项判定有效", () => {
+  assert.equal(workout.setHasRecord({ duration_min: 0, distance_km: 0, pace: "6'00\"" }), false);
+  assert.equal(workout.setHasRecord({ duration_min: 12, distance_km: 0 }), true);
+  assert.equal(workout.setHasRecord({ duration_min: 0, distance_km: 2.5 }), true);
+});
+
 test("新增动作会带入最近一组数据，并默认只创建一组", () => {
   const history = [workout.createSession("chest", new Date(2026, 7, 20))];
   workout.addExercise(history[0], "dumbbell_bench_press");

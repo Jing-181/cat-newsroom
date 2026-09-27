@@ -3,8 +3,10 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.Workout = api;
 })(typeof window !== "undefined" ? window : null, function (catalog) {
-  // 列为"有记录"的字段：只要留下任意有效数值，这一组就是一条真实训练记录。
-  // 没有留下数值的空组不属于训练记录，界面直接删除而不是标记状态。
+  // "有记录"的判定：力量组以次数为准，有氧组以时长/距离为准。
+  // 只填了重量、次数是 0 的组（例如 20kg × 0）不算记录，避免自动继承出来的半成品进历史；
+  // 重量允许为 0：自重动作（引体、俯卧撑）重量就是 0，但次数写了就是真实训练。
+  // 没有任何数值的空组同样不属于训练记录，界面直接删除而不是标记状态。
   const CARDIO_EQUIPMENT = ["有氧", "恢复"];
   // 组间歇推荐：大肌群恢复慢，间歇留长一点；小肌群恢复快，可以短一些。
   // 只作为填写时的参考文案，不倒计时、不强制、也不写入历史。
@@ -38,10 +40,12 @@
 
   function setHasRecord(set) {
     if (!set || typeof set !== "object") return false;
-    return Number(set.weight_kg || 0) > 0
-      || Number(set.reps || 0) > 0
-      || Number(set.duration_min || 0) > 0
-      || Number(set.distance_km || 0) > 0;
+    // 有氧组（有时长/距离字段）：留了时长或距离才算一次有氧记录。
+    if ("duration_min" in set || "distance_km" in set) {
+      return Number(set.duration_min || 0) > 0 || Number(set.distance_km || 0) > 0;
+    }
+    // 力量组：以次数为准，重量可以为 0（自重）。
+    return Number(set.reps || 0) > 0;
   }
 
   function recordedSets(exercise) {

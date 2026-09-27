@@ -41,11 +41,12 @@
   // ---- 组记录：已录组收成一行，当前组展开 ----
 
   function setLine(set, { index, exerciseIndex, setIndex, equipment }) {
+    // 整行都可点开修改，所以不再写"修改"两个字，只留一个轻箭头表示可进入。
     return `<div class="set-row is-collapsed">
-      <button type="button" class="set-line" data-set-open="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false" aria-label="展开第 ${index + 1} 组">
+      <button type="button" class="set-line" data-set-open="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false" aria-label="修改第 ${index + 1} 组">
         <span class="set-index">第 ${index + 1} 组</span>
         <b>${escapeHtml(root.Workout.formatSetText(set, equipment))}</b>
-        <span class="set-edit-hint">修改</span>
+        <span class="set-chevron" aria-hidden="true">›</span>
       </button>
       <button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${index + 1} 组">×</button>
     </div>`;
@@ -77,11 +78,11 @@
     // 同一组序上一次怎么练的，直接贴在当前组上，衔接时有参照。
     const last = previousSets?.[setIndex];
     const lastHint = last ? `上次 ${escapeHtml(root.Workout.formatSetCompact(last, exercise.equipment))}` : "";
+    // 头部只保留"第 N 组"这一条信息：当前组已经是高亮的，再写"本次要填的组"是重复噪音。
     return `<div class="set-row is-active">
-      <div class="set-row-head"><strong>第 ${setIndex + 1} 组</strong><span class="set-hint">${lastHint || "本次要填的组"}</span><button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${setIndex + 1} 组">×</button></div>
+      <div class="set-row-head"><strong>第 ${setIndex + 1} 组</strong>${lastHint ? `<span class="set-hint">${lastHint}</span>` : ""}<button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${setIndex + 1} 组">×</button></div>
       <div class="set-fields${cardio ? " cardio-fields" : ""}">${fields}</div>
-      <div class="set-more"><button type="button" class="set-more-toggle" data-set-more="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false">更多 · RPE / 备注</button>${morePanel(set, exercise, { exerciseIndex, setIndex })}</div>
-      <div class="set-row-actions"><button type="button" class="workout-btn primary compact" data-set-next="1" data-exercise="${exerciseIndex}" data-set="${setIndex}">记录并进入下一组</button><button type="button" class="workout-btn compact" data-set-collapse="1" data-exercise="${exerciseIndex}" data-set="${setIndex}">收起本组</button></div>
+      <div class="set-more"><button type="button" class="set-more-toggle" data-set-more="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false">RPE · RIR · 备注</button>${morePanel(set, exercise, { exerciseIndex, setIndex })}</div>
     </div>`;
   }
 
@@ -110,11 +111,11 @@
     const previousMap = uiState.previous || {};
     const openSets = uiState.openSets || {};
     return `<section class="workout-app">
-      <div class="workout-head"><div><h2>${editing ? "编辑" : "记录"}${escapeHtml(session.title)}</h2><p>${escapeHtml(session.date)} · 草稿会自动保存在本机</p></div><div class="workout-head-actions"><button type="button" class="workout-btn compact" data-tracked-progress>动作进展</button><button type="button" class="workout-btn danger" id="workout-cancel">${editing ? "退出编辑" : "放弃"}</button></div></div>
+      <div class="workout-head"><div><h2>${editing ? "编辑" : "记录"}${escapeHtml(session.title)}</h2><p>${escapeHtml(session.date)} · 草稿会自动保存在本机</p></div><div class="workout-head-actions"><button type="button" class="workout-btn danger" id="workout-cancel">${editing ? "退出编辑" : "放弃"}</button></div></div>
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       ${statsHtml(stats)}
       <div class="workout-layout">
-        <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><p class="workout-hint">录完的组会自动收成一行，只展开当前要填的那组；没练的组直接删掉即可。组间歇只是参考建议：大肌群留长一点（2-3 分钟），小肌群短一些（1 分钟）。</p><div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => {
+        <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><p class="workout-hint">点某一组展开填写，点其他组就收起来；没练的组直接删掉。</p><div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => {
           const previous = previousMap[exercise.exercise_id] ?? root.Workout.previousPerformance(history, exercise.exercise_id);
           const progress = progressText(exercise);
           const advice = root.Workout.restAdvice(exercise);
@@ -127,6 +128,7 @@
           <div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><span class="rest-advice" title="${escapeHtml(advice.reason)}">组间歇建议 <b>${escapeHtml(advice.minutes)}</b>（${escapeHtml(advice.label)}）</span><button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
         }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
       </div>
+      ${trackedHtml(history, "训练结束后复盘用，点开看每个动作最近的重量变化")}
       <section class="workout-completion" aria-label="结束训练">
         <div class="workout-fields">
           <div class="workout-field"><label for="workout-date">训练日期</label><input id="workout-date" type="date" value="${escapeHtml(session.date)}"></div>
@@ -167,20 +169,13 @@
     return root.Workout.trackedExercises(records).slice(0, limit).map(item => `<button type="button" class="trend-chip" data-exercise-trend="${escapeHtml(item.exercise_id)}"><span class="trend-name">${escapeHtml(item.name)}</span>${trendFlowHtml(trendPoints(records, item.exercise_id))}<span class="trend-meta">${item.sessionCount} 次 · 最近 ${escapeHtml(item.lastDate || "未记录")}</span></button>`).join("");
   }
 
-  function trackedHtml(records) {
+  // 动作进展折叠块：默认收起，训练中和历史页共用，需要时再点开。
+  function trackedHtml(records, hint = "点开看每个动作最近的重量变化") {
     const chips = trendChipsHtml(records, 8);
     if (!chips) return "";
-    return `<section class="history-progress"><div class="workout-panel-title"><span>动作进展</span><em>点击查看这个动作的近几次记录</em></div>
+    return `<details class="workout-fold"><summary><span>动作进展</span><em>${escapeHtml(hint)}</em></summary>
       <div class="exercise-trends">${chips}</div>
-    </section>`;
-  }
-
-  // 训练中的“动作进展”入口：记录时不打断流程，点开弹窗看这个动作的长期变化。
-  function progressDialogHtml(records) {
-    const chips = trendChipsHtml(records, 12);
-    const head = `<div class="dialog-head"><div><span class="dialog-kicker">长期记录</span><h3>动作进展</h3><p class="dialog-sub">每个动作近几次的最重一组，越靠右越新</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>`;
-    if (!chips) return `${head}<div class="session-empty">还没有训练记录，练过之后这里会显示每个动作的进步轨迹。</div>`;
-    return `${head}<div class="exercise-trends in-dialog">${chips}</div>`;
+    </details>`;
   }
 
   function historyHtml(records) {
@@ -324,5 +319,5 @@
       <div class="plan-day-grid">${(plan.days || []).map(day => planDayCard(day, progress)).join("")}</div>`;
   }
 
-  root.WorkoutView = { editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, exerciseProgressHtml, progressDialogHtml, legacyEditHtml, planDayCard, planViewHtml, buildCopyText };
+  root.WorkoutView = { editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, exerciseProgressHtml, legacyEditHtml, planDayCard, planViewHtml, buildCopyText };
 })(typeof window !== "undefined" ? window : null);

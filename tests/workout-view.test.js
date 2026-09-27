@@ -31,9 +31,12 @@ test("训练组使用屏内卡片布局：已录组收起、当前组展开", ()
   // 有数值的第 1 组收起成一行，第 2 组（待填）展开。
   assert.equal((html.match(/class="set-row is-collapsed"/g) || []).length, 1);
   assert.equal((html.match(/class="set-row is-active"/g) || []).length, 1);
-  assert.match(html, /data-set-next/);
-  assert.match(html, /data-set-collapse/);
-  assert.match(html, />收起本组</);
+  // 推进按钮已删除：展开状态只由点击决定，输入不再触发自动收组。
+  assert.doesNotMatch(html, /data-set-next|data-set-collapse|收起本组|记录并进入下一组/);
+  assert.match(html, /class="set-line"/);
+  // 已录组右侧只留一个轻箭头表示可点开修改，不再写"修改"两个字。
+  assert.match(html, /class="set-chevron"/);
+  assert.doesNotMatch(html, /set-edit-hint/);
   assert.doesNotMatch(html, /set-table-scroll|class="set-table"/);
   assert.match(html, /class="set-fields"/);
   // 自动计时与休息倒计时已经移除，相关标记不应再出现。
@@ -66,7 +69,7 @@ test("训练计划卡按肌群给组间歇建议，不再显示倒计时秒数",
   assert.doesNotMatch(html, /休息 \d+s/);
 });
 
-test("训练界面提供动作进展入口，点击后可查看长期轨迹", () => {
+test("动作进展默认收起：训练页与历史页都改用折叠块", () => {
   const view = loadView();
   const history = [workout.createSession("chest", new Date(2026, 8, 10))];
   workout.addExercise(history[0], "dumbbell_bench_press");
@@ -74,13 +77,17 @@ test("训练界面提供动作进展入口，点击后可查看长期轨迹", ()
   history[0].exercises[0].sets = [{ weight_kg: 20, reps: 10 }];
   const session = workout.createSession("chest", new Date(2026, 8, 20));
   const editor = view.editorHtml(session, "chest", history);
-  assert.match(editor, /data-tracked-progress/);
-  assert.match(editor, />动作进展</);
-  // 弹窗里仍然是同一个动作进展列表。
-  const dialog = view.progressDialogHtml(history);
-  assert.match(dialog, /data-exercise-trend="dumbbell_bench_press"/);
-  assert.match(dialog, /哑铃卧推/);
-  assert.match(dialog, /data-dialog-close/);
+  // 常驻入口按钮已移除，改成默认收起的 <details>，不占训练主流程的视觉重量。
+  assert.doesNotMatch(editor, /data-tracked-progress/);
+  assert.match(editor, /<details class="workout-fold">/);
+  assert.doesNotMatch(editor, /<details class="workout-fold" open/);
+  assert.match(editor, /动作进展/);
+  assert.match(editor, /data-exercise-trend="dumbbell_bench_press"/);
+  assert.match(editor, /哑铃卧推/);
+  // 历史页同样折叠，且没有常驻展开状态。
+  const idle = view.idleHtml("chest", history);
+  assert.match(idle, /<details class="workout-fold">/);
+  assert.doesNotMatch(idle, /<details class="workout-fold" open/);
 });
 
 test("上次每组明细显示在训练区，如 20×10 / 20×10 / 17.5×12", () => {

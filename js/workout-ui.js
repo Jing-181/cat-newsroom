@@ -21,7 +21,7 @@
     let session = readJson(DRAFT_KEY);
     let selectedDay = localStorage.getItem(DAY_KEY) || "chest";
     // 用户手动展开的组：key 为动作实例 id，值为组索引；-1 表示整组收起。
-    // 没点过时自动展开"第一个没录的组"。
+    // 没点过时自动展开"第一个没录的组"。展开状态只由用户点击改变，不做自动收起。
     let openSets = {};
 
     function persistDraft() {
@@ -116,26 +116,6 @@
       dialog.addEventListener("close", render, { once:true });
     }
 
-    // 记录当前组并进入下一组：最后一组时自动新增一组并继承数据，随后滚动定位到新活动组。
-    function nextSet(exerciseIndex, setIndex) {
-      const exercise = session.exercises[exerciseIndex];
-      if (!exercise) return;
-      const isLast = setIndex === exercise.sets.length - 1;
-      if (isLast) {
-        root.Workout.addSet(session, exerciseIndex);
-        openSets[exercise.id] = exercise.sets.length - 1;
-      } else {
-        openSets[exercise.id] = setIndex + 1;
-      }
-      updateSession();
-      requestAnimationFrame(() => {
-        const active = container.querySelector(`[data-exercise-card="${exerciseIndex}"] .set-row.is-active`);
-        if (!active) return;
-        active.scrollIntoView({ behavior: shouldAnimate() ? "smooth" : "auto", block: "center" });
-        active.querySelector("[data-set-field]")?.focus?.({ preventScroll:true });
-      });
-    }
-
     function wireEditor() {
       container.querySelector("#workout-cancel")?.addEventListener("click", async () => {
         if (!(await root.AppDialog.confirm(session._editing_record_id ? "退出编辑并放弃本次修改？" : "放弃当前训练草稿？", { title:"放弃训练", danger:true, okText:"放弃" }))) return;
@@ -146,10 +126,6 @@
       });
       container.querySelector("#workout-add-exercise")?.addEventListener("click", openExerciseLibrary);
       container.querySelector("#workout-add-floating")?.addEventListener("click", openExerciseLibrary);
-      // 训练中的"动作进展"：点开弹窗看某个动作的长期变化，不打断记录。
-      container.querySelector("[data-tracked-progress]")?.addEventListener("click", () => {
-        openDialog(root.WorkoutView.progressDialogHtml(records));
-      });
       container.querySelector("[data-open-library]")?.addEventListener("click", openExerciseLibrary);
       container.querySelectorAll("[data-quick-add]").forEach(button => button.addEventListener("click", () => {
         root.Workout.addExercise(session, button.dataset.quickAdd, records);
@@ -170,23 +146,13 @@
         openSets[exercise.id] = exercise.sets.length - 1;
         updateSession();
       }));
-      // 展开已收起的组（手动定位到某一组去修改）；此时收起其它动作，保持只有一个动作展开。
+      // 唯一改变展开状态的入口：点某一组就展开它，同时收起本动作的其它组与别的动作。
+      // 不做"填完自动收"——只有用户点了别处，当前这组才收起来。
       container.querySelectorAll("[data-set-open]").forEach(button => button.addEventListener("click", () => {
         const exercise = session.exercises[Number(button.dataset.exercise)];
         if (!exercise) return;
         collapseOtherExercises(exercise.id);
         openSets[exercise.id] = Number(button.dataset.set);
-        updateSession();
-      }));
-      // 记录并进入下一组。
-      container.querySelectorAll("[data-set-next]").forEach(button => button.addEventListener("click", () => {
-        nextSet(Number(button.dataset.exercise), Number(button.dataset.set));
-      }));
-      // 收起当前组：整组回到一行，需要时再点开修改。
-      container.querySelectorAll("[data-set-collapse]").forEach(button => button.addEventListener("click", () => {
-        const exercise = session.exercises[Number(button.dataset.exercise)];
-        if (!exercise) return;
-        openSets[exercise.id] = -1;
         updateSession();
       }));
       // 更多面板：RPE / RIR / 备注只切换显隐，不重渲染。
@@ -219,12 +185,15 @@
         }
         updateSession();
       }));
-      // 输入即写入草稿，避免切换动作时丢失最后一次修改；有数值即算训练记录。
+      // 输入即写入草稿，避免切换动作时丢失最后一次修改；展开状态只由点击决定，输入不触发收起。
       container.querySelectorAll("[data-set-field]").forEach(input => input.addEventListener("input", () => {
         const exerciseIndex = Number(input.dataset.exercise);
-        const set = session.exercises[exerciseIndex]?.sets[Number(input.dataset.set)];
+        const setIndex = Number(input.dataset.set);
+        const exercise = session.exercises[exerciseIndex];
+        const set = exercise?.sets[setIndex];
         if (!set) return;
-        set[input.dataset.setField] = input.dataset.setField === "pace" ? input.value : (input.value === "" ? "" : Number(input.value));
+        const field = input.dataset.setField;
+        set[field] = field === "pace" ? input.value : (input.value === "" ? "" : Number(input.value));
         updateSession({ rerender:false });
         refreshStats();
         refreshExerciseProgress(exerciseIndex);
@@ -234,7 +203,8 @@
         const setIndex = Number(button.dataset.set);
         const field = button.dataset.setAdjust;
         const step = Number(button.dataset.step);
-        const set = session.exercises[exerciseIndex]?.sets[setIndex];
+        const exercise = session.exercises[exerciseIndex];
+        const set = exercise?.sets[setIndex];
         if (!set) return;
         const minimum = field === "reps" ? 1 : 0;
         set[field] = Math.max(minimum, Number(set[field] || 0) + step);
