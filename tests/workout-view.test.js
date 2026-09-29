@@ -165,7 +165,7 @@ test("训练详情提供复制数据按钮", () => {
   assert.match(legacy, /data-copy-workout=/);
 });
 
-test("计划生成的训练详情徽标显示力量训练·推，普通胸日仍显示胸日", () => {
+test("计划生成的训练详情徽标显示力量训练，普通胸日标题不再重复副标题", () => {
   const view = loadView();
   const planSession = workout.createSession("chest", new Date(2026, 8, 20));
   planSession.title = "力量训练·推 · 第 1 轮";
@@ -173,9 +173,12 @@ test("计划生成的训练详情徽标显示力量训练·推，普通胸日仍
   const planDetail = view.detailHtml(planSession);
   assert.match(planDetail, />力量训练·推</);
   assert.doesNotMatch(planDetail, /dialog-kicker">胸日</);
+  // kicker 与标题相同（普通训练日标题就是"胸日"）时不再重复渲染副标题
   const normal = workout.createSession("chest", new Date(2026, 8, 20));
   normal.status = "completed";
-  assert.match(view.detailHtml(normal), /dialog-kicker">胸日</);
+  const normalDetail = view.detailHtml(normal);
+  assert.match(normalDetail, />胸日</);
+  assert.doesNotMatch(normalDetail, /dialog-kicker">胸日</);
 });
 
 test("复制文本包含日期、时长与每组重量次数", () => {

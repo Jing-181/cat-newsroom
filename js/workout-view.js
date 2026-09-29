@@ -128,8 +128,9 @@
           <div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><span class="rest-advice" title="${escapeHtml(advice.reason)}">组间歇建议 <b>${escapeHtml(advice.minutes)}</b>（${escapeHtml(advice.label)}）</span><button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
         }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
       </div>
-      ${trackedHtml(history, "训练结束后复盘用，点开看每个动作最近的重量变化")}
+      ${trackedHtml(history)}
       <section class="workout-completion" aria-label="结束训练">
+        <h3 class="workout-completion-title">结束训练</h3>
         <div class="workout-fields">
           <div class="workout-field"><label for="workout-date">训练日期</label><input id="workout-date" type="date" value="${escapeHtml(session.date)}"></div>
           <div class="workout-field"><label for="workout-duration">训练时长（分钟）</label><input id="workout-duration" type="number" min="1" value="${duration > 0 ? escapeHtml(duration) : ""}" placeholder="手动填写"></div>
@@ -233,7 +234,10 @@
         <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date || "未记录")}</dd></div><div><dt>当前</dt><dd>${escapeHtml(record.current || 0)} ${escapeHtml(record.unit || "")}</dd></div><div><dt>目标</dt><dd>${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}</dd></div></dl>
         ${record.note ? `<p class="record-note">${escapeHtml(record.note)}</p>` : ""}`;
     }
-    return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(recordKicker(record))}</span><h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+    // kicker 与标题相同时（如普通训练日标题就是"胸日"）不重复渲染，只留标题。
+    const kicker = recordKicker(record);
+    const kickerHtml = kicker && kicker !== String(record.title || "") ? `<span class="dialog-kicker">${escapeHtml(kicker)}</span>` : "";
+    return `<div class="dialog-head"><div>${kickerHtml}<h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${escapeHtml(record.duration_min || 0)} 分钟</dd></div><div><dt>组数</dt><dd>${info.setCount} 组</dd></div><div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div></dl>
       <div class="record-exercises">${(record.exercises || []).map(exercise => {
         // 只展示真正有数值的组，旧数据里的空组不渲染成 0 kg × 0。

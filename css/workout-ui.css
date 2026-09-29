@@ -34,6 +34,8 @@ html, body { overflow-x:clip; }
 .workout-btn.primary { border-color:var(--module-4); color:var(--surface-card); background:var(--module-4); }
 .workout-btn.danger, .icon-action.danger { color:var(--danger); }
 .workout-btn.compact { min-height:32px; padding:0 10px; font-size:12px; }
+/* 开始训练是页面唯一主操作：整行大按钮，比日切换和历史都醒目 */
+#workout-start { width:100%; min-height:48px; border-radius:12px; font-size:15px; }
 .workout-days { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px; scrollbar-width:thin; }
 .workout-days button { min-height:36px; border:1px solid var(--border-input); border-radius:8px; padding:0 12px; color:var(--text-secondary); background:var(--surface-card); cursor:pointer; white-space:nowrap; }
 .workout-days button.on { border-color:var(--module-3); color:var(--text); background:color-mix(in srgb,var(--module-3) 12%,var(--surface-card)); font-weight:750; }
@@ -86,24 +88,25 @@ html, body { overflow-x:clip; }
 .set-list { display:grid; gap:0; padding:4px 16px 8px; }
 .set-row { display:grid; gap:8px; min-width:0; padding:8px 0; border:0; background:none; }
 .set-row + .set-row { border-top:1px solid var(--border); }
-/* 当前组头部：一条对齐线——组序号贴左，上次数据靠右，删除只留轻量图标 */
+/* 当前组头部：一条对齐线——组序号与上次数据都贴左，删除只留轻量图标靠右 */
 .set-row-head { display:flex; align-items:center; gap:8px; }
 .set-row-head strong { flex:0 0 auto; font-size:12px; font-weight:700; color:var(--text); }
 .set-row-head .icon-action { margin-left:auto; }
 /* 已录组收成一行；当前要填的组高亮展开 */
-.set-row.is-collapsed { display:flex; align-items:center; gap:8px; padding:8px 0; }
+.set-row.is-collapsed { display:flex; align-items:center; gap:8px; padding:6px 0; }
 /* 组里的删除是次要操作：去掉边框与底色，图标本身可点即可 */
 .set-row .icon-action { width:32px; height:32px; border:0; background:none; color:var(--text-tertiary); font-size:18px; border-radius:8px; }
 .set-row .icon-action:hover { color:var(--module-4); }
 /* 当前组：唯一的强强调，用品牌棕浅底 + 内描边，与动作卡头部的灰底区分开 */
 .set-row.is-active { margin:0 -8px; padding:12px 8px; border-top-color:transparent; border-radius:12px; background:color-mix(in srgb,var(--module-4) 8%,var(--surface-card)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--module-4) 32%,transparent); }
 .set-line { display:flex; align-items:center; gap:8px; flex:1; min-width:0; border:0; padding:0; color:var(--text); background:none; cursor:pointer; font:inherit; text-align:left; }
-.set-line b { min-width:0; flex:1; font-size:13px; text-align:right; overflow-wrap:anywhere; }
+/* 记录文字贴左跟组序号挨着，箭头跟记录走；右侧整段留白，删除叉独立靠右 */
+.set-line b { min-width:0; flex:0 1 auto; font-size:13px; text-align:left; overflow-wrap:anywhere; }
 .set-index { flex:0 0 auto; font-size:12px; color:var(--text-secondary); font-weight:700; }
-/* 已录组右侧的轻箭头：整行都能点开接着改，不需要再写"修改"两个字 */
+/* 已录组右侧的轻箭头：紧跟在记录后面，表示整行可点开接着改 */
 .set-chevron { flex:0 0 auto; color:var(--text-tertiary); font-size:16px; line-height:1; }
-/* 上次表现靠右对齐，和组序号各占一头；窄屏换行而不是截断 */
-.set-hint { flex:1 1 auto; min-width:0; text-align:right; font-size:12px; line-height:1.4; color:var(--text-tertiary); white-space:normal; overflow-wrap:anywhere; }
+/* 上次表现贴左，和组序号挨着；窄屏换行而不是截断 */
+.set-hint { flex:0 1 auto; min-width:0; text-align:left; font-size:12px; line-height:1.4; color:var(--text-tertiary); white-space:normal; overflow-wrap:anywhere; }
 .set-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .set-fields.cardio-fields { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .set-fields label { display:grid; gap:4px; min-width:0; }
@@ -134,9 +137,15 @@ html, body { overflow-x:clip; }
 .workout-bottom-bar .workout-btn { flex:0 0 auto; min-height:44px; border-radius:12px; }
 .workout-bottom-bar #workout-finish { flex:1; min-width:0; }
 .workout-bottom-bar #workout-add-floating { padding:0 16px; }
-/* 动作脚部：加组 / 组间歇建议 / 动作说明都是同类辅助信息，紧凑挨在一起 */
+/* 动作脚部：加组是主操作、动作说明是次要链接、组间歇是纯信息，三个层级分开 */
 .session-exercise-foot { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:8px 16px; border-top:1px solid var(--border); }
-.session-exercise-foot button { border:0; padding:0; color:var(--module-4); background:none; cursor:pointer; font-weight:700; white-space:nowrap; }
+.session-exercise-foot button { border:0; padding:0; background:none; cursor:pointer; white-space:nowrap; }
+/* 加一组：这一行的主操作，用描边胶囊突出 */
+.session-exercise-foot [data-set-add] { display:inline-flex; align-items:center; min-height:26px; padding:0 12px; border:1px solid var(--module-4); border-radius:999px; color:var(--module-4); font-size:12px; font-weight:700; }
+.session-exercise-foot [data-set-add]:hover { color:var(--surface-card); background:var(--module-4); }
+/* 动作说明：次级文字链接，弱化处理 */
+.session-exercise-foot [data-exercise-info] { color:var(--text-tertiary); font-size:12px; font-weight:600; text-decoration:underline; text-underline-offset:2px; }
+.session-exercise-foot [data-exercise-info]:hover { color:var(--module-4); }
 /* 组间歇推荐：大肌群长、小肌群短，只作为参考文案 */
 .session-exercise-foot .rest-advice { min-width:0; font-size:12px; line-height:1.4; color:var(--text-tertiary); }
 .session-exercise-foot .rest-advice b { color:var(--text-secondary); }
@@ -145,6 +154,8 @@ html, body { overflow-x:clip; }
 .workout-stat b { display:block; font-size:18px; }
 .workout-stat span { font-size:11px; color:var(--text-secondary); }
 .workout-completion { display:grid; gap:8px; padding:12px 16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); }
+/* 结束训练区标题：让底部三个输入框有明确的上下文，不再是悬空的一排输入 */
+.workout-completion-title { margin:0; font-size:14px; font-weight:800; color:var(--text); }
 .workout-fields { display:grid; grid-template-columns:minmax(150px,.7fr) minmax(150px,.7fr) minmax(220px,1.6fr); gap:12px; align-items:end; }
 .workout-field { min-width:0; }
 .workout-field label { display:block; min-height:1lh; margin-bottom:4px; font-size:12px; color:var(--text-secondary); }
@@ -190,7 +201,9 @@ html, body { overflow-x:clip; }
 .mobile-shell .workout-app { padding-top:12px; padding-bottom:calc(var(--workout-tabbar-h, 62px) + 96px + env(safe-area-inset-bottom)); }
 .mobile-shell .set-list { padding:4px 12px 8px; }
 .mobile-shell .set-row { padding:8px 0; }
+.mobile-shell .set-row.is-collapsed { padding:6px 0; }
 .mobile-shell .set-row.is-active { margin:0 -4px; padding:12px 4px; }
+.mobile-shell .exercise-last { padding:0 12px 4px; }
 .mobile-shell .set-fields { gap:8px; }
 .mobile-shell .set-fields input { height:40px; font-size:16px; }
 .mobile-shell .stepper-btn { flex-basis:32px; font-size:18px; }
@@ -222,7 +235,8 @@ html, body { overflow-x:clip; }
   .set-list { padding:4px 12px 8px; }
   .set-row { padding:8px 0; }
   .set-row.is-active { margin:0 -4px; padding:12px 4px; }
-  .set-row.is-collapsed { padding:8px 0; }
+  .set-row.is-collapsed { padding:6px 0; }
+  .exercise-last { padding:0 12px 4px; }
   /* 手机上给删除图标加一档点击面积，当前组与已录组保持同一尺寸 */
   .set-row .icon-action { width:34px; height:34px; font-size:18px; }
   .set-fields { gap:8px; }
@@ -282,8 +296,8 @@ html, body { overflow-x:clip; }
 .plan-day-card.is-done li { color:var(--text-secondary); }
 
 /* ---- 上次表现：日期 + 每组明细 ---- */
-/* 三段数据挨着排、之间留 8px 呼吸距离，不再把"共 N 组"撑到最右端拉出一段空白 */
-.exercise-last { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:0; padding:0 16px 8px; font-size:12px; line-height:1.5; }
+/* 三段数据挨着排、之间留 8px 呼吸距离；底部只留 4px，和下面组列表的 4px 顶距拼成 8px，不再比头部宽 */
+.exercise-last { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:0; padding:0 16px 4px; font-size:12px; line-height:1.5; }
 .exercise-last.is-first { color:var(--text-tertiary); }
 .exercise-last-date { flex:0 0 auto; color:var(--text-secondary); }
 .exercise-last b { min-width:0; font-size:12px; font-weight:700; color:var(--text); overflow-wrap:anywhere; }

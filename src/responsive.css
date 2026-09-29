@@ -104,8 +104,8 @@
   .report-history { margin-top: 16px; }
 
   /* 个人配置页窄屏：按钮换行铺满 */
-  .set-row { flex-wrap: wrap; }
-  .set-row .btn { width: 100%; }
+  .setting-card .set-row { flex-wrap: wrap; }
+  .setting-card .set-row .btn { width: 100%; }
   .daily-card .dc-foot { flex-wrap: wrap; }
   .daily-card .dc-btn { align-self: stretch; }
 
