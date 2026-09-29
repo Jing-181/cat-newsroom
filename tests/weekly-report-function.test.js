@@ -6,9 +6,9 @@ const path = require("node:path");
 
 const fn = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/generate-weekly-report/index.ts"), "utf8");
 
-test("list 接口返回最早记录周并纳入生成失败状态", () => {
+test("list 接口返回最早记录周并纳入生成失败与生成中状态", () => {
   assert.match(fn, /earliest_week_start/);
-  assert.match(fn, /\.in\("status", \["ready", "error"\]\)/);
+  assert.match(fn, /\.in\("status", \["ready", "error", "generating"\]\)/);
   assert.match(fn, /order\("created_at", \{ ascending: true \}\)\.limit\(1\)/);
 });
 

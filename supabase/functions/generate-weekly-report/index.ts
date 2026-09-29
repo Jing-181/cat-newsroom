@@ -270,7 +270,7 @@ Deno.serve(async (request) => {
     if (action === "list") {
       const { data: reports, error: listError } = await supabase.from("weekly_reports")
         .select("week_start,week_end,status,generated_at,model,error")
-        .eq("user_id", user.id).in("status", ["ready", "error"])
+        .eq("user_id", user.id).in("status", ["ready", "error", "generating"])
         .order("week_start", { ascending: false }).limit(12);
       if (listError) throw listError;
       // 返回用户最早记录所在周，前端据此推算可选周范围（未生成的周可补生成）

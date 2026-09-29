@@ -25,11 +25,13 @@ test("设计演示页只使用共享样式和相对资源", () => {
   assert.doesNotMatch(scripts, /localStorage|supabase|generateWeeklyReport/i);
 });
 
-test("周报只在用户点击或轮询时生成，不在页面初始化时自动请求", () => {
+test("周报生成只在用户操作时触发，不在页面初始化时自动请求，也不做轮询", () => {
   const src = read("src/lib/weekly-report.js");
-  assert.match(src, /if \(!force && !isPoll\) return;/);
-  assert.match(src, /maybeGenerateWeeklyReport\(false, true\)/);
-  assert.match(src, /weeklyReportPolls < 4/);
+  assert.match(src, /reportButton\.onclick = \(\) => maybeGenerateWeeklyReport\(true\)/);
+  assert.match(src, /checkWeeklyReportResult/); // 生成中由用户主动「检查结果」
+  assert.doesNotMatch(src, /isPoll|weeklyReportPolls|setTimeout\([^)]*maybeGenerateWeeklyReport/);
+  // 初始化只拉取列表与当前周，不触发生成
+  assert.match(src, /initWeeklyReport[\s\S]{0,120}Promise\.all\(\[fetchWeeklyReportList\(\), fetchWeeklyReportCurrent\(\)\]\)/);
 });
 
 test("Vue 应用提供本地备份入口并监听同源标签页数据变化", () => {

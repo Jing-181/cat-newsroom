@@ -72,23 +72,26 @@ export function buildWeekSeries({ earliestWeekStart = null, currentWeekStart: cu
   return series.reverse();
 }
 
-// 合并服务端状态：已生成(ready) / 生成失败(error) / 未生成(missing)；失败周透出元数据供前端展示原因
-export function buildWeekOptions({ series, readyReports = [], errorReports = [] }) {
+// 合并服务端状态：已生成(ready) / 生成失败(error) / 生成中(generating) / 未生成(missing)；失败与生成中周透出元数据
+export function buildWeekOptions({ series, readyReports = [], errorReports = [], generatingReports = [] }) {
   const readyMap = new Map(readyReports.map(report => [report.week_start, report]));
   const errorMap = new Map(errorReports.map(report => [report.week_start, report]));
+  const generatingMap = new Map(generatingReports.map(report => [report.week_start, report]));
   return series.map(item => {
     const ready = readyMap.get(item.weekStart);
     const failed = errorMap.get(item.weekStart);
-    const state = ready ? "ready" : failed ? "error" : "missing";
-    return { ...item, state, report: ready || failed || null };
+    const generating = generatingMap.get(item.weekStart);
+    const state = ready ? "ready" : failed ? "error" : generating ? "generating" : "missing";
+    return { ...item, state, report: ready || failed || generating || null };
   });
 }
 
-// 选项文本：已生成周只显示范围，缺失/失败周带操作提示
+// 选项文本：已生成周只显示范围，缺失/失败/生成中周带操作提示
 export function weekOptionLabel({ weekStart, weekEnd, state }) {
   const base = `${weekStart} ~ ${weekEnd}`;
   if (state === "missing") return `${base}（未生成，点击生成）`;
   if (state === "error") return `${base}（生成失败，点击重试）`;
+  if (state === "generating") return `${base}（生成中…）`;
   return base;
 }
 

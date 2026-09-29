@@ -62,6 +62,22 @@ test("weekOptionLabel 按状态输出选项文本", async () => {
   assert.equal(weekOptionLabel({ weekStart: "2026-09-28", weekEnd: "2026-10-04", state: "ready" }), "2026-09-28 ~ 2026-10-04");
   assert.equal(weekOptionLabel({ weekStart: "2026-09-21", weekEnd: "2026-09-27", state: "missing" }), "2026-09-21 ~ 2026-09-27（未生成，点击生成）");
   assert.equal(weekOptionLabel({ weekStart: "2026-09-21", weekEnd: "2026-09-27", state: "error" }), "2026-09-21 ~ 2026-09-27（生成失败，点击重试）");
+  assert.equal(weekOptionLabel({ weekStart: "2026-09-21", weekEnd: "2026-09-27", state: "generating" }), "2026-09-21 ~ 2026-09-27（生成中…）");
+});
+
+test("buildWeekOptions 标注生成中的周", async () => {
+  const { buildWeekSeries, buildWeekOptions } = await utils();
+  const series = buildWeekSeries({ earliestWeekStart: "2026-09-14", currentWeekStart: "2026-09-28" });
+  const options = buildWeekOptions({
+    series,
+    readyReports: [{ week_start: "2026-09-28" }],
+    generatingReports: [{ week_start: "2026-09-21" }],
+  });
+  assert.deepEqual(options.map(o => [o.weekStart, o.state]), [
+    ["2026-09-28", "ready"],
+    ["2026-09-21", "generating"],
+    ["2026-09-14", "missing"],
+  ]);
 });
 
 test("weekOptionsHTML 渲染选择器与全部选项且状态文本被转义", async () => {

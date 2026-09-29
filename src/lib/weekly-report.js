@@ -3,8 +3,8 @@ import { esc } from "./icons.js";
 import { currentWeekStart, todayKey, buildWeekSeries, buildWeekOptions, buildWeekOverview, weekOptionsHTML, weekOptionLabel, buildSnapshotStatText } from "./weekly-report-utils.js";
 
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false,
-  weeklyReportError = "", weeklyReportPolls = 0, weeklyReportRequestSeq = 0, weeklyReportTimer = null;
-let weeklyReportOptions = [];   // 可选周（含未生成/失败），渲染下拉框
+  weeklyReportError = "", weeklyReportRequestSeq = 0;
+let weeklyReportOptions = [];   // 可选周（含未生成/失败/生成中），渲染下拉框
 let weeklyReportViewWeek = null; // 正在查看的周（null = 本周）
 let weeklyReportTargetWeek = null; // 正在生成的目标周（null = 本周）
 
@@ -32,7 +32,7 @@ function weekOverviewHTML() {
 export function weeklyReportTileHTML() {
   if (weeklyReportLoading || weeklyReportWaiting) {
     const week = weeklyReportTargetWeek || currentWeekStart();
-    return `<div class="tile b12 report-card"><h3>生活报生成中</h3><div class="report-text">正在生成 ${esc(week)} 周的生活报，完成后会自动显示…</div></div>`;
+    return `<div class="tile b12 report-card"><h3>生活报生成中</h3><div class="report-text">正在生成 ${esc(week)} 周的生活报，AI 生成较慢，稍后刷新页面或点击下方按钮查看。</div><div class="report-actions"><button class="primary" id="report-check">检查结果</button></div></div>`;
   }
   if (weeklyReportError) {
     const errWeek = weeklyReportTargetWeek || currentWeekStart();
@@ -81,8 +81,9 @@ export function refreshWeeklyReportSlot(container = document) {
   });
   const reportButton = slot.querySelector("#report-generate, #report-refresh");
   if (reportButton) reportButton.onclick = () => maybeGenerateWeeklyReport(true);
+  slot.querySelector("#report-check")?.addEventListener("click", () => checkWeeklyReportResult(weeklyReportTargetWeek || currentWeekStart()));
   slot.querySelector("#report-regenerate")?.addEventListener("click", () => {
-    if (weeklyReportViewWeek) maybeGenerateWeeklyReport(true, false, weeklyReportViewWeek);
+    if (weeklyReportViewWeek) maybeGenerateWeeklyReport(true, weeklyReportViewWeek);
   });
   slot.querySelector("#report-login")?.addEventListener("click", () => openAuthModalRef.current?.("login"));
   slot.querySelector("#report-export-md")?.addEventListener("click", () => exportWeeklyReport("md"));
@@ -94,6 +95,7 @@ export function refreshWeeklyReportSlot(container = document) {
     const option = weeklyReportOptions.find(item => item.weekStart === value);
     if (!option) return;
     if (option.state === "ready") viewWeeklyReport(value);
+    else if (option.state === "generating") checkWeeklyReportResult(value);
     else confirmGenerateWeek(option);
   });
 }
@@ -105,7 +107,7 @@ async function confirmGenerateWeek(option) {
     ? `该周生活报之前生成失败${reason}。点击确定重新生成。`
     : `该周尚未生成生活报，点击确定开始生成（数据不足的日期会写成轻量鼓励）。`;
   const ok = await window.AppDialog?.confirm(message, { title: `补生成 ${option.weekStart} 周生活报`, okText: "开始生成" });
-  if (ok) maybeGenerateWeeklyReport(true, false, option.weekStart);
+  if (ok) maybeGenerateWeeklyReport(true, option.weekStart);
 }
 
 // 初始化：拉取当周已存周报 + 往期列表（生成过的周报一直保留，可随时查看）
@@ -115,12 +117,15 @@ export async function initWeeklyReport(container = document) {
 }
 
 async function fetchWeeklyReportCurrent() {
-  weeklyReport = null; weeklyReportMeta = null; weeklyReportViewWeek = null; weeklyReportError = "";
+  weeklyReport = null; weeklyReportMeta = null; weeklyReportViewWeek = null; weeklyReportError = ""; weeklyReportWaiting = false;
   try {
     const result = await window.generateWeeklyReport({ action: "fetch" });
     if (result && result.report) {
       weeklyReport = result.report;
       weeklyReportMeta = result.meta;
+    } else if (result?.meta?.status === "generating") {
+      weeklyReportWaiting = true;
+      weeklyReportTargetWeek = currentWeekStart();
     }
   } catch (error) {
     weeklyReportError = error && error.message ? error.message : "加载生活报失败";
@@ -137,6 +142,7 @@ async function fetchWeeklyReportList() {
       series,
       readyReports: reports.filter(report => report.status === "ready"),
       errorReports: reports.filter(report => report.status === "error"),
+      generatingReports: reports.filter(report => report.status === "generating"),
     });
   } catch (_) {
     weeklyReportOptions = [];
@@ -151,8 +157,34 @@ export async function viewWeeklyReport(weekStart) {
       weeklyReport = result.report;
       weeklyReportMeta = result.meta;
       weeklyReportViewWeek = weekStart;
+      weeklyReportWaiting = false;
+    } else if (result?.meta?.status === "generating") {
+      weeklyReportWaiting = true;
+      weeklyReportTargetWeek = weekStart;
     }
   } catch (_) { /* 拉取失败保留当前视图 */ }
+  refreshWeeklyReportSlot();
+}
+
+// 生成中由用户主动检查结果：重新拉取该周，ready 后展示，仍在生成则保持提示
+export async function checkWeeklyReportResult(week) {
+  if (!week) return;
+  weeklyReportLoading = true; refreshWeeklyReportSlot();
+  try {
+    const result = await window.generateWeeklyReport({ action: "fetch", week_start: week });
+    if (result && result.report) {
+      weeklyReport = result.report;
+      weeklyReportMeta = result.meta;
+      weeklyReportViewWeek = week !== currentWeekStart() ? week : null;
+      weeklyReportWaiting = false;
+      weeklyReportError = "";
+      fetchWeeklyReportList();
+    } else if (result?.meta?.status === "generating") {
+      weeklyReportWaiting = true;
+      weeklyReportTargetWeek = week;
+    }
+  } catch (_) { /* 保留当前状态 */ }
+  weeklyReportLoading = false;
   refreshWeeklyReportSlot();
 }
 
@@ -164,15 +196,14 @@ export async function viewCurrentWeek() {
 // 延迟绑定 openAuthModal，避免周报模块与登录模块互相依赖
 export const openAuthModalRef = { current: null };
 
-export async function maybeGenerateWeeklyReport(force = false, isPoll = false, targetWeek = null) {
+// 生成状态机：发出生成请求后不轮询，后端在生成中则提示用户刷新页面或点「检查结果」查看
+export async function maybeGenerateWeeklyReport(force = false, targetWeek = null) {
   const user = window.getCurrentUser?.();
-  if (!force && !isPoll) return;
   if (!user || user.is_anonymous || weeklyReportLoading) return;
   const nowWeek = currentWeekStart();
   if (force) {
     weeklyReportTargetWeek = targetWeek || weeklyReportTargetWeek || nowWeek;
-    weeklyReportPolls = 0; weeklyReportError = ""; weeklyReportRequestSeq += 1;
-    if (weeklyReportTimer) { clearTimeout(weeklyReportTimer); weeklyReportTimer = null; }
+    weeklyReportError = ""; weeklyReportRequestSeq += 1;
   }
   const week = weeklyReportTargetWeek || nowWeek;
   const requestSeq = weeklyReportRequestSeq;
@@ -181,14 +212,13 @@ export async function maybeGenerateWeeklyReport(force = false, isPoll = false, t
     const result = await window.generateWeeklyReport({ force: !!force, week_start: week });
     if (requestSeq !== weeklyReportRequestSeq) return;
     weeklyReportMeta = result.meta || weeklyReportMeta;
-    weeklyReportWaiting = result.status === "generating" && !result.report;
-    if (weeklyReportWaiting && weeklyReportPolls < 4) {
-      weeklyReportPolls += 1;
-      weeklyReportTimer = setTimeout(() => { weeklyReportTimer = null; maybeGenerateWeeklyReport(false, true); }, Math.min(10000, 3000 + weeklyReportPolls * 750));
-    } else if (weeklyReportWaiting) {
-      weeklyReportWaiting = false; weeklyReportError = "生成时间较长，请稍后手动重试。";
+    if (result.status === "generating" && !result.report) {
+      weeklyReportWaiting = true;
+      weeklyReportTargetWeek = week;
     } else {
-      weeklyReportPolls = 0; weeklyReportError = ""; weeklyReport = result.report || null;
+      weeklyReportWaiting = false;
+      weeklyReportError = "";
+      weeklyReport = result.report || null;
       if (weeklyReport) {
         weeklyReportViewWeek = week !== nowWeek ? week : null;
         fetchWeeklyReportList();
