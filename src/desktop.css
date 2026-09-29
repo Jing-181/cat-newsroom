@@ -593,6 +593,9 @@
   .report-card .report-actions { display:flex; gap:8px; margin-top:14px; }
   .report-card .report-actions button { border:1px solid var(--border-input); background:var(--surface-card); color:var(--text); border-radius:6px; padding:7px 10px; cursor:pointer; }
   .report-card .report-actions button.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  /* 导出组靠右收纳，弱化为次要层级，主操作保持左侧 */
+  .report-card .report-actions .report-export { margin-left:auto; display:flex; gap:8px; }
+  .report-card .report-export button { color:var(--text-secondary); font-size:12px; }
   .report-day { padding:10px 0; border-top:1px dashed var(--border); }
   .report-day summary { cursor:pointer; font-weight:700; }
   .report-text { color:var(--text-secondary); margin-top:6px; line-height:1.7; }

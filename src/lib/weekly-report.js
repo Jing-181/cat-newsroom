@@ -1,6 +1,6 @@
 // AI 本周生活报：状态机（生成/轮询/错误）、往期历史查看、历史周补生成、卡片渲染与导出（与主站逻辑一致）
 import { esc } from "./icons.js";
-import { currentWeekStart, todayKey, buildWeekSeries, buildWeekOptions, buildWeekOverview, weekOptionsHTML, weekOptionLabel } from "./weekly-report-utils.js";
+import { currentWeekStart, todayKey, buildWeekSeries, buildWeekOptions, buildWeekOverview, weekOptionsHTML, weekOptionLabel, buildSnapshotStatText } from "./weekly-report-utils.js";
 
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false,
   weeklyReportError = "", weeklyReportPolls = 0, weeklyReportRequestSeq = 0, weeklyReportTimer = null;
@@ -15,7 +15,8 @@ function historySelectHTML() {
 
 // 未生成时的本周概览：用本地数据统计，让卡片在周中不空着
 function weekOverviewHTML() {
-  const overview = buildWeekOverview(window.data || {}, currentWeekStart(), todayKey());
+  const start = currentWeekStart();
+  const overview = buildWeekOverview(window.data || {}, start, todayKey());
   const yuan = value => "¥" + Math.round(value || 0).toLocaleString("zh-CN");
   const items = [];
   if (overview.todoTotal) items.push(`待办 ${overview.todoDone}/${overview.todoTotal}`);
@@ -24,8 +25,8 @@ function weekOverviewHTML() {
   if (overview.income || overview.expenses) items.push(`收 ${yuan(overview.income)} · 支 ${yuan(overview.expenses)}`);
   if (overview.noteCount) items.push(`笔记 ${overview.noteCount} 条`);
   if (overview.hotCount) items.push(`收藏 ${overview.hotCount} 条`);
-  if (!items.length) return `<div class="report-text">本周还没有记录，动动手记录一下生活吧。</div>`;
-  return `<div class="report-text">${esc(items.join(" · "))}</div>`;
+  if (!items.length) return `<div class="report-text">本周（${esc(start)} 起）还没有记录，动动手记录一下生活吧。</div>`;
+  return `<div class="report-text"><b>本周数据（${esc(start)} 起）</b><br>${esc(items.join(" · "))}</div>`;
 }
 
 export function weeklyReportTileHTML() {
@@ -48,9 +49,15 @@ export function weeklyReportTileHTML() {
   const insight = weeklyReport.insight || {};
   const list = items => (items || []).length ? `<ul class="report-text">${(items || []).map(item => `<li>${esc(item)}</li>`).join("")}</ul>` : `<div class="report-text">暂无足够数据。</div>`;
   const metaText = weeklyReportMeta?.generated_at ? `生成于 ${new Date(weeklyReportMeta.generated_at).toLocaleString()}${weeklyReportMeta.model ? " · " + weeklyReportMeta.model : ""}${weeklyReportMeta.provider ? " · " + weeklyReportMeta.provider : ""}` : "AI 主编";
+  const statText = buildSnapshotStatText(weeklyReportMeta?.source_snapshot?.summary);
+  const metaHTML = `${esc(metaText)}${statText ? "<br>" + esc(statText) : ""}`;
   const isPast = !!weeklyReportViewWeek;
   const viewLabel = isPast ? `往期生活报 · ${esc(weeklyReportViewWeek)} 周` : "本周生活报";
-  return `<div class="tile b12 report-card"><div class="report-head"><h3>${viewLabel}</h3><span class="report-meta">${esc(metaText)}</span></div><div class="report-text">${esc(weeklyReport.editor_note || review.overview || "")}</div>${days}<details class="report-day" open><summary>AI 分析洞察</summary><div class="report-text"><b>行为模式</b></div>${list(insight.patterns)}<div class="report-text"><b>风险提示</b></div>${list(insight.risks)}<div class="report-text"><b>下一步行动</b></div>${list(insight.next_actions)}</details><details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：${esc((review.highlights || []).join("、"))}<br>未完成：${esc((review.unfinished || []).join("、"))}<br>下周建议：${esc((review.suggestions || []).join("、"))}</div></details><div class="report-actions">${isPast ? '<button id="report-current" class="primary">返回本周</button>' : '<button id="report-refresh" class="primary">重新生成</button>'}<button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></div>${isPast ? "" : historySelectHTML()}</div>`;
+  const primaryActions = isPast
+    ? '<button id="report-current" class="primary">返回本周</button><button id="report-regenerate">重新生成</button>'
+    : '<button id="report-refresh" class="primary">重新生成</button>';
+  const exportActions = '<span class="report-export"><button id="report-export-md">导出 Markdown</button><button id="report-export-json">导出 JSON</button></span>';
+  return `<div class="tile b12 report-card"><div class="report-head"><h3>${viewLabel}</h3><span class="report-meta">${metaHTML}</span></div><div class="report-text">${esc(weeklyReport.editor_note || review.overview || "")}</div>${days}<details class="report-day" open><summary>AI 分析洞察</summary><div class="report-text"><b>行为模式</b></div>${list(insight.patterns)}<div class="report-text"><b>风险提示</b></div>${list(insight.risks)}<div class="report-text"><b>下一步行动</b></div>${list(insight.next_actions)}</details><details class="report-day"><summary>查看本周复盘</summary><div class="report-text">亮点：${esc((review.highlights || []).join("、"))}<br>未完成：${esc((review.unfinished || []).join("、"))}<br>下周建议：${esc((review.suggestions || []).join("、"))}</div></details><div class="report-actions">${primaryActions}${exportActions}</div>${historySelectHTML()}</div>`;
 }
 
 export function weeklyReportSlotHTML() {
@@ -61,9 +68,22 @@ export function weeklyReportSlotHTML() {
 export function refreshWeeklyReportSlot(container = document) {
   const slot = container.querySelector("#weekly-report-slot");
   if (!slot) return;
+  // 重绘前记录已展开的日报详情，切换周后恢复，避免折叠状态丢失
+  const openDetails = new Set();
+  slot.querySelectorAll("details.report-day[open]").forEach(detail => {
+    const summary = detail.querySelector("summary");
+    if (summary) openDetails.add(summary.textContent);
+  });
   slot.innerHTML = weeklyReportTileHTML();
+  slot.querySelectorAll("details.report-day").forEach(detail => {
+    const summary = detail.querySelector("summary");
+    if (summary && openDetails.has(summary.textContent)) detail.open = true;
+  });
   const reportButton = slot.querySelector("#report-generate, #report-refresh");
   if (reportButton) reportButton.onclick = () => maybeGenerateWeeklyReport(true);
+  slot.querySelector("#report-regenerate")?.addEventListener("click", () => {
+    if (weeklyReportViewWeek) maybeGenerateWeeklyReport(true, false, weeklyReportViewWeek);
+  });
   slot.querySelector("#report-login")?.addEventListener("click", () => openAuthModalRef.current?.("login"));
   slot.querySelector("#report-export-md")?.addEventListener("click", () => exportWeeklyReport("md"));
   slot.querySelector("#report-export-json")?.addEventListener("click", () => exportWeeklyReport("json"));

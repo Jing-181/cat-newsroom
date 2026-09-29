@@ -121,3 +121,11 @@ test("buildWeekOverview 对空数据返回全零统计", async () => {
   const overview = buildWeekOverview({}, "2026-09-21", "2026-09-29");
   assert.deepEqual(overview, { recordCount: 0, todoDone: 0, todoTotal: 0, checkinCount: 0, income: 0, expenses: 0, workoutCount: 0, noteCount: 0, hotCount: 0 });
 });
+
+test("buildSnapshotStatText 输出周报生成时的数据统计（供排查与透明展示）", async () => {
+  const { buildSnapshotStatText } = await utils();
+  assert.equal(buildSnapshotStatText({ record_count: 12, workout_count: 5, todo_done: 3, todo_total: 5 }), "基于 12 条记录 · 运动 5 次");
+  assert.equal(buildSnapshotStatText({ record_count: 3 }), "基于 3 条记录");
+  assert.equal(buildSnapshotStatText(undefined), "");
+  assert.equal(buildSnapshotStatText({}), "基于 0 条记录");
+});

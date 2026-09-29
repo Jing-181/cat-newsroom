@@ -92,6 +92,14 @@ export function weekOptionLabel({ weekStart, weekEnd, state }) {
   return base;
 }
 
+// 周报生成时的数据快照统计文案（展示在卡片 meta 区，便于核对生成依据）
+export function buildSnapshotStatText(summary) {
+  if (!summary) return "";
+  const parts = [`基于 ${summary.record_count || 0} 条记录`];
+  if (summary.workout_count) parts.push(`运动 ${summary.workout_count} 次`);
+  return parts.join(" · ");
+}
+
 // 下拉框 HTML：id 保持 report-history，选中值回显
 export function weekOptionsHTML(options, selectedWeek = "") {
   const optionsHTML = options.map(option => `<option value="${esc(option.weekStart)}"${option.weekStart === selectedWeek ? " selected" : ""}>${esc(weekOptionLabel(option))}</option>`).join("");
