@@ -1,6 +1,6 @@
 // AI 本周生活报：状态机（生成/轮询/错误）、往期历史查看、历史周补生成、卡片渲染与导出（与主站逻辑一致）
 import { esc } from "./icons.js";
-import { currentWeekStart, buildWeekSeries, buildWeekOptions, weekOptionsHTML, weekOptionLabel } from "./weekly-report-utils.js";
+import { currentWeekStart, todayKey, buildWeekSeries, buildWeekOptions, buildWeekOverview, weekOptionsHTML, weekOptionLabel } from "./weekly-report-utils.js";
 
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false,
   weeklyReportError = "", weeklyReportPolls = 0, weeklyReportRequestSeq = 0, weeklyReportTimer = null;
@@ -11,6 +11,21 @@ let weeklyReportTargetWeek = null; // 正在生成的目标周（null = 本周�
 function historySelectHTML() {
   if (weeklyReportOptions.length <= 1) return "";
   return weekOptionsHTML(weeklyReportOptions, weeklyReportViewWeek || "");
+}
+
+// 未生成时的本周概览：用本地数据统计，让卡片在周中不空着
+function weekOverviewHTML() {
+  const overview = buildWeekOverview(window.data || {}, currentWeekStart(), todayKey());
+  const yuan = value => "¥" + Math.round(value || 0).toLocaleString("zh-CN");
+  const items = [];
+  if (overview.todoTotal) items.push(`待办 ${overview.todoDone}/${overview.todoTotal}`);
+  if (overview.checkinCount) items.push(`打卡 ${overview.checkinCount} 次`);
+  if (overview.workoutCount) items.push(`运动 ${overview.workoutCount} 次`);
+  if (overview.income || overview.expenses) items.push(`收 ${yuan(overview.income)} · 支 ${yuan(overview.expenses)}`);
+  if (overview.noteCount) items.push(`笔记 ${overview.noteCount} 条`);
+  if (overview.hotCount) items.push(`收藏 ${overview.hotCount} 条`);
+  if (!items.length) return `<div class="report-text">本周还没有记录，动动手记录一下生活吧。</div>`;
+  return `<div class="report-text">${esc(items.join(" · "))}</div>`;
 }
 
 export function weeklyReportTileHTML() {
@@ -24,7 +39,9 @@ export function weeklyReportTileHTML() {
   }
   if (!weeklyReport) {
     const user = window.getCurrentUser?.();
-    return `<div class="tile b12 report-card"><h3>本周生活报</h3><div class="report-text">${user?.is_anonymous || !user ? "登录正式账号后生成本周生活报。" : "准备好了，可以生成本周生活报。"}</div><div class="report-actions">${user?.is_anonymous || !user ? '<button class="primary" id="report-login">登录账号</button>' : '<button class="primary" id="report-generate">生成本周生活报</button>'}</div>${historySelectHTML()}</div>`;
+    const anonymous = user?.is_anonymous || !user;
+    const notice = anonymous ? "登录正式账号后生成本周生活报。" : `数据截至 ${esc(todayKey())}，周末生成可得到完整周报。`;
+    return `<div class="tile b12 report-card"><h3>本周生活报</h3>${anonymous ? "" : weekOverviewHTML()}<div class="report-text">${notice}</div><div class="report-actions">${anonymous ? '<button class="primary" id="report-login">登录账号</button>' : '<button class="primary" id="report-generate">生成本周生活报</button>'}</div>${historySelectHTML()}</div>`;
   }
   const days = (weeklyReport.daily || []).map(function (day) { return `<details class="report-day"><summary>${esc(day.date || "本日")} · ${esc(day.title || "生活记录")}</summary><div class="report-text">${esc(day.summary || "")} ${esc(day.quote || "")}</div></details>`; }).join("");
   const review = weeklyReport.review || {};
@@ -63,8 +80,9 @@ export function refreshWeeklyReportSlot(container = document) {
 
 // 补生成历史周：未生成/失败周先确认再进入生成状态机
 async function confirmGenerateWeek(option) {
+  const reason = option.report?.error ? `，上次失败原因：${option.report.error}` : "";
   const message = option.state === "error"
-    ? `该周生活报之前生成失败，点击确定重新生成。`
+    ? `该周生活报之前生成失败${reason}。点击确定重新生成。`
     : `该周尚未生成生活报，点击确定开始生成（数据不足的日期会写成轻量鼓励）。`;
   const ok = await window.AppDialog?.confirm(message, { title: `补生成 ${option.weekStart} 周生活报`, okText: "开始生成" });
   if (ok) maybeGenerateWeeklyReport(true, false, option.weekStart);

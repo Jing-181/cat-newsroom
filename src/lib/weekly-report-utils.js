@@ -15,6 +15,41 @@ export function currentWeekStart(date = new Date()) {
   return localDateKey(value);
 }
 
+// 本地日期字符串（YYYY-MM-DD）
+export function todayKey(date = new Date()) {
+  return localDateKey(date);
+}
+
+// 本周概览：未生成生活报时展示数据预览，统计口径与云端快照基本一致
+// 待办无日期概念按全量计入；其余模块按 date 落在 [start, end] 过滤；打卡按 log 键日期计数
+export function buildWeekOverview(data = {}, start, end) {
+  const inRange = date => !!date && date >= start && date <= end;
+  const rows = key => Array.isArray(data[key]) ? data[key] : [];
+  const todo = rows("todo");
+  const money = rows("money").filter(row => inRange(row.date));
+  const notes = rows("note").filter(row => inRange(row.date));
+  const hots = rows("hot").filter(row => inRange(row.date));
+  const workouts = rows("sport").filter(row => inRange(row.date) && row.kind === "workout_session");
+  let checkinCount = 0;
+  rows("checkin").forEach(item => {
+    const log = item.log || {};
+    Object.keys(log).forEach(date => { if (inRange(date)) checkinCount += 1; });
+  });
+  const income = money.filter(row => row.type === "income").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const expenses = money.filter(row => row.type === "expense").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  return {
+    recordCount: todo.length + money.length + notes.length + hots.length + workouts.length,
+    todoDone: todo.filter(row => row.done).length,
+    todoTotal: todo.length,
+    checkinCount,
+    income,
+    expenses,
+    workoutCount: workouts.length,
+    noteCount: notes.length,
+    hotCount: hots.length,
+  };
+}
+
 // 日期字符串按本地偏移 N 天
 export function addDays(iso, days) {
   const value = new Date(`${iso}T12:00:00`);
@@ -37,13 +72,15 @@ export function buildWeekSeries({ earliestWeekStart = null, currentWeekStart: cu
   return series.reverse();
 }
 
-// 合并服务端状态：已生成(ready) / 生成失败(error) / 未生成(missing)
+// 合并服务端状态：已生成(ready) / 生成失败(error) / 未生成(missing)；失败周透出元数据供前端展示原因
 export function buildWeekOptions({ series, readyReports = [], errorReports = [] }) {
   const readyMap = new Map(readyReports.map(report => [report.week_start, report]));
-  const errorSet = new Set(errorReports.map(report => report.week_start));
+  const errorMap = new Map(errorReports.map(report => [report.week_start, report]));
   return series.map(item => {
-    const state = readyMap.has(item.weekStart) ? "ready" : errorSet.has(item.weekStart) ? "error" : "missing";
-    return { ...item, state, report: readyMap.get(item.weekStart) || null };
+    const ready = readyMap.get(item.weekStart);
+    const failed = errorMap.get(item.weekStart);
+    const state = ready ? "ready" : failed ? "error" : "missing";
+    return { ...item, state, report: ready || failed || null };
   });
 }
 

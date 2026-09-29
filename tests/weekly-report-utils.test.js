@@ -44,7 +44,7 @@ test("buildWeekOptions 按已生成列表标注 ready / missing / error", async 
   const options = buildWeekOptions({
     series,
     readyReports: [{ week_start: "2026-09-28" }, { week_start: "2026-09-14" }],
-    errorReports: [{ week_start: "2026-09-21" }],
+    errorReports: [{ week_start: "2026-09-21", error: "AI 上游超时" }],
   });
   assert.deepEqual(options.map(o => [o.weekStart, o.state]), [
     ["2026-09-28", "ready"],
@@ -52,6 +52,9 @@ test("buildWeekOptions 按已生成列表标注 ready / missing / error", async 
     ["2026-09-14", "ready"],
   ]);
   assert.equal(options[0].report.week_start, "2026-09-28");
+  // 失败周同样透出元数据，前端可展示上次失败原因
+  assert.equal(options[1].report.week_start, "2026-09-21");
+  assert.equal(options[1].report.error, "AI 上游超时");
 });
 
 test("weekOptionLabel 按状态输出选项文本", async () => {
@@ -76,4 +79,45 @@ test("weekOptionsHTML 渲染选择器与全部选项且状态文本被转义", a
   assert.doesNotMatch(html, /<script/);
   // 选中值回显
   assert.match(weekOptionsHTML(options, "2026-09-21"), /option value="2026-09-21" selected/);
+});
+
+test("todayKey 返回本地日期字符串", async () => {
+  const { todayKey } = await utils();
+  assert.equal(todayKey(new Date(2026, 8, 29, 12)), "2026-09-29");
+  assert.equal(todayKey(new Date(2026, 0, 5, 12)), "2026-01-05");
+});
+
+test("buildWeekOverview 统计本周各模块数据（无日期待办全量计入）", async () => {
+  const { buildWeekOverview } = await utils();
+  const data = {
+    todo: [{ id: 1, done: true }, { id: 2, done: false }],
+    checkin: [{ id: 21, log: { "2026-09-28": true, "2026-09-25": true } }],
+    money: [
+      { type: "expense", amount: 100, date: "2026-09-28" },
+      { type: "income", amount: 500, date: "2026-09-29" },
+      { type: "expense", amount: 50, date: "2026-09-20" },
+    ],
+    note: [{ date: "2026-09-28" }, { date: "2026-08-01" }],
+    hot: [{ date: "2026-09-27" }],
+    sport: [
+      { kind: "workout_session", date: "2026-09-29" },
+      { kind: "workout_session", date: "2026-09-15" },
+    ],
+  };
+  const overview = buildWeekOverview(data, "2026-09-21", "2026-09-29");
+  assert.equal(overview.todoDone, 1);
+  assert.equal(overview.todoTotal, 2);
+  assert.equal(overview.checkinCount, 2);
+  assert.equal(overview.income, 500);
+  assert.equal(overview.expenses, 100);
+  assert.equal(overview.workoutCount, 1);
+  assert.equal(overview.noteCount, 1);
+  assert.equal(overview.hotCount, 1);
+  assert.equal(overview.recordCount, 7);
+});
+
+test("buildWeekOverview 对空数据返回全零统计", async () => {
+  const { buildWeekOverview } = await utils();
+  const overview = buildWeekOverview({}, "2026-09-21", "2026-09-29");
+  assert.deepEqual(overview, { recordCount: 0, todoDone: 0, todoTotal: 0, checkinCount: 0, income: 0, expenses: 0, workoutCount: 0, noteCount: 0, hotCount: 0 });
 });
