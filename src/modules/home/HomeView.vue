@@ -121,11 +121,14 @@ function pomoTileHTML() {
       <div class="ps"><div class="pv">${p.count + (pomo.running ? 1 : 0)}</div><div class="pl">轮次</div></div></div></div>`;
 }
 
-/* 心情趋势折线（复用 trend） */
+/* 心情趋势折线（复用 trend）：支持未记录的天（null）断点 */
 function trendTileHTML() {
-  const series = CONFIG.trend.series(data()); const has = series.length > 0;
-  const avg = has ? Math.round(series.reduce((a, b) => a + b, 0) / series.length) : 0;
-  const body = has ? trendSVG(series) : `<div class="trend-empty">${icon("chart", 26)}<span>暂无本周数据 · 在洞察中记录每日状态</span></div>`;
+  const raw = CONFIG.trend.series(data());
+  const series = Array.isArray(raw) && raw.length === 7 ? raw : [];
+  const vals = series.filter(v => typeof v === "number");
+  const has = vals.length > 0;
+  const avg = has ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+  const body = has ? trendSVG(series) : `<div class="trend-empty">${icon("chart", 26)}<span>本周还没记录状态 · 去「洞察」点日期格子记一下</span></div>`;
   return `<div class="tile b8"><div class="tile-h"><span class="tic">${icon("chart", 16)}</span><div class="tt"><span class="en">MOOD TREND · 近 7 天</span><span class="zh">${CONFIG.trend.title}</span></div>${has ? `<span class="r">均 ${avg}${CONFIG.trend.unit}</span>` : ""}</div>
     ${body}${has ? `<div class="trend-x"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>` : ""}</div>`;
 }
@@ -158,21 +161,31 @@ function booksTileHTML() {
     <div class="book-list">${rows}</div></div>`;
 }
 
-/* 本周目标：sport (workout) 训练记录摘要（旧版进度记录仍兼容展示） */
+/* 本周训练：只统计本周（周一~周日）完成的训练，顶部周统计 + 计划进度条，不再混入旧版进度记录 */
 function goalsTileHTML() {
-  const all = data().sport || []; const colors = ["var(--module-3)", "var(--module-1)", "var(--module-2)", "var(--module-4)", "var(--module-5)"];
-  const sessions = all.filter(x => typeof Workout !== "undefined" && Workout.isSession(x));
-  const legacy = all.filter(x => !(typeof Workout !== "undefined" && Workout.isSession(x)));
-  const sessionRows = sessions.slice(0, 3).map((x, i) => { const info = Workout.summary(x), col = colors[i % colors.length];
-    return `<div class="book-row"><span class="spine" style="background:${col}">${icon("activity", 16)}</span><div class="bmid"><div class="btt">${esc(x.title)}</div><div class="bsub">${info.exerciseCount} 个动作 · ${info.setCount} 组 · ${Math.round(info.volume)} kg</div></div><span class="bpct" style="color:${col}">${esc(x.date || "")}</span></div>`; }).join("");
-  const rows = all.length ? sessionRows + legacy.map((x, i) => { const pct = Math.min(100, Math.round((x.current / x.target) * 100 || 0)); const col = colors[(i + sessions.length) % colors.length];
-    return `<div class="book-row"><span class="spine" style="background:${col}">${icon("activity", 16)}</span>
-      <div class="bmid"><div class="btt">${pct >= 100 ? `<span style="color:var(--module-1);display:inline-flex;vertical-align:-2px;margin-right:3px">${icon("check", 13, 2.6)}</span>` : ""}${esc(x.title)}</div>
-        <div class="bsub">${x.current}/${x.target} ${x.unit || "次"}</div>
-        <div class="bbar"><i style="width:${pct}%;background:${col}"></i></div></div><span class="bpct" style="color:${col}">${pct}%</span></div>`; }).join("")
-    : `<div class="focus-empty">还没有训练记录，去「运动健身」开始第一练吧</div>`;
-  return `<div class="tile b4"><div class="tile-h"><span class="tic">${icon("activity", 16)}</span><div class="tt"><span class="en">WEEKLY GOALS</span><span class="zh">本周目标</span></div><span class="r js-open" data-open="sport">${all.length} 项</span></div>
-    <div class="book-list">${rows}</div></div>`;
+  const wk = weekDates(); const inWeek = new Set(wk);
+  const colors = ["var(--module-3)", "var(--module-1)", "var(--module-2)", "var(--module-4)", "var(--module-5)"];
+  const sessions = (data().sport || []).filter(x => typeof Workout !== "undefined" && Workout.isSession(x) && x.status === "completed" && inWeek.has(x.date));
+  sessions.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const setCount = sessions.reduce((s, x) => s + (Workout.summary(x).setCount || 0), 0);
+  const volume = Math.round(sessions.reduce((s, x) => s + (Workout.summary(x).volume || 0), 0));
+  // 训练计划进度：生成过计划且有完成记录才显示进度条
+  let planRow = "";
+  try {
+    const plan = window.WorkoutPlan?.load?.();
+    const progress = window.WorkoutPlan?.loadProgress?.();
+    if (plan && progress && window.WorkoutPlan?.isProgressValid?.(progress, plan.generated_at) && plan.days.length) {
+      const done = Object.keys(progress.days || {}).length;
+      const pct = Math.min(100, Math.round(done / plan.days.length * 100));
+      planRow = `<div class="goals-plan"><span>训练计划</span><div class="bbar"><i style="width:${pct}%"></i></div><b>${done}/${plan.days.length} 天</b></div>`;
+    }
+  } catch (_) { /* 计划读取失败不影响本周统计 */ }
+  const rows = sessions.slice(0, 3).map((x, i) => { const info = Workout.summary(x), col = colors[i % colors.length];
+    return `<div class="book-row"><span class="spine" style="background:${col}">${icon("activity", 16)}</span><div class="bmid"><div class="btt">${esc(x.title)}</div><div class="bsub">${info.exerciseCount} 个动作 · ${info.setCount} 组 · ${Math.round(info.volume)} kg</div></div><span class="bpct" style="color:${col}">${esc(String(x.date || "").slice(5))}</span></div>`; }).join("");
+  const body = sessions.length
+    ? `<div class="goals-stats"><div class="goals-stat"><b>${sessions.length}</b><span>本周训练</span></div><div class="goals-stat"><b>${setCount}</b><span>总组数</span></div><div class="goals-stat"><b>${volume}</b><span>容量 kg</span></div></div>${planRow}<div class="book-list">${rows}</div>`
+    : `<div class="focus-empty">本周还没训练，点「运动健身」开始第一练吧。</div>`;
+  return `<div class="tile b4"><div class="tile-h"><span class="tic">${icon("activity", 16)}</span><div class="tt"><span class="en">WEEKLY TRAINING</span><span class="zh">本周训练</span></div><span class="r js-open" data-open="sport">${sessions.length} 次</span></div>${body}</div>`;
 }
 
 function clockCardHTML() {

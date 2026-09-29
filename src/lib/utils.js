@@ -86,18 +86,29 @@ export function ringSVG(pct, color) {
 
 export function trendSVG(series) {
   const w = 560, h = 170, padX = 12, padTop = 16, padBot = 22;
-  const max = Math.max(...series), min = Math.min(...series);
+  const nums = series.map(v => typeof v === "number" ? v : null);
+  const valid = nums.filter(v => v !== null);
+  if (!valid.length) return "";
+  const max = Math.max(...valid), min = Math.min(...valid);
   const rng = (max - min) || 1;
   const innerW = w - 2 * padX, innerH = h - padTop - padBot;
-  const pts = series.map((v, i) => {
-    const x = padX + innerW * i / (series.length - 1);
+  // 未记录的天（null）断线不画点；相邻有效值之间连线，形成连续折线
+  let line = "", segmentOpen = false;
+  const dots = [];
+  nums.forEach((v, i) => {
+    const x = padX + innerW * i / (nums.length - 1);
+    if (v === null) { segmentOpen = false; return; }
     const y = padTop + innerH * (1 - (v - min) / rng);
-    return [x, y];
+    line += (segmentOpen ? " L" : " M") + x.toFixed(1) + " " + y.toFixed(1);
+    segmentOpen = true;
+    dots.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="var(--surface-card)" stroke="var(--module-2)" stroke-width="2"/>`);
   });
-  const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
-  const area = line + ` L ${padX + innerW} ${h - padBot} L ${padX} ${h - padBot} Z`;
-  const dots = pts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="var(--surface-card)" stroke="var(--module-2)" stroke-width="2"/>`).join("");
+  const firstPoint = nums.findIndex(v => v !== null);
+  const lastPoint = nums.length - 1 - [...nums].reverse().findIndex(v => v !== null);
+  const x0 = padX + innerW * firstPoint / (nums.length - 1);
+  const x1 = padX + innerW * lastPoint / (nums.length - 1);
+  const area = line + ` L ${x1.toFixed(1)} ${h - padBot} L ${x0.toFixed(1)} ${h - padBot} Z`;
   return `<svg class="trend-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
     <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--module-2)" stop-opacity=".22"/><stop offset="1" stop-color="var(--module-2)" stop-opacity="0"/></linearGradient></defs>
-    <path d="${area}" fill="url(#tg)"/><path d="${line}" fill="none" stroke="var(--module-2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>${dots}</svg>`;
+    <path d="${area}" fill="url(#tg)"/><path d="${line}" fill="none" stroke="var(--module-2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>${dots.join("")}</svg>`;
 }

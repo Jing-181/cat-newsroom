@@ -400,6 +400,28 @@
   .prog-line { height:7px; border-radius:999px; background:var(--border); overflow:hidden; margin-top:auto; }
   .prog-line i { display:block; height:100%; border-radius:999px; }
 
+  /* 本周训练：周统计数字 + 计划进度条（首页"本周目标"卡重新规划后） */
+  .goals-stats { display:flex; gap:10px; margin:2px 0 12px; }
+  .goals-stat { flex:1; min-width:0; padding:9px 10px; border:1px solid var(--border); border-radius:11px; background:var(--surface-nested); text-align:center; }
+  .goals-stat b { display:block; font-size:18px; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
+  .goals-stat span { display:block; margin-top:3px; font-size:11px; color:var(--text-secondary); }
+  .goals-plan { display:flex; align-items:center; gap:10px; margin-top:2px; padding:9px 10px; border:1px solid var(--border); border-radius:11px; background:var(--surface-nested); }
+  .goals-plan > span:first-child { font-size:12px; font-weight:700; flex:0 0 auto; }
+  .goals-plan .bbar { flex:1; height:6px; border-radius:999px; background:var(--border); overflow:hidden; }
+  .goals-plan .bbar i { display:block; height:100%; border-radius:999px; background:var(--module-3); }
+  .goals-plan b { flex:0 0 auto; font-size:12px; color:var(--module-3); }
+
+  /* 洞察页 · 本周状态录入（7 天格子，点击循环 1-5 分） */
+  .week-state { background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-card); box-shadow:var(--shadow-card); padding:14px 16px; }
+  .ws-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; }
+  .ws-cell { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; padding:9px 4px; border:1px solid var(--border); border-radius:11px; background:var(--surface-nested); cursor:pointer; transition:border-color .15s, transform .12s; }
+  .ws-cell:hover { border-color:var(--module-2); transform:translateY(-1px); }
+  .ws-cell.is-today { border-color:var(--module-2); box-shadow:inset 0 0 0 1px var(--module-2); }
+  .ws-dow { font-size:11px; font-weight:700; color:var(--text-secondary); }
+  .ws-empty { font-size:13px; color:var(--text-tertiary); line-height:1; }
+  .ws-val { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; color:var(--on-accent); background:var(--module-2); line-height:1; }
+  .ws-tip { margin:10px 2px 0; font-size:12px; color:var(--text-tertiary); line-height:1.6; }
+
   /* 习惯追踪周网格表 */
   .habit-tb { width:100%; border-collapse:collapse; }
   .habit-tb th { font-size:10.5px; font-weight:700; color:var(--text-tertiary); padding:0 0 9px; text-align:center; }
@@ -599,6 +621,10 @@
   .report-day { padding:10px 0; border-top:1px dashed var(--border); }
   .report-day summary { cursor:pointer; font-weight:700; }
   .report-text { color:var(--text-secondary); margin-top:6px; line-height:1.7; }
+  /* AI 洞察用 <ul><li> 列点：去掉浏览器默认大缩进与黑点，改用弱化的浅色小圆点，避免"点"抢眼 */
+  .report-card .report-text ul { margin:4px 0 0; padding:0; list-style:none; }
+  .report-card .report-text li { position:relative; padding-left:14px; margin-top:4px; line-height:1.7; }
+  .report-card .report-text li::before { content:""; position:absolute; left:0; top:.66em; width:5px; height:5px; border-radius:50%; background:var(--text-tertiary); opacity:.7; }
   .report-history { display:flex; align-items:center; gap:8px; margin-top:14px; }
   .report-history label { color:var(--text-tertiary); font-size:12px; white-space:nowrap; }
   .report-history select { flex:1; min-width:0; height:34px; border:1px solid var(--border-input); border-radius:6px; padding:0 8px; color:var(--text); background:var(--surface-card); font-size:13px; }

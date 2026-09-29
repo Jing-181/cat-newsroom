@@ -128,6 +128,11 @@
   .daily-card .dc-foot { flex-wrap: wrap; }
   .daily-card .dc-btn { align-self: stretch; }
 
+  /* 洞察页本周状态：7 格在窄屏更紧凑，避免换行挤压 */
+  .ws-grid { gap: 5px; }
+  .ws-cell { padding: 8px 2px; gap: 5px; }
+  .ws-val { width: 20px; height: 20px; font-size: 11.5px; }
+
   /* 弹窗窄屏适配 */
   .auth-modal { width: 100%; max-width: 92vw; }
   .modal { width: 100%; max-width: 92vw; }

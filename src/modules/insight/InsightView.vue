@@ -1,14 +1,41 @@
 <script setup>
-// 洞察复盘：各模块进展一览 + 本周生活报（与主站逻辑一致）
+// 洞察复盘：各模块进展一览 + 本周状态录入 + 本周生活报（与主站逻辑一致）
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG } from "../../lib/config.js";
 import { icon } from "../../lib/icons.js";
-import { today, dateStr, avgProgress } from "../../lib/utils.js";
-import { getData, subscribe } from "../../lib/store.js";
+import { today, dateStr, avgProgress, weekDates } from "../../lib/utils.js";
+import { getData, save, subscribe } from "../../lib/store.js";
 import { weeklyReportSlotHTML, initWeeklyReport, exportWeeklyReport } from "../../lib/weekly-report.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
+
+// 本周状态录入：data().__trend 存 7 个数字（null=未记录），与首页趋势卡共用
+function trendBlockHTML() {
+  const wk = weekDates(); const dnames = ["一", "二", "三", "四", "五", "六", "日"];
+  const trend = Array.isArray(getData().__trend) && getData().__trend.length === 7 ? getData().__trend : [null, null, null, null, null, null, null];
+  const cells = wk.map((day, i) => {
+    const v = trend[i];
+    const valueHTML = v == null ? `<span class="ws-empty">–</span>` : `<span class="ws-val">${v}</span>`;
+    const todayCls = day === today() ? " is-today" : "";
+    return `<button type="button" class="ws-cell${todayCls}" data-trend-day="${i}" aria-label="周${dnames[i]}状态${v == null ? "未记录" : v + "分"}"><span class="ws-dow">${dnames[i]}</span>${valueHTML}</button>`;
+  }).join("");
+  return `<div class="sec-title">本周状态</div><div class="week-state"><div class="ws-grid">${cells}</div><p class="ws-tip">点日期格子记录当天状态：1 分很低、5 分很好，再点循环，点满 5 分再点可清除。首页「本周状态趋势」会同步显示。</p></div>`;
+}
+
+function wireTrend(scope) {
+  scope.querySelectorAll("[data-trend-day]").forEach(el => el.onclick = () => {
+    const i = +el.dataset.trendDay;
+    const d = getData();
+    const trend = Array.isArray(d.__trend) && d.__trend.length === 7 ? [...d.__trend] : [null, null, null, null, null, null, null];
+    trend[i] = trend[i] == null ? 1 : (trend[i] >= 5 ? null : trend[i] + 1);
+    d.__trend = trend;
+    save();
+    if (typeof window.saveMetaCloud === "function") window.saveMetaCloud("__trend", trend);
+    const dow = el.querySelector(".ws-dow");
+    el.innerHTML = `${dow.outerHTML}${trend[i] == null ? '<span class="ws-empty">–</span>' : `<span class="ws-val">${trend[i]}</span>`}`;
+  });
+}
 
 function render() {
   const cards = CONFIG.modules.map(m => {
@@ -26,8 +53,10 @@ function render() {
       <span class="arw" style="color:var(--text-tertiary)">${icon("chevron", 16, 2)}</span></div>`;
   }).join("");
   root.value.innerHTML = `<div class="header"><div><h2>洞察</h2><p>各模块进展一览 · 记录—执行—统计—反馈</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
-    <div class="sec-title">模块概况</div><div class="pin-list pin-list-3">${cards}</div>`;
+    <div class="sec-title">模块概况</div><div class="pin-list pin-list-3">${cards}</div>
+    ${trendBlockHTML()}`;
   root.value.querySelectorAll("[data-open]").forEach(el => el.onclick = () => emit("navigate", el.dataset.open));
+  wireTrend(root.value);
   root.value.insertAdjacentHTML("beforeend", weeklyReportSlotHTML());
   initWeeklyReport(root.value);
 }
