@@ -47,13 +47,16 @@ function saveOrder() {
 }
 
 async function loadOrder() {
+  // 先用本地保存的顺序立即渲染，再拉云端比对刷新，避免每次进页面等待接口
+  const local = Array.isArray(getData().__homeOrder) && getData().__homeOrder.length ? getData().__homeOrder : null;
+  if (local) order.value = toCards(local);
   let remote = null;
   try {
     const settings = await window.fetchUserSettings?.();
     remote = settings && Array.isArray(settings.home_order) && settings.home_order.length ? settings.home_order : null;
   } catch (_) { /* 忽略 */ }
-  const local = Array.isArray(getData().__homeOrder) && getData().__homeOrder.length ? getData().__homeOrder : null;
-  order.value = toCards(remote || local || DEFAULT_HOME_ORDER);
+  if (remote) order.value = toCards(remote);
+  else if (!local) order.value = toCards(DEFAULT_HOME_ORDER);
 }
 
 async function refreshBatch() {

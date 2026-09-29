@@ -43,5 +43,7 @@ createApp(App).mount("#app");
       bump();
       if (typeof window.updateAuthUI === "function") window.updateAuthUI();
     }
+    // 同步就绪后补拉每日一卡：首页首帧渲染时会话可能尚未恢复而跳过拉取
+    window.__reloadDailyCopy?.();
   }
 })();

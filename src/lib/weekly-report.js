@@ -1,20 +1,27 @@
-// AI 本周生活报：状态机（生成/轮询/错误）、往期历史查看、卡片渲染与导出（与主站逻辑一致）
+// AI 本周生活报：状态机（生成/轮询/错误）、往期历史查看、历史周补生成、卡片渲染与导出（与主站逻辑一致）
 import { esc } from "./icons.js";
+import { currentWeekStart, buildWeekSeries, buildWeekOptions, weekOptionsHTML, weekOptionLabel } from "./weekly-report-utils.js";
 
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false,
   weeklyReportError = "", weeklyReportPolls = 0, weeklyReportRequestSeq = 0, weeklyReportTimer = null;
-let weeklyReportList = [];       // 往期已生成列表
+let weeklyReportOptions = [];   // 可选周（含未生成/失败），渲染下拉框
 let weeklyReportViewWeek = null; // 正在查看的周（null = 本周）
+let weeklyReportTargetWeek = null; // 正在生成的目标周（null = 本周）
 
 function historySelectHTML() {
-  if (weeklyReportList.length <= 1) return "";
-  const options = weeklyReportList.map(r => `<option value="${esc(r.week_start)}">${esc(r.week_start)} ~ ${esc(r.week_end)}</option>`).join("");
-  return `<div class="report-history"><label for="report-history">往期生活报</label><select id="report-history"><option value="">选择往期</option>${options}</select></div>`;
+  if (weeklyReportOptions.length <= 1) return "";
+  return weekOptionsHTML(weeklyReportOptions, weeklyReportViewWeek || "");
 }
 
 export function weeklyReportTileHTML() {
-  if (weeklyReportLoading || weeklyReportWaiting) return `<div class="tile b12 report-card"><h3>本周生活报</h3><div class="report-text">正在生成，完成后会自动显示…</div></div>`;
-  if (weeklyReportError) return `<div class="tile b12 report-card"><h3>本周生活报</h3><div class="report-text">${esc(weeklyReportError)}</div><div class="report-actions"><button class="primary" id="report-generate">重新生成</button></div></div>`;
+  if (weeklyReportLoading || weeklyReportWaiting) {
+    const week = weeklyReportTargetWeek || currentWeekStart();
+    return `<div class="tile b12 report-card"><h3>生活报生成中</h3><div class="report-text">正在生成 ${esc(week)} 周的生活报，完成后会自动显示…</div></div>`;
+  }
+  if (weeklyReportError) {
+    const errWeek = weeklyReportTargetWeek || currentWeekStart();
+    return `<div class="tile b12 report-card"><h3>${errWeek === currentWeekStart() ? "本周生活报" : "生活报生成失败"}</h3><div class="report-text">${esc(weeklyReportError)}</div><div class="report-actions"><button class="primary" id="report-generate">重新生成</button></div></div>`;
+  }
   if (!weeklyReport) {
     const user = window.getCurrentUser?.();
     return `<div class="tile b12 report-card"><h3>本周生活报</h3><div class="report-text">${user?.is_anonymous || !user ? "登录正式账号后生成本周生活报。" : "准备好了，可以生成本周生活报。"}</div><div class="report-actions">${user?.is_anonymous || !user ? '<button class="primary" id="report-login">登录账号</button>' : '<button class="primary" id="report-generate">生成本周生活报</button>'}</div>${historySelectHTML()}</div>`;
@@ -46,8 +53,21 @@ export function refreshWeeklyReportSlot(container = document) {
   slot.querySelector("#report-current")?.addEventListener("click", viewCurrentWeek);
   slot.querySelector("#report-history")?.addEventListener("change", event => {
     const value = event.target && event.target.value;
-    if (value) viewWeeklyReport(value);
+    if (!value) return;
+    const option = weeklyReportOptions.find(item => item.weekStart === value);
+    if (!option) return;
+    if (option.state === "ready") viewWeeklyReport(value);
+    else confirmGenerateWeek(option);
   });
+}
+
+// 补生成历史周：未生成/失败周先确认再进入生成状态机
+async function confirmGenerateWeek(option) {
+  const message = option.state === "error"
+    ? `该周生活报之前生成失败，点击确定重新生成。`
+    : `该周尚未生成生活报，点击确定开始生成（数据不足的日期会写成轻量鼓励）。`;
+  const ok = await window.AppDialog?.confirm(message, { title: `补生成 ${option.weekStart} 周生活报`, okText: "开始生成" });
+  if (ok) maybeGenerateWeeklyReport(true, false, option.weekStart);
 }
 
 // 初始化：拉取当周已存周报 + 往期列表（生成过的周报一直保留，可随时查看）
@@ -69,12 +89,19 @@ async function fetchWeeklyReportCurrent() {
   }
 }
 
+// 拉取周列表 + 最早记录周，构建可补生成的下拉选项（未生成/失败周也可点击生成）
 async function fetchWeeklyReportList() {
   try {
     const result = await window.generateWeeklyReport({ action: "list" });
-    weeklyReportList = Array.isArray(result && result.reports) ? result.reports : [];
+    const reports = Array.isArray(result && result.reports) ? result.reports : [];
+    const series = buildWeekSeries({ earliestWeekStart: result.earliest_week_start || null, currentWeekStart: currentWeekStart() });
+    weeklyReportOptions = buildWeekOptions({
+      series,
+      readyReports: reports.filter(report => report.status === "ready"),
+      errorReports: reports.filter(report => report.status === "error"),
+    });
   } catch (_) {
-    weeklyReportList = [];
+    weeklyReportOptions = [];
   }
 }
 
@@ -99,18 +126,21 @@ export async function viewCurrentWeek() {
 // 延迟绑定 openAuthModal，避免周报模块与登录模块互相依赖
 export const openAuthModalRef = { current: null };
 
-export async function maybeGenerateWeeklyReport(force = false, isPoll = false) {
+export async function maybeGenerateWeeklyReport(force = false, isPoll = false, targetWeek = null) {
   const user = window.getCurrentUser?.();
   if (!force && !isPoll) return;
   if (!user || user.is_anonymous || weeklyReportLoading) return;
+  const nowWeek = currentWeekStart();
   if (force) {
+    weeklyReportTargetWeek = targetWeek || weeklyReportTargetWeek || nowWeek;
     weeklyReportPolls = 0; weeklyReportError = ""; weeklyReportRequestSeq += 1;
     if (weeklyReportTimer) { clearTimeout(weeklyReportTimer); weeklyReportTimer = null; }
   }
+  const week = weeklyReportTargetWeek || nowWeek;
   const requestSeq = weeklyReportRequestSeq;
   weeklyReportLoading = true; refreshWeeklyReportSlot();
   try {
-    const result = await window.generateWeeklyReport({ force: !!force });
+    const result = await window.generateWeeklyReport({ force: !!force, week_start: week });
     if (requestSeq !== weeklyReportRequestSeq) return;
     weeklyReportMeta = result.meta || weeklyReportMeta;
     weeklyReportWaiting = result.status === "generating" && !result.report;
@@ -121,7 +151,10 @@ export async function maybeGenerateWeeklyReport(force = false, isPoll = false) {
       weeklyReportWaiting = false; weeklyReportError = "生成时间较长，请稍后手动重试。";
     } else {
       weeklyReportPolls = 0; weeklyReportError = ""; weeklyReport = result.report || null;
-      if (weeklyReport) { weeklyReportViewWeek = null; fetchWeeklyReportList(); }
+      if (weeklyReport) {
+        weeklyReportViewWeek = week !== nowWeek ? week : null;
+        fetchWeeklyReportList();
+      }
     }
   } catch (e) {
     if (requestSeq === weeklyReportRequestSeq) { weeklyReportWaiting = false; weeklyReportError = e.message || "AI 生活报生成失败"; }

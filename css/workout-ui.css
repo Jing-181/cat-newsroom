@@ -45,7 +45,6 @@ html, body { overflow-x:clip; }
 .workout-panel { min-width:0; padding:0; border:0; background:none; box-shadow:none; }
 .workout-panel-title { display:flex; align-items:center; gap:8px; min-height:32px; margin-bottom:8px; font-size:14px; font-weight:800; }
 .workout-panel-title > span:first-child { flex:1; }
-.workout-hint { margin:0 0 12px; color:var(--text-secondary); font-size:13px; line-height:1.5; }
 .quick-exercises { display:flex; gap:8px; overflow-x:auto; margin:0 0 12px; padding:2px; }
 .quick-exercises button { min-height:32px; border:1px solid var(--border-input); border-radius:999px; padding:0 10px; color:var(--text); background:var(--surface-card); cursor:pointer; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
 .quick-exercises button:hover { border-color:var(--module-4); color:var(--module-4); }
@@ -78,11 +77,12 @@ html, body { overflow-x:clip; }
 .session-list { display:grid; gap:12px; min-width:0; }
 .session-empty { padding:32px 16px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border-input); border-radius:12px; }
 /* 动作卡：整页唯一的"实体"层级，边框与圆角只在这一级出现 */
-.session-exercise { min-width:0; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); overflow:hidden; }
-.session-exercise-head { display:flex; align-items:center; gap:8px; min-width:0; padding:8px 16px; background:var(--surface-nested); }
+.session-exercise { min-width:0; border:1px solid var(--border); border-radius:14px; background:var(--surface-card); box-shadow:var(--shadow-card); overflow:hidden; transition:border-color .18s, box-shadow .2s; }
+.session-exercise:focus-within { border-color:color-mix(in srgb,var(--module-4) 38%,var(--border)); box-shadow:var(--shadow-overlay); }
+.session-exercise-head { display:flex; align-items:center; gap:8px; min-width:0; padding:11px 16px; background:linear-gradient(180deg,color-mix(in srgb,var(--surface-nested) 88%,var(--page-bg)),var(--surface-nested)); border-bottom:1px solid var(--border); }
 /* 动作名、肌群、组进度并排一行；一行放不下时整项换行，而不是把某一项压扁 */
 .session-exercise-head > div { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; flex:1; }
-.session-exercise-head strong { min-width:0; font-size:14px; overflow-wrap:anywhere; }
+.session-exercise-head strong { min-width:0; font-size:15px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere; }
 .session-exercise-head span { min-width:0; color:var(--text-secondary); font-size:12px; overflow-wrap:anywhere; }
 /* 组不再各占一张卡片：默认无边框无底色，仅用细分隔线区隔，当前组才用浅底强调 */
 .set-list { display:grid; gap:0; padding:4px 16px 8px; }
@@ -125,8 +125,8 @@ html, body { overflow-x:clip; }
 .set-more-panel input { width:100%; min-width:0; height:36px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 8px; color:var(--text); background:var(--surface-card); }
 .set-more-panel .note input { text-align:left; }
 /* 组进度是头部并排的第三项：小胶囊自己占位，颜色要浅过头部灰底才看得见 */
-.set-progress { flex:0 0 auto; padding:2px 8px; border-radius:999px; font-size:11px; font-style:normal; font-weight:700; color:var(--text-secondary); background:var(--surface-card); }
-.set-progress.all-done { color:var(--module-1); background:color-mix(in srgb,var(--module-1) 12%,var(--surface-card)); }
+.set-progress { flex:0 0 auto; padding:3px 9px; border-radius:999px; font-size:11px; font-style:normal; font-weight:800; letter-spacing:.02em; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); }
+.set-progress.all-done { color:var(--module-1); background:color-mix(in srgb,var(--module-1) 12%,var(--surface-card)); border-color:color-mix(in srgb,var(--module-1) 28%,transparent); }
 .stepper { display:flex; align-items:stretch; min-width:0; }
 .stepper-btn { flex:0 0 28px; border:1px solid var(--border-input); background:var(--surface-nested); color:var(--text); cursor:pointer; font-size:16px; font-weight:700; }
 .stepper-btn:first-child { border-radius:8px 0 0 8px; border-right:0; }
@@ -244,6 +244,13 @@ html, body { overflow-x:clip; }
   .set-fields.cardio-fields { grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(46px,.7fr); }
   .set-fields input { height:40px; font-size:16px; }
   .stepper-btn { flex-basis:34px; font-size:18px; }
+  /* 动作卡移动端：头部与脚部更舒展，组间歇胶囊回到正文流避免挤压 */
+  .session-exercise-head { padding:12px 14px; }
+  .session-exercise-head strong { font-size:15.5px; }
+  .session-exercise-head span { font-size:12.5px; }
+  .session-exercise-foot { padding:10px 14px; }
+  .session-exercise-foot .rest-advice { margin-left:0; }
+  .exercise-last { margin:10px 10px 0; padding:8px 10px; }
   .workout-layout { grid-template-columns:minmax(0,1fr); }
   .dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .history-group { grid-template-columns:minmax(0,1fr); }

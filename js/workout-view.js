@@ -115,7 +115,7 @@
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       ${statsHtml(stats)}
       <div class="workout-layout">
-        <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><p class="workout-hint">点某一组展开填写，点其他组就收起来；没练的组直接删掉。</p><div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => {
+        <main class="workout-panel"><div class="workout-panel-title"><span>当前训练</span><button type="button" class="workout-btn compact" id="workout-add-exercise">+ 添加动作</button></div><div class="session-list">${session.exercises.length ? session.exercises.map((exercise, exerciseIndex) => {
           const previous = previousMap[exercise.exercise_id] ?? root.Workout.previousPerformance(history, exercise.exercise_id);
           const progress = progressText(exercise);
           const advice = root.Workout.restAdvice(exercise);

@@ -94,13 +94,15 @@ function trimRecord(value: Record<string, unknown>) {
   };
 }
 
-function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, unknown>; deleted_at?: string | null }>, start: string, end: string) {
+function buildSnapshot(rows: Array<{ module_key: string; data: Record<string, unknown>; deleted_at?: string | null; created_at?: string | null }>, start: string, end: string) {
   const modules: Record<string, unknown[]> = {};
   rows.forEach(row => {
     if (row.deleted_at || row.data?.status === "draft") return;
     const item = trimRecord(row.data || {});
     const date = typeof item.date === "string" ? item.date : "";
-    const inRange = !date || (date >= start && date <= end);
+    // 无日期记录按创建时间归属到周，避免重复计入每一周
+    const createdAt = typeof row.created_at === "string" ? row.created_at.slice(0, 10) : "";
+    const inRange = date ? (date >= start && date <= end) : (createdAt >= start && createdAt <= end);
     if (inRange) (modules[row.module_key] ||= []).push(item);
   });
   const all = Object.values(modules).flat() as Array<Record<string, unknown>>;
@@ -261,15 +263,24 @@ Deno.serve(async (request) => {
     const start = weekStartFor(dateOnly(body.week_start) || today);
     const end = addDays(start, 6);
     activeWeekStart = start;
+    // 只允许生成本周及历史周，未来周直接拒绝
+    if (start > weekStartFor(today)) return json({ error: "不能生成未来周的生活报" }, 400);
     // 只读查询：list（往期列表）/ fetch（指定周详情），不触发生成。
     const action = body.action === "list" || body.action === "fetch" ? body.action : "generate";
     if (action === "list") {
       const { data: reports, error: listError } = await supabase.from("weekly_reports")
         .select("week_start,week_end,status,generated_at,model,error")
-        .eq("user_id", user.id).eq("status", "ready")
+        .eq("user_id", user.id).in("status", ["ready", "error"])
         .order("week_start", { ascending: false }).limit(12);
       if (listError) throw listError;
-      return json({ reports: reports || [] });
+      // 返回用户最早记录所在周，前端据此推算可选周范围（未生成的周可补生成）
+      const { data: earliest } = await supabase.from("workbench_records")
+        .select("created_at").eq("user_id", user.id).order("created_at", { ascending: true }).limit(1);
+      const createdAt = earliest?.[0]?.created_at;
+      const earliestWeekStart = typeof createdAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(createdAt)
+        ? weekStartFor(createdAt.slice(0, 10))
+        : null;
+      return json({ reports: reports || [], earliest_week_start: earliestWeekStart });
     }
     if (action === "fetch") {
       const { data: existing } = await supabase.from("weekly_reports").select("*").eq("user_id", user.id).eq("week_start", start).maybeSingle();
@@ -297,7 +308,7 @@ Deno.serve(async (request) => {
       if (lockError) throw lockError;
     }
 
-    const { data: rows, error: rowsError } = await supabase.from("workbench_records").select("module_key,data,deleted_at").eq("user_id", user.id);
+    const { data: rows, error: rowsError } = await supabase.from("workbench_records").select("module_key,data,deleted_at,created_at").eq("user_id", user.id);
     if (rowsError) throw rowsError;
     const snapshot = buildSnapshot(rows || [], start, end);
 

@@ -4,7 +4,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG, modOf } from "../../lib/config.js";
 import { icon, esc } from "../../lib/icons.js";
 import { today, dateStr, weekDates, weekNum, streak, grp, ringSVG, trendSVG, pad2 } from "../../lib/utils.js";
-import { getData, persist, subscribe } from "../../lib/store.js";
+import { getData, persist, save, subscribe } from "../../lib/store.js";
 import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
 import { weeklyReportSlotHTML, initWeeklyReport } from "../../lib/weekly-report.js";
@@ -190,7 +190,8 @@ function clockCardHTML() {
 // key → 渲染函数（与 home-layout.js 的 HOME_CARDS 对应）
 const RENDER_MAP = {
   clock: clockCardHTML, focus: focusTileHTML, quick: quickTileHTML, overview: overviewTileHTML,
-  daily: dailyCopySlotHTML, habit: habitTileHTML, todo: todoTileHTML,
+  daily: () => `<div class="tile b12 daily-card" id="daily-copy-slot">${dailyCopySlotHTML()}</div>`,
+  habit: habitTileHTML, todo: todoTileHTML,
   pomo: pomoTileHTML, trend: trendTileHTML, spend: spendTileHTML, books: booksTileHTML, goals: goalsTileHTML,
   report: weeklyReportSlotHTML,
 };
@@ -219,15 +220,36 @@ function render() {
   startClock();
 }
 
-// 拉取云端排序配置（多设备同步）；云端缺失时回退本地配置，都没有则用默认顺序
+// 本地已保存的排序（含云端拉取后回写），无需等接口即可渲染
+function readLocalOrder() {
+  const local = Array.isArray(getData().__homeOrder) && getData().__homeOrder.length ? getData().__homeOrder : null;
+  return local && local.every(key => RENDER_MAP[key]) ? local : null;
+}
+
+// 同步应用本地缓存顺序（进入页面第一帧就用缓存，避免闪默认顺序）
+function applyCachedOrder() {
+  const cached = readLocalOrder();
+  if (cached) homeOrderConfig = cached;
+}
+
+// 拉取云端排序配置：先本地立即渲染，再后台拉云端；顺序变化才重渲染；成功回写本地缓存
 async function loadHomeOrder() {
+  applyCachedOrder();
   try {
     const settings = await window.fetchUserSettings?.();
     const remote = settings && Array.isArray(settings.home_order) && settings.home_order.length ? settings.home_order : null;
-    const local = Array.isArray(getData().__homeOrder) && getData().__homeOrder.length ? getData().__homeOrder : null;
-    const order = remote || local || null;
-    if (order && order.every(key => RENDER_MAP[key])) homeOrderConfig = order;
-    render();
+    if (remote && remote.every(key => RENDER_MAP[key])) {
+      // 回写本地缓存，下次进页面免等待接口
+      const data = getData();
+      if ((data.__homeOrder || []).join(",") !== remote.join(",")) {
+        data.__homeOrder = remote;
+        save();
+      }
+      if ((homeOrderConfig || []).join(",") !== remote.join(",")) {
+        homeOrderConfig = remote;
+        render();
+      }
+    }
   } catch (_) { /* 拉取失败保持当前顺序 */ }
 }
 
@@ -281,11 +303,12 @@ let unsub = null;
 // 个人配置页保存排序后触发，重新拉取云端配置并重渲染
 const onOrderChanged = () => loadHomeOrder();
 onMounted(() => {
+  applyCachedOrder();       // 缓存顺序先行，不等待接口
   render();
   ensurePomodoroController();
   unsub = subscribe(render);
   window.addEventListener("home-order-changed", onOrderChanged);
-  loadHomeOrder();
+  loadHomeOrder();          // 后台拉云端并刷新
 });
 onBeforeUnmount(() => {
   if (unsub) unsub();
