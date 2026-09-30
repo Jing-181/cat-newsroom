@@ -1,0 +1,358 @@
+/* Hallmark · component: workout workspace · genre: editorial utility · theme: existing newsroom
+ * critique: P4 H4 E4 S5 R5 V4 · motion: native WAAPI
+ * contrast: pass (40–41) · mobile: pass (34, 49–57)
+ */
+html, body { overflow-x:clip; }
+.app > .topbar { margin-inline:-16px; padding-inline:18px; background:var(--page-bg); }
+.workout-app { display:grid; gap:12px; min-width:0; }
+.workout-head { display:flex; align-items:flex-start; gap:12px; min-width:0; margin-inline:-16px; padding-inline:16px; }
+.workout-head-actions { display:flex; gap:8px; margin-left:auto; flex-wrap:wrap; justify-content:flex-end; position:relative; }
+.workout-plan-actions { display:flex; flex-direction:column; gap:8px; position:absolute; top:calc(100% + 8px); right:0; z-index:20; width:220px; max-width:min(92vw,260px); padding:8px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
+.workout-plan-actions .workout-btn { width:100%; justify-content:center; box-sizing:border-box; }
+.workout-plan-actions[hidden] { display:none !important; }
+.plan-menu-icon {
+  width:36px; height:36px; padding:0;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--border);
+  border-radius:var(--radius-tile);
+  background:var(--surface-card);
+  color:var(--text-secondary);
+  font-size:16px; line-height:1;
+  cursor:pointer;
+  flex:0 0 36px !important;
+  transition:border-color .15s ease, color .15s ease;
+}
+.plan-menu-icon:hover { border-color:var(--module-4); color:var(--module-4); }
+.workout-head h2 { min-width:0; margin:0; font-size:20px; font-style:normal; overflow-wrap:anywhere; }
+.workout-head p { margin:4px 0 0; color:var(--text-secondary); font-size:13px; }
+.workout-spacer { flex:1; }
+.workout-btn { min-height:40px; border:1px solid var(--border-input); border-radius:8px; padding:0 14px; color:var(--text); background:var(--surface-card); cursor:pointer; font-weight:700; white-space:nowrap; }
+.workout-btn:hover { border-color:var(--module-4); }
+.workout-btn:focus-visible, .icon-action:focus-visible, .workout-days button:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
+.workout-btn:active, .icon-action:active { transform:translateY(1px); }
+.workout-btn:disabled { opacity:.55; cursor:not-allowed; }
+.workout-btn.primary { border-color:var(--module-4); color:var(--surface-card); background:var(--module-4); }
+.workout-btn.danger, .icon-action.danger { color:var(--danger); }
+.workout-btn.compact { min-height:32px; padding:0 10px; font-size:12px; }
+/* 开始训练是页面唯一主操作：整行大按钮，比日切换和历史都醒目 */
+#workout-start { width:100%; min-height:48px; border-radius:12px; font-size:15px; }
+.workout-days { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px; scrollbar-width:thin; }
+.workout-days button { min-height:36px; border:1px solid var(--border-input); border-radius:8px; padding:0 12px; color:var(--text-secondary); background:var(--surface-card); cursor:pointer; white-space:nowrap; }
+.workout-days button.on { border-color:var(--module-3); color:var(--text); background:color-mix(in srgb,var(--module-3) 12%,var(--surface-card)); font-weight:750; }
+.workout-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; align-items:start; min-width:0; }
+/* 层级只保留三层：页面 → 动作卡(.session-exercise) → 组(.set-row)。
+   中间容器不再叠加边框/背景/阴影，避免"每一级都是组件"的碎裂感。 */
+.workout-panel { min-width:0; padding:0; border:0; background:none; box-shadow:none; }
+.workout-panel-title { display:flex; align-items:center; gap:8px; min-height:32px; margin-bottom:8px; font-size:14px; font-weight:800; }
+.workout-panel-title > span:first-child { flex:1; }
+.quick-exercises { display:flex; gap:8px; overflow-x:auto; margin:0 0 12px; padding:2px; }
+.quick-exercises button { min-height:32px; border:1px solid var(--border-input); border-radius:999px; padding:0 10px; color:var(--text); background:var(--surface-card); cursor:pointer; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+.quick-exercises button:hover { border-color:var(--module-4); color:var(--module-4); }
+.quick-exercises .more { color:var(--text-secondary); }
+.exercise-library { display:grid; gap:8px; max-height:620px; overflow:auto; transform-origin:top; }
+.exercise-option { display:flex; align-items:center; gap:8px; width:100%; min-width:0; padding:12px; border:1px solid var(--border); border-radius:12px; color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
+.exercise-option:hover { border-color:var(--module-4); }
+.exercise-option:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
+.exercise-option:disabled { opacity:.55; cursor:not-allowed; }
+.exercise-icon {
+  flex:0 0 auto; width:30px; height:30px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; letter-spacing:0; line-height:1;
+  border-radius:var(--radius-control);
+  color:var(--text-secondary);
+  background:var(--surface-nested);
+  border:1px solid var(--border-input);
+  flex-shrink:0;
+}
+.exercise-icon.small { width:20px; height:20px; font-size:9px; border-radius:4px; display:inline-flex; vertical-align:middle; margin-right:4px; }
+.exercise-icon.mini { width:16px; height:16px; font-size:7px; border-radius:3px; margin-right:4px; }
+.exercise-option .info { min-width:0; flex:1; }
+.exercise-option .name, .exercise-option .meta { display:block; }
+.exercise-option .name { font-size:13px; font-weight:750; overflow-wrap:anywhere; }
+.exercise-option .meta { margin-top:2px; font-size:11px; color:var(--text-secondary); }
+.exercise-state { flex:0 0 auto; color:var(--module-4); font-size:12px; font-weight:750; white-space:nowrap; }
+.exercise-option.is-added .exercise-state { color:var(--text-secondary); }
+.dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); max-height:min(60vh,540px); padding:2px; }
+.icon-action { width:34px; height:34px; flex:0 0 auto; border:1px solid var(--border-input); border-radius:8px; color:var(--text); background:var(--surface-card); cursor:pointer; font-size:19px; }
+.session-list { display:grid; gap:12px; min-width:0; }
+.session-empty { padding:32px 16px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border-input); border-radius:12px; }
+/* 动作卡：整页唯一的"实体"层级，边框与圆角只在这一级出现 */
+.session-exercise { min-width:0; border:1px solid var(--border); border-radius:14px; background:var(--surface-card); box-shadow:var(--shadow-card); overflow:hidden; transition:border-color .18s, box-shadow .2s; }
+.session-exercise:focus-within { border-color:color-mix(in srgb,var(--module-4) 38%,var(--border)); box-shadow:var(--shadow-overlay); }
+.session-exercise-head { display:flex; align-items:center; gap:8px; min-width:0; padding:11px 16px; background:linear-gradient(180deg,color-mix(in srgb,var(--surface-nested) 88%,var(--page-bg)),var(--surface-nested)); border-bottom:1px solid var(--border); }
+/* 动作名、肌群、组进度并排一行；一行放不下时整项换行，而不是把某一项压扁 */
+.session-exercise-head > div { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; flex:1; }
+.session-exercise-head strong { min-width:0; font-size:15px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere; }
+.session-exercise-head span { min-width:0; color:var(--text-secondary); font-size:12px; overflow-wrap:anywhere; }
+/* 组不再各占一张卡片：默认无边框无底色，仅用细分隔线区隔，当前组才用浅底强调 */
+.set-list { display:grid; gap:0; padding:4px 16px 8px; }
+.set-row { display:grid; gap:8px; min-width:0; padding:8px 0; border:0; background:none; }
+.set-row + .set-row { border-top:1px solid var(--border); }
+/* 当前组头部：一条对齐线——组序号与上次数据都贴左，删除只留轻量图标靠右 */
+.set-row-head { display:flex; align-items:center; gap:8px; }
+.set-row-head strong { flex:0 0 auto; font-size:12px; font-weight:700; color:var(--text); }
+.set-row-head .icon-action { margin-left:auto; }
+/* 已录组收成一行；当前要填的组高亮展开 */
+.set-row.is-collapsed { display:flex; align-items:center; gap:8px; padding:6px 0; }
+/* 组里的删除是次要操作：去掉边框与底色，图标本身可点即可 */
+.set-row .icon-action { width:32px; height:32px; border:0; background:none; color:var(--text-tertiary); font-size:18px; border-radius:8px; }
+.set-row .icon-action:hover { color:var(--module-4); }
+/* 当前组：唯一的强强调，用品牌棕浅底 + 内描边，与动作卡头部的灰底区分开 */
+.set-row.is-active { margin:0 -8px; padding:12px 8px; border-top-color:transparent; border-radius:12px; background:color-mix(in srgb,var(--module-4) 8%,var(--surface-card)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--module-4) 32%,transparent); }
+.set-line { display:flex; align-items:center; gap:8px; flex:1; min-width:0; border:0; padding:0; color:var(--text); background:none; cursor:pointer; font:inherit; text-align:left; }
+/* 记录文字贴左跟组序号挨着，箭头跟记录走；右侧整段留白，删除叉独立靠右 */
+.set-line b { min-width:0; flex:0 1 auto; font-size:13px; text-align:left; overflow-wrap:anywhere; }
+.set-index { flex:0 0 auto; font-size:12px; color:var(--text-secondary); font-weight:700; }
+/* 已录组右侧的轻箭头：紧跟在记录后面，表示整行可点开接着改 */
+.set-chevron { flex:0 0 auto; color:var(--text-tertiary); font-size:16px; line-height:1; }
+/* 上次表现贴左，和组序号挨着；窄屏换行而不是截断 */
+.set-hint { flex:0 1 auto; min-width:0; text-align:left; font-size:12px; line-height:1.4; color:var(--text-tertiary); white-space:normal; overflow-wrap:anywhere; }
+.set-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.set-fields.cardio-fields { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.set-fields label { display:grid; gap:4px; min-width:0; }
+.set-fields label span { font-size:12px; color:var(--text-secondary); }
+.set-fields input { width:100%; min-width:0; height:36px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 8px; text-align:center; color:var(--text); background:var(--surface-card); }
+/* 更多面板：只留浅底与内边距，不再自带虚线边框，避免组里再嵌一张小卡片 */
+.set-more { display:grid; gap:8px; }
+.set-more-toggle { display:flex; align-items:center; gap:4px; justify-self:start; border:0; padding:0; color:var(--text-secondary); background:none; cursor:pointer; font-size:12px; font-weight:700; text-align:left; }
+.set-more-toggle::after { content:"▾"; color:var(--text-tertiary); font-size:10px; }
+.set-more-toggle[aria-expanded="true"]::after { content:"▴"; }
+.set-more-toggle:hover { color:var(--module-4); }
+.set-more-panel { display:grid; gap:8px; padding:8px 0 0; border:0; background:none; }
+.set-more-panel[hidden] { display:none; }
+.set-more-panel label { display:grid; gap:4px; }
+.set-more-panel label span { font-size:12px; color:var(--text-secondary); }
+.set-more-panel input { width:100%; min-width:0; height:36px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 8px; color:var(--text); background:var(--surface-card); }
+.set-more-panel .note input { text-align:left; }
+/* 组进度是头部并排的第三项：小胶囊自己占位，颜色要浅过头部灰底才看得见 */
+.set-progress { flex:0 0 auto; padding:3px 9px; border-radius:999px; font-size:11px; font-style:normal; font-weight:800; letter-spacing:.02em; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); }
+.set-progress.all-done { color:var(--module-1); background:color-mix(in srgb,var(--module-1) 12%,var(--surface-card)); border-color:color-mix(in srgb,var(--module-1) 28%,transparent); }
+.stepper { display:flex; align-items:stretch; min-width:0; }
+.stepper-btn { flex:0 0 28px; border:1px solid var(--border-input); background:var(--surface-nested); color:var(--text); cursor:pointer; font-size:16px; font-weight:700; }
+.stepper-btn:first-child { border-radius:8px 0 0 8px; border-right:0; }
+.stepper-btn:last-child { border-radius:0 8px 8px 0; border-left:0; }
+.stepper input { border-radius:0 !important; flex:1; min-width:0; }
+/* 底部操作栏：添加动作（次要）+ 完成训练（主按钮）并排 */
+.workout-bottom-bar { display:flex; align-items:stretch; gap:8px; padding:8px 2px calc(8px + env(safe-area-inset-bottom)); }
+.workout-bottom-bar .workout-btn { flex:0 0 auto; min-height:44px; border-radius:12px; }
+.workout-bottom-bar #workout-finish { flex:1; min-width:0; }
+.workout-bottom-bar #workout-add-floating { padding:0 16px; }
+/* 动作脚部：加组是主操作、动作说明是次要链接、组间歇是纯信息，三个层级分开 */
+.session-exercise-foot { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:8px 16px; border-top:1px solid var(--border); }
+.session-exercise-foot button { border:0; padding:0; background:none; cursor:pointer; white-space:nowrap; }
+/* 加一组：这一行的主操作，用描边胶囊突出 */
+.session-exercise-foot [data-set-add] { display:inline-flex; align-items:center; min-height:26px; padding:0 12px; border:1px solid var(--module-4); border-radius:999px; color:var(--module-4); font-size:12px; font-weight:700; }
+.session-exercise-foot [data-set-add]:hover { color:var(--surface-card); background:var(--module-4); }
+/* 动作说明：次级文字链接，弱化处理 */
+.session-exercise-foot [data-exercise-info] { color:var(--text-tertiary); font-size:12px; font-weight:600; text-decoration:underline; text-underline-offset:2px; }
+.session-exercise-foot [data-exercise-info]:hover { color:var(--module-4); }
+/* 组间歇推荐：大肌群长、小肌群短，只作为参考文案 */
+.session-exercise-foot .rest-advice { min-width:0; font-size:12px; line-height:1.4; color:var(--text-tertiary); }
+.session-exercise-foot .rest-advice b { color:var(--text-secondary); }
+.workout-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.workout-stat { padding:8px 12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
+.workout-stat b { display:block; font-size:18px; }
+.workout-stat span { font-size:11px; color:var(--text-secondary); }
+.workout-completion { display:grid; gap:8px; padding:12px 16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); }
+/* 结束训练区标题：让底部三个输入框有明确的上下文，不再是悬空的一排输入 */
+.workout-completion-title { margin:0; font-size:14px; font-weight:800; color:var(--text); }
+.workout-fields { display:grid; grid-template-columns:minmax(150px,.7fr) minmax(150px,.7fr) minmax(220px,1.6fr); gap:12px; align-items:end; }
+.workout-field { min-width:0; }
+.workout-field label { display:block; min-height:1lh; margin-bottom:4px; font-size:12px; color:var(--text-secondary); }
+.workout-field input { width:100%; height:40px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 12px; color:var(--text); background:var(--surface-card); }
+.workout-history { display:flex; flex-direction:column; gap:16px; }
+.history-group-block { min-width:0; }
+.history-month { display:flex; align-items:center; gap:8px; margin:2px 2px 12px; font-size:12px; font-weight:800; letter-spacing:.06em; color:var(--text-tertiary); }
+.history-month::after { content:""; flex:1; height:1px; background:var(--border); }
+.history-group { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.history-card { display:flex; flex-direction:column; min-width:0; padding:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); box-shadow:var(--shadow-card); transition:border-color .15s, box-shadow .18s, transform .12s; }
+.history-card:hover { border-color:var(--border-input); box-shadow:var(--shadow-overlay); transform:translateY(-1px); }
+.history-card-copy { min-width:0; flex:1; }
+.history-card h4 { margin:0 0 8px; font-size:15px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere; }
+.history-meta { display:flex; flex-wrap:wrap; gap:4px 0; font-size:12px; line-height:1.7; color:var(--text-secondary); }
+.history-meta span:not(:first-child)::before { content:"·"; margin-right:12px; color:var(--text-tertiary); }
+.history-actions { display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border); }
+.history-actions .icon-action { margin-left:auto; }
+.workout-dialog { position:fixed; inset:0; width:min(560px,calc(100vw - 28px)); max-height:min(82vh,760px); box-sizing:border-box; overflow:auto; margin:auto; border:1px solid var(--border); border-radius:var(--radius-card); padding:20px; color:var(--text); background:var(--surface-card); box-shadow:var(--shadow-overlay); }
+.workout-dialog::backdrop { background:color-mix(in srgb,var(--text) 45%,transparent); }
+.dialog-head { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.dialog-head > div { min-width:0; flex:1; }
+.dialog-head h3 { margin:4px 0 0; font-size:20px; font-style:normal; overflow-wrap:anywhere; }
+.dialog-kicker { color:var(--text-secondary); font-size:11px; }
+.record-facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:0 0 16px; }
+.record-facts div { padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
+.record-facts dt { color:var(--text-secondary); font-size:11px; }
+.record-facts dd { margin:4px 0 0; font-size:13px; font-weight:750; }
+.record-exercises { display:grid; gap:12px; }
+.record-exercises section { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.record-exercises h4 { margin:0; padding:12px 16px; background:var(--surface-nested); display:flex; align-items:center; }
+.record-set { display:grid; grid-template-columns:70px minmax(0,1fr) auto; gap:8px; padding:12px 16px; border-top:1px solid var(--border); font-size:13px; }
+.record-set em { color:var(--text-secondary); font-style:normal; }
+.record-note { margin:16px 0 0; padding:12px 16px; border-left:3px solid var(--module-4); background:var(--surface-nested); white-space:pre-wrap; }
+.legacy-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.legacy-fields .note { grid-column:1/-1; }
+.dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+.workout-dialog p { margin:0 0 16px; font-size:13px; line-height:1.7; }
+.workout-dialog p strong { display:block; margin-bottom:4px; font-size:11px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:.5px; }
+.workout-dialog .dialog-tips { white-space:pre-line; }
+.workout-dialog .dialog-muscles { color:var(--text); }
+
+/* 手机版即使在宽浏览器中打开，也按内容容器保持 H5 排版。 */
+.mobile-shell .workout-app { padding-top:12px; padding-bottom:calc(var(--workout-tabbar-h, 62px) + 96px + env(safe-area-inset-bottom)); }
+.mobile-shell .set-list { padding:4px 12px 8px; }
+.mobile-shell .set-row { padding:8px 0; }
+.mobile-shell .set-row.is-collapsed { padding:6px 0; }
+.mobile-shell .set-row.is-active { margin:0 -4px; padding:12px 4px; }
+.mobile-shell .exercise-last { padding:0 12px 4px; }
+.mobile-shell .set-fields { gap:8px; }
+.mobile-shell .set-fields input { height:40px; font-size:16px; }
+.mobile-shell .stepper-btn { flex-basis:32px; font-size:18px; }
+.mobile-shell .history-group { grid-template-columns:minmax(0,1fr); }
+.mobile-shell .workout-summary { display:flex; gap:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface-nested); }
+.mobile-shell .workout-stat { flex:1; min-width:0; padding:8px 4px; border:0; border-right:1px solid var(--border); border-radius:0; text-align:center; }
+.mobile-shell .workout-stat:last-child { border-right:0; }
+.mobile-shell .workout-stat b { font-size:15px; }
+.mobile-shell .workout-stat span { display:block; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mobile-shell .workout-completion { padding:12px; }
+.mobile-shell .workout-fold .exercise-trends { padding:0 12px 12px; }
+.mobile-shell .workout-fold > summary { padding:12px; }
+.mobile-shell .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.mobile-shell .workout-fields .note { grid-column:1/-1; }
+.mobile-shell .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 62px) + env(safe-area-inset-bottom)); z-index:5; }
+.mobile-shell .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.mobile-shell .record-set { grid-template-columns:58px minmax(0,1fr); }
+.mobile-shell .record-set em { grid-column:2; }
+.mobile-shell .workout-dialog { width:min(448px,calc(100vw - 28px)); }
+
+@media (max-width:760px) {
+  .workout-head { margin-inline:0; padding-inline:0; }
+  .workout-head-actions { width:auto; margin-left:auto; justify-content:flex-end; }
+  .workout-plan-actions { left:auto; right:0; width:min(220px,calc(100vw - 48px)); justify-content:stretch; flex-direction:column; align-items:stretch; }
+  .workout-plan-actions .workout-btn { flex:0 0 auto; width:100%; min-width:0; min-height:44px; text-align:center; }
+  .workout-app { gap:12px; -webkit-tap-highlight-color: transparent; padding-bottom:calc(var(--workout-tabbar-h, 56px) + 96px + env(safe-area-inset-bottom)); }
+  .workout-btn, .icon-action, .stepper-btn, .quick-exercises button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .icon-action { width:38px; height:38px; font-size:20px; }
+  .set-list { padding:4px 12px 8px; }
+  .set-row { padding:8px 0; }
+  .set-row.is-active { margin:0 -4px; padding:12px 4px; }
+  .set-row.is-collapsed { padding:6px 0; }
+  .exercise-last { padding:0 12px 4px; }
+  /* 手机上给删除图标加一档点击面积，当前组与已录组保持同一尺寸 */
+  .set-row .icon-action { width:34px; height:34px; font-size:18px; }
+  .set-fields { gap:8px; }
+  .set-fields { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .set-fields.cardio-fields { grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(46px,.7fr); }
+  .set-fields input { height:40px; font-size:16px; }
+  .stepper-btn { flex-basis:34px; font-size:18px; }
+  /* 动作卡移动端：头部与脚部更舒展，组间歇胶囊回到正文流避免挤压 */
+  .session-exercise-head { padding:12px 14px; }
+  .session-exercise-head strong { font-size:15.5px; }
+  .session-exercise-head span { font-size:12.5px; }
+  .session-exercise-foot { padding:10px 14px; }
+  .session-exercise-foot .rest-advice { margin-left:0; }
+  .exercise-last { margin:10px 10px 0; padding:8px 10px; }
+  .workout-layout { grid-template-columns:minmax(0,1fr); }
+  .dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .history-group { grid-template-columns:minmax(0,1fr); }
+  .workout-summary { display:flex; gap:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface-nested); }
+  .workout-stat { flex:1; min-width:0; border:0; border-right:1px solid var(--border); border-radius:0; text-align:center; }
+  .workout-stat:last-child { border-right:0; }
+  .workout-stat b { font-size:15px; }
+  .workout-stat span { display:block; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .workout-completion { padding:12px; }
+  /* 完成训练区：输入区垂直堆叠，杜绝日期/时长并排重叠；提交栏与添加按钮共用吸底容器，整体贴 tabbar 上方 */
+  .workout-fields { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:12px; }
+  .workout-fields .note { grid-column:1/-1; }
+  .workout-fields label { min-height:0; margin-bottom:4px; }
+  .workout-bottom-bar { position:sticky; bottom:calc(var(--workout-tabbar-h, 56px) + env(safe-area-inset-bottom)); z-index:5; }
+  .record-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .record-set { grid-template-columns:58px minmax(0,1fr); }
+  .record-set em { grid-column:2; }
+  .workout-add-floating { display:flex; justify-content:center; padding:0; margin:0; }
+  .workout-days button { min-height:40px; }
+  .quick-exercises button { min-height:36px; }
+}
+
+@media (max-width:360px) {
+  .dialog-library { grid-template-columns:minmax(0,1fr); }
+  .workout-fields, .legacy-fields { grid-template-columns:minmax(0,1fr); }
+  .workout-fields .note, .legacy-fields .note { grid-column:auto; }
+  .workout-bottom-bar { gap:8px; }
+  .workout-bottom-bar .workout-btn { min-height:44px; border-radius:12px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .workout-app *, .workout-dialog { scroll-behavior:auto !important; animation:none !important; transition:none !important; }
+}
+
+/* 防溢出加固：完成区与吸底栏在任何宽度下都不超出视口、不与相邻元素重叠 */
+.workout-completion, .workout-bottom-bar, .workout-fields, .workout-field { min-width:0; max-width:100%; box-sizing:border-box; }
+.workout-fields input, .workout-field input { min-width:0; }
+
+/* 训练计划日卡视图 */
+.plan-day-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; max-height:min(62vh,560px); overflow-y:auto; padding:2px; }
+.plan-day-card { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-input); border-radius:var(--radius-card); background:var(--surface-card); cursor:pointer; transition:border-color .15s ease, transform .15s ease; }
+.plan-day-card:hover { border-color:var(--module-4); transform:translateY(-1px); }
+.plan-day-card.is-done { border-color:color-mix(in srgb,var(--module-3) 55%,var(--border-input)); background:color-mix(in srgb,var(--module-3) 6%,var(--surface-card)); }
+.plan-day-card header { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.plan-day-card h4 { margin:0; font-size:15px; }
+.plan-day-card header span { color:var(--text-secondary); font-size:12px; }
+.plan-day-card header em { margin-left:auto; color:var(--module-3); font-style:normal; font-size:12px; font-weight:750; white-space:nowrap; }
+.plan-day-card ul { margin:0; padding:0 0 0 18px; display:grid; gap:4px; }
+.plan-day-card li { font-size:12.5px; line-height:1.5; color:var(--text-secondary); }
+.plan-day-card.is-done li { color:var(--text-secondary); }
+
+/* ---- 上次表现：日期 + 每组明细 ---- */
+/* 三段数据挨着排、之间留 8px 呼吸距离；底部只留 4px，和下面组列表的 4px 顶距拼成 8px，不再比头部宽 */
+.exercise-last { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:0; padding:0 16px 4px; font-size:12px; line-height:1.5; }
+.exercise-last.is-first { color:var(--text-tertiary); }
+.exercise-last-date { flex:0 0 auto; color:var(--text-secondary); }
+.exercise-last b { min-width:0; font-size:12px; font-weight:700; color:var(--text); overflow-wrap:anywhere; }
+.exercise-last-count { flex:0 0 auto; color:var(--text-tertiary); font-size:11px; }
+
+/* ---- 动作进展：默认收起的折叠块（训练页与历史页共用）---- */
+/* 用原生 <details> 折叠，不占训练主流程的视觉重量；点开才看长期轨迹。 */
+.workout-fold { margin-bottom:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); overflow:hidden; }
+.workout-fold > summary { display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; font-size:14px; font-weight:800; list-style:none; }
+.workout-fold > summary::-webkit-details-marker { display:none; }
+.workout-fold > summary::after { content:"▾"; flex:0 0 auto; color:var(--text-tertiary); font-size:12px; }
+.workout-fold[open] > summary::after { content:"▴"; }
+.workout-fold > summary > span { flex:0 0 auto; }
+.workout-fold > summary > em { min-width:0; flex:1; font-style:normal; font-size:12px; font-weight:600; color:var(--text-tertiary); }
+.workout-fold .exercise-trends { padding:0 16px 12px; }
+.exercise-trends { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; }
+/* 弹窗里单列铺开，动作多时纵向滚动更顺手 */
+.exercise-trends.in-dialog { grid-template-columns:minmax(0,1fr); }
+.trend-chip { display:flex; flex-direction:column; gap:8px; min-width:0; padding:12px; border:1px solid var(--border); border-radius:12px; color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
+.trend-chip:hover { border-color:var(--module-4); }
+.trend-chip:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
+.trend-name { font-size:12.5px; font-weight:750; }
+.trend-flow { display:flex; flex-wrap:wrap; align-items:center; gap:4px 2px; min-width:0; font-size:11px; color:var(--text); }
+.trend-flow b { font-weight:750; white-space:nowrap; }
+.trend-flow i { font-style:normal; color:var(--text-tertiary); }
+.trend-meta { font-size:11px; color:var(--text-tertiary); }
+.trend-hero { display:flex; flex-wrap:wrap; gap:6px 4px; padding:12px; margin-bottom:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
+.trend-hero .trend-flow { font-size:13px; gap:6px 4px; }
+.trend-list { display:grid; gap:8px; }
+.trend-item { display:grid; gap:8px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); }
+.trend-item header { display:flex; align-items:baseline; gap:8px; }
+.trend-item header span { flex:0 0 auto; font-size:11px; color:var(--text-secondary); font-weight:700; }
+.trend-item header b { min-width:0; flex:1; font-size:12.5px; overflow-wrap:anywhere; }
+.trend-meta-row { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12px; color:var(--text-tertiary); }
+
+/* ---- 详情弹窗：动作进展入口与副标题 ---- */
+.record-trend-link { margin-left:auto; border:1px solid var(--border-input); border-radius:999px; padding:4px 12px; color:var(--module-4); background:var(--surface-card); cursor:pointer; font-size:11px; font-weight:750; }
+.record-trend-link:hover { border-color:var(--module-4); }
+.dialog-sub { margin:-8px 0 16px; font-size:12px; color:var(--text-secondary); }
+
+.mobile-shell .exercise-trends { grid-template-columns:minmax(0,1fr); }
+.mobile-shell .trend-flow { font-size:12px; }
+
+@media (max-width:760px) {
+  .exercise-trends { grid-template-columns:minmax(0,1fr); }
+  .trend-hero .trend-flow { font-size:12px; }
+}
+
+@media (max-width:360px) {
+  .workout-head h2 { font-size:19px; }
+}
