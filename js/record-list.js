@@ -10,6 +10,8 @@
 
   function sortNewest(records) {
     return [...(records || [])].sort((left, right) => {
+      // 置顶优先：星标记录吸到列表最前，同组内再按手动/时间序
+      if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
       const leftOrder = Number(left.sort_order);
       const rightOrder = Number(right.sort_order);
       const leftManual = Number.isFinite(leftOrder);
@@ -65,14 +67,15 @@
     const listenerOptions = { signal: controller.signal };
     let movingId = null;
     let dropTarget = null;
-    const clear = () => container.querySelectorAll(".rec.is-dragging, .rec.is-drop-target").forEach(item => item.classList.remove("is-dragging", "is-drop-target"));
+    const clear = () => container.querySelectorAll(".rec.is-dragging, .rec.is-drop-target, .rec.is-drop-before, .rec.is-drop-after").forEach(item => item.classList.remove("is-dragging", "is-drop-target", "is-drop-before", "is-drop-after"));
     const targetAt = (x, y) => document.elementFromPoint(x, y)?.closest(".rec[data-record-id]");
     const move = (target, y) => {
       if (!target || String(target.dataset.recordId) === String(movingId)) return;
       const rect = target.getBoundingClientRect();
       dropTarget = { id: target.dataset.recordId, after: y > rect.top + rect.height / 2 };
-      container.querySelectorAll(".rec.is-drop-target").forEach(item => item.classList.remove("is-drop-target"));
-      target.classList.add("is-drop-target");
+      // 用上/下两条不同的插入线提示落点，比单条线更明确
+      container.querySelectorAll(".rec.is-drop-before, .rec.is-drop-after").forEach(item => item.classList.remove("is-drop-before", "is-drop-after"));
+      target.classList.add(dropTarget.after ? "is-drop-after" : "is-drop-before");
     };
     const finish = () => {
       if (movingId && dropTarget) onReorder(movingId, dropTarget.id, dropTarget.after);

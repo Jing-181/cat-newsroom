@@ -1,6 +1,7 @@
 <script setup>
 // 个人配置页：每日一卡重新生成（14 条）+ 首页卡片排序（云端同步，与主站逻辑一致）
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { CONFIG } from "../../lib/config.js";
 import { HOME_CARDS, DEFAULT_HOME_ORDER } from "../../lib/home-layout.js";
 import { getData, save, subscribe } from "../../lib/store.js";
 import { initDailyCopy, generateDailyCopyBatch, getDailyBatchInfo } from "../../lib/daily-copy.js";
@@ -9,6 +10,15 @@ const root = ref(null);
 const order = ref([]);
 const batchInfo = ref({ loading: true });
 const syncing = ref(false);
+const versionVisible = ref(true);
+
+// 首页版本显示开关（本地保存，默认显示）
+function toggleVersion() {
+  versionVisible.value = !versionVisible.value;
+  getData().__homeVersionVisible = versionVisible.value;
+  save();
+  window.Toast?.show(versionVisible.value ? "首页将显示版本信息" : "首页版本信息已隐藏");
+}
 
 const batchInfoText = computed(() => {
   const info = batchInfo.value;
@@ -84,6 +94,7 @@ let unsub = null;
 onMounted(() => {
   refreshBatch();
   loadOrder();
+  versionVisible.value = getData().__homeVersionVisible !== false;
   unsub = subscribe(() => refreshBatch());
 });
 onBeforeUnmount(() => { if (unsub) unsub(); });
@@ -122,6 +133,20 @@ onBeforeUnmount(() => { if (unsub) unsub(); });
         <button class="btn ghost" @click="resetOrder">恢复默认</button>
         <button class="btn" @click="saveOrder">保存排序</button>
       </div>
+    </div>
+
+    <div class="sec-title">首页显示</div>
+    <div class="setting-card">
+      <div class="set-row">
+        <div class="set-tx">
+          <div class="set-name">首页显示版本信息</div>
+          <div class="set-desc">在首页底部显示「猫咪生活报 · v{{ CONFIG.APP_VERSION || '' }}」</div>
+        </div>
+        <button type="button" class="switch" :class="{ on: versionVisible }" role="switch" :aria-checked="versionVisible" @click="toggleVersion">
+          <span class="switch-track"><i></i></span>
+        </button>
+      </div>
+      <div class="set-note">关闭后首页不再显示版本号。</div>
     </div>
   </div>
 </template>

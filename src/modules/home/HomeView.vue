@@ -10,6 +10,7 @@ import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.j
 import { weeklyReportSlotHTML, initWeeklyReport } from "../../lib/weekly-report.js";
 import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
 import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, groupOf } from "../../lib/home-layout.js";
+import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
@@ -121,16 +122,17 @@ function pomoTileHTML() {
       <div class="ps"><div class="pv">${p.count + (pomo.running ? 1 : 0)}</div><div class="pl">轮次</div></div></div></div>`;
 }
 
-/* 心情趋势折线（复用 trend）：支持未记录的天（null）断点 */
+/* 心情趋势折线（复用 trend）：支持未记录的天（null）断点；下方是紧凑状态录入条，与洞察页共用数据 */
 function trendTileHTML() {
   const raw = CONFIG.trend.series(data());
   const series = Array.isArray(raw) && raw.length === 7 ? raw : [];
   const vals = series.filter(v => typeof v === "number");
   const has = vals.length > 0;
   const avg = has ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
-  const body = has ? trendSVG(series) : `<div class="trend-empty">${icon("chart", 26)}<span>本周还没记录状态 · 去「洞察」点日期格子记一下</span></div>`;
+  const body = has ? trendSVG(series) : `<div class="trend-empty">${icon("chart", 26)}<span>本周还没记录状态，点下面格子记一下</span></div>`;
+  const cells = `<div class="ws-grid ws-inline">${trendCellsHTML({ compact: true })}</div>`;
   return `<div class="tile b8"><div class="tile-h"><span class="tic">${icon("chart", 16)}</span><div class="tt"><span class="en">MOOD TREND · 近 7 天</span><span class="zh">${CONFIG.trend.title}</span></div>${has ? `<span class="r">均 ${avg}${CONFIG.trend.unit}</span>` : ""}</div>
-    ${body}${has ? `<div class="trend-x"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>` : ""}</div>`;
+    ${body}${has ? `<div class="trend-x"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>` : ""}${cells}</div>`;
 }
 
 /* 月度开销：finance 支出按分类占比 */
@@ -226,6 +228,10 @@ function render() {
     if (g) html += grp(g.zh, g.en);
     html += `<div class="bento">${section.cards.map(key => RENDER_MAP[key]()).join("")}</div>`;
   });
+  // 首页版本信息：个人配置页可控制显示与否（默认显示）
+  if (getData().__homeVersionVisible !== false) {
+    html += `<div class="home-ver">猫咪生活报 · v${CONFIG.APP_VERSION || ""}</div>`;
+  }
   root.value.innerHTML = html;
   wireHome();
   initWeeklyReport(root.value);
@@ -300,6 +306,8 @@ function wireHome() {
   // 番茄钟控制
   const tg = scope.querySelector("#pomo-toggle"); if (tg) tg.onclick = () => ensurePomodoroController()?.toggle();
   const rs = scope.querySelector("#pomo-reset"); if (rs) rs.onclick = () => ensurePomodoroController()?.stop();
+  // 本周状态录入（趋势卡下方紧凑条）
+  wireTrendCells(scope);
 }
 
 function startClock() {

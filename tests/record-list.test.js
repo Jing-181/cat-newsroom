@@ -25,6 +25,17 @@ test("a newly created record is placed before an existing manual order", () => {
   assert.deepEqual(RecordList.sortNewest([...records, fresh]).map(record => record.id), [3, 1, 2]);
 });
 
+test("pinned records sort to the top regardless of manual or time order", () => {
+  const records = [
+    { id: 1, sort_order: 0 },
+    { id: 2, sort_order: 1, pinned: true },
+    { id: 3, sort_order: 2 },
+    { id: 4, sort_order: 3, pinned: true },
+  ];
+  // 置顶组吸顶，组内保持原有相对顺序
+  assert.deepEqual(RecordList.sortNewest(records).map(record => record.id), [2, 4, 1, 3]);
+});
+
 test("drag reordering writes a stable manual order", () => {
   const records = [{ id: 3 }, { id: 2 }, { id: 1 }];
   const reordered = RecordList.reorder(records, 1, 3, false);

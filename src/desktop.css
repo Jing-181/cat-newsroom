@@ -292,6 +292,22 @@
   .link-danger { color:var(--danger); background:none; border:none; font-size:14px; font-weight:600; cursor:pointer; padding:8px 10px; border-radius:8px; }
   .link-danger:hover { background:var(--danger-muted); }
 
+  /* 编辑弹窗：头部/表单/操作三区分离，表单区独立滚动，保存按钮始终可见 */
+  .editor-modal { display:flex; flex-direction:column; padding:0; overflow:hidden; max-height:min(88vh, 720px); }
+  .editor-modal .modal-head { flex:0 0 auto; padding:24px 26px 0; }
+  .editor-modal .modal-head h3 { margin:0; }
+  .editor-modal .modal-head .sub { margin:5px 0 0; }
+  .editor-modal .modal-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:14px 26px 8px; }
+  .editor-modal .modal-actions { flex:0 0 auto; margin-top:0; padding:14px 26px 20px; border-top:1px solid var(--border); background:var(--surface-card); }
+  /* 「外观与图片」折叠区块：默认收起，需要时再展开 */
+  .modal-fold { margin-top:4px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
+  .modal-fold summary { display:flex; align-items:center; gap:6px; padding:11px 14px; cursor:pointer; font-size:13px; font-weight:700; color:var(--text-secondary); list-style:none; user-select:none; }
+  .modal-fold summary::-webkit-details-marker { display:none; }
+  .modal-fold summary::after { content:"▾"; margin-left:auto; color:var(--text-tertiary); font-size:11px; transition:transform .15s; }
+  .modal-fold[open] summary::after { transform:rotate(180deg); }
+  .modal-fold > div { padding:4px 14px 14px; }
+  .modal-fold .field:last-child { margin-bottom:0; }
+
   /* ============================================================
      BENTO DASHBOARD — 首页复杂网格布局（墨色中性 · 高密度）
      ============================================================ */
@@ -347,6 +363,12 @@
   .order-item .order-ctrl button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); background:var(--accent-muted); }
   .order-item .order-ctrl button:disabled { opacity:.35; cursor:not-allowed; }
   .set-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:14px; }
+  /* 开关（个人配置页） */
+  .switch { border:0; background:none; padding:0; cursor:pointer; }
+  .switch-track { display:block; width:44px; height:26px; border-radius:999px; background:var(--border-input); position:relative; transition:background .18s; }
+  .switch-track i { position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--surface-card); box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .18s; }
+  .switch.on .switch-track { background:var(--module-1); }
+  .switch.on .switch-track i { transform:translateX(18px); }
 
   /* 整体情况瓷砖 */
   .ov2-body { display:grid; grid-template-columns:1fr 300px; gap:22px; flex:1; align-items:stretch; }
@@ -421,6 +443,23 @@
   .ws-empty { font-size:13px; color:var(--text-tertiary); line-height:1; }
   .ws-val { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; color:var(--on-accent); background:var(--module-2); line-height:1; }
   .ws-tip { margin:10px 2px 0; font-size:12px; color:var(--text-tertiary); line-height:1.6; }
+  /* 首页趋势卡下的紧凑状态录入条 */
+  .ws-inline { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+  .ws-compact { padding:7px 2px; gap:5px; }
+  .ws-compact .ws-val { width:19px; height:19px; font-size:11px; }
+  .ws-compact .ws-dow { font-size:10.5px; }
+
+  /* 待办已完成折叠区：完成项默认收起，聚焦未完成 */
+  .done-fold { margin-top:6px; border:1px dashed var(--border); border-radius:12px; background:var(--surface-nested); }
+  .done-fold summary { display:flex; align-items:center; padding:9px 14px; cursor:pointer; font-size:12.5px; font-weight:700; color:var(--text-secondary); list-style:none; user-select:none; }
+  .done-fold summary::-webkit-details-marker { display:none; }
+  .done-fold summary::after { content:"▾"; margin-left:auto; color:var(--text-tertiary); font-size:11px; transition:transform .15s; }
+  .done-fold[open] summary::after { transform:rotate(180deg); }
+  .done-fold .done-list { padding:4px 8px 10px; display:grid; gap:6px; }
+  .done-fold .done-list .rec { box-shadow:none; }
+
+  /* 首页底部版本信息 */
+  .home-ver { margin:26px 2px 4px; text-align:center; font-size:11.5px; color:var(--text-tertiary); letter-spacing:.04em; }
 
   /* 习惯追踪周网格表 */
   .habit-tb { width:100%; border-collapse:collapse; }
@@ -621,8 +660,8 @@
   .report-day { padding:10px 0; border-top:1px dashed var(--border); }
   .report-day summary { cursor:pointer; font-weight:700; }
   .report-text { color:var(--text-secondary); margin-top:6px; line-height:1.7; }
-  /* AI 洞察用 <ul><li> 列点：去掉浏览器默认大缩进与黑点，改用弱化的浅色小圆点，避免"点"抢眼 */
-  .report-card .report-text ul { margin:4px 0 0; padding:0; list-style:none; }
+  /* AI 洞察用 <ul class="report-text"><li> 列点：去掉浏览器默认大缩进与黑点，改用弱化的浅色小圆点，避免"点"抢眼 */
+  .report-card ul.report-text { margin:4px 0 0; padding:0; list-style:none; }
   .report-card .report-text li { position:relative; padding-left:14px; margin-top:4px; line-height:1.7; }
   .report-card .report-text li::before { content:""; position:absolute; left:0; top:.66em; width:5px; height:5px; border-radius:50%; background:var(--text-tertiary); opacity:.7; }
   .report-history { display:flex; align-items:center; gap:8px; margin-top:14px; }
@@ -646,5 +685,8 @@
   /* 列表拖动排序：通过卡片右上角的手柄拖动，触摸设备同样支持。 */
   .drag-handle { border:0; background:transparent; color:var(--text-tertiary); cursor:grab; font-size:20px; line-height:1; width:28px; height:28px; padding:0; touch-action:none; }
   .drag-handle:active { cursor:grabbing; color:var(--accent); }
-  .rec.is-dragging { opacity:.48; }
-  .rec.is-drop-target { box-shadow:0 -3px 0 var(--accent), var(--shadow-overlay); }
+  /* 拖动中的卡片：轻微放大 + 提升阴影，产生"被拿起"的层次感，而不是简单变透明 */
+  .rec.is-dragging { position:relative; z-index:5; opacity:.92; transform:scale(1.015); box-shadow:0 14px 30px rgba(58,46,32,.22); transition:transform .12s, box-shadow .12s; }
+  /* 落点提示分上下两条线，明确插到目标卡片之前还是之后 */
+  .rec.is-drop-before { box-shadow:inset 0 3px 0 var(--accent), var(--shadow-card); }
+  .rec.is-drop-after { box-shadow:inset 0 -3px 0 var(--accent), var(--shadow-card); }

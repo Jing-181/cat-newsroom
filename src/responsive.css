@@ -100,13 +100,17 @@
   /* 待办行间距微收，单列下更紧凑 */
   .tk-row { padding: 7px 0; }
 
-  /* 记录卡片按钮区：内容在上，操作按钮收拢为底部右对齐的操作栏，避免挤到顶部形成孤立一行 */
-  .rec { display: flex; flex-direction: column; }
-  .rec .acts { position: static; order: 1; transform: none; opacity: 1; margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid var(--border); background: transparent; justify-content: flex-end; gap: 2px; }
-  .rec .acts button { width: 34px; height: 34px; border-radius: 9px; }
+  /* 记录卡片移动端：操作按钮悬浮右上角（轻量、始终可见），不再独占卡片底部一行，卡片更精致 */
+  .rec { padding: 12px 14px; border-radius: 14px; }
+  .rec-grid { gap: 10px; }
+  .rec .acts { position: absolute; top: 10px; right: 10px; transform: none; order: 0; margin: 0; padding: 0;
+    border: 0; background: transparent; opacity: .55; justify-content: flex-start; gap: 0; }
+  .rec .acts button { width: 30px; height: 30px; border-radius: 9px; }
+  .rec .acts button:active { background: var(--surface-nested); color: var(--text); opacity: 1; }
   .rec .top { flex-wrap: wrap; order: 0; }
-  .rec-layout-default .top { padding-right: 0; }
+  .rec-layout-default .top { padding-right: 96px; }
+  /* 点按卡片有轻微按下的手感 */
+  .rec:active { transform: scale(.992); }
 
   /* 周报操作区可换行 */
   .report-actions { flex-wrap: wrap; }
@@ -136,6 +140,14 @@
   /* 弹窗窄屏适配 */
   .auth-modal { width: 100%; max-width: 92vw; }
   .modal { width: 100%; max-width: 92vw; }
+  /* 编辑弹窗移动端：底部 sheet 化，操作栏吸底始终可见，保存按钮不滚动也能点到 */
+  .overlay.editor-overlay { align-items: flex-end; }
+  .editor-modal { width: 100%; max-width: 100%; border-radius: 18px 18px 0 0; max-height: 88dvh; }
+  .editor-modal .modal-head { padding: 20px 18px 0; }
+  .editor-modal .modal-body { padding: 14px 18px 4px; }
+  .editor-modal .modal-actions { padding: 12px 18px calc(16px + env(safe-area-inset-bottom)); }
+  .editor-modal .modal-actions .btn { flex: 1; justify-content: center; min-height: 44px; }
+  .editor-modal .modal-actions .btn.ghost { flex: 0 0 auto; }
 
   /* 负边距全宽容器不溢出 */
   .workout-head, .app > .topbar { margin-inline: 0; padding-inline: 0; }

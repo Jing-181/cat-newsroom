@@ -27,6 +27,9 @@
         font-size: 13px; font-weight: 600; line-height: 1.4;
         animation: cat-toast-in .2s cubic-bezier(.2,.8,.3,1); }
       .cat-toast .cat-toast-ic { display: inline-grid; place-items: center; color: var(--module-1); flex: 0 0 auto; }
+      .cat-toast-action { border:0; background:var(--accent-muted); color:var(--accent); font-size:12.5px; font-weight:800;
+        padding:5px 12px; border-radius:8px; cursor:pointer; white-space:nowrap; flex:0 0 auto; }
+      .cat-toast-action:active { transform: translateY(1px); }
       .cat-toast.out { animation: cat-toast-out .18s ease forwards; }
       @keyframes cat-toast-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
       @keyframes cat-toast-out { to { opacity: 0; transform: translateY(4px) scale(.97); } }
@@ -49,6 +52,14 @@
     toast.setAttribute("role", "status");
     if (options.icon) toast.innerHTML = `<span class="cat-toast-ic">${options.icon}</span><span>${esc(message)}</span>`;
     else toast.textContent = message;
+    if (options.action) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "cat-toast-action";
+      button.textContent = options.action.label;
+      button.onclick = event => { event.stopPropagation(); options.action.onClick(); dismiss(); };
+      toast.appendChild(button);
+    }
     container.appendChild(toast);
     while (container.children.length > MAX_VISIBLE) container.firstElementChild?.remove();
     const dismiss = () => {

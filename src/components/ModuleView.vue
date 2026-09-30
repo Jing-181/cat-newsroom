@@ -19,19 +19,34 @@ let composing = false;
 
 function mod() { return modOf(props.moduleKey); }
 
+// 记录列表主体：待办类型默认把已完成收进折叠区（事项不多，聚焦未完成）；其余类型照常分页
+function recordListBody(m, it, q) {
+  if (m.type === "todo" && !q) {
+    const pending = it.filter(x => !x.done);
+    const done = it.filter(x => x.done);
+    const rows = pending.map(x => recHTML(m, x)).join("");
+    const doneBlock = done.length
+      ? `<details class="done-fold"><summary><span>已完成 ${done.length} 项</span></summary><div class="done-list">${done.map(x => recHTML(m, x)).join("")}</div></details>`
+      : "";
+    const body = rows + doneBlock;
+    return body || `<div class="empty"><span class="e">${icon(m.icon, 28)}</span><div>还没有待办，记一件不用马上做的事吧</div></div>`;
+  }
+  const page = window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
+  recordPage = page.page;
+  return page.items.length ? page.items.map(x => recHTML(m, x)).join("")
+    : `<div class="empty"><span class="e">${icon(m.icon, 28)}</span><div>${q ? "没有匹配的记录" : "还没有记录，点右上角「新建」添加第一条吧"}</div></div>`;
+}
+
 // 仅刷新受搜索影响的记录列表与计数，不重建搜索框（避免打断中文输入法）
 function renderResults() {
   const m = mod();
   const all = window.RecordList.sortNewest(getData()[props.moduleKey] || []);
   const q = searchQ.trim().toLowerCase();
   const it = q ? all.filter(x => (x.title || "").toLowerCase().includes(q) || (x.note || x.content || "").toLowerCase().includes(q)) : all;
-  const page = window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
-  recordPage = page.page;
-  const body = page.items.length ? page.items.map(x => recHTML(m, x)).join("")
-    : `<div class="empty"><span class="e">${icon(m.icon, 28)}</span><div>${q ? "没有匹配的记录" : "还没有记录，点右上角「新建」添加第一条吧"}</div></div>`;
-  const grid = root.value.querySelector(".rec-grid"); if (grid) grid.innerHTML = body;
+  const grid = root.value.querySelector(".rec-grid"); if (grid) grid.innerHTML = recordListBody(m, it, q);
   const cnt = root.value.querySelector("#rec-count"); if (cnt) cnt.textContent = `${it.length} 条`;
-  const pager = root.value.querySelector("#record-pager"); if (pager) pager.outerHTML = recordPagerHTML(page);
+  const pager = root.value.querySelector("#record-pager");
+  if (pager) pager.outerHTML = m.type === "todo" && !q ? "" : recordPagerHTML(window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE));
   wireModule();
 }
 
@@ -57,6 +72,8 @@ function wireModule() {
     if (m.type === "todo") x.done = !x.done;
     else if (m.type === "checkin") { x.log = x.log || {}; const t = today(); x.log[t] ? delete x.log[t] : x.log[t] = true; }
     persist(props.moduleKey, x, { render: false });
+    // 待办勾选完成后重排：完成项自动收进「已完成」折叠区
+    if (m.type === "todo") { renderResults(); updateModuleSummary(); return; }
     el.classList.toggle("on", m.type === "todo" ? !!x.done : !!(x.log && x.log[today()]));
     el.closest(".rec")?.querySelector(".rname")?.classList.toggle("done", !!x.done);
     updateModuleSummary();
@@ -118,10 +135,7 @@ function render() {
     head = headHero(m, `${all.length}`, `条记录 · 今日 ${todayN} 条`, null);
   }
 
-  const page = window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
-  recordPage = page.page;
-  const body = page.items.length ? page.items.map(x => recHTML(m, x)).join("")
-    : `<div class="empty"><span class="e">${icon(m.icon, 28)}</span><div>${q ? "没有匹配的记录" : "还没有记录，点右上角「新建」添加第一条吧"}</div></div>`;
+  const body = recordListBody(m, it, q);
 
   root.value.innerHTML = `<div class="header"><div><h2>${m.name}</h2><p>${m.desc}</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
     <div class="toolbar">
@@ -131,7 +145,7 @@ function render() {
     <div class="mod-layout">
       <div class="mod-main">
         <div class="sec-title">全部记录 <span id="rec-count" style="margin-left:auto;font-weight:500;color:var(--text-secondary);font-size:12px">${it.length} 条</span></div>
-        <div class="rec-grid">${body}</div>${recordPagerHTML(page)}
+        <div class="rec-grid">${body}</div>${m.type === "todo" && !q ? "" : recordPagerHTML(window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE))}
       </div>
       <aside class="mod-side">${sideStats(m, all)}</aside>
     </div>`;

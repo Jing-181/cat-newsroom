@@ -137,9 +137,9 @@ export function openEditor(key, item) {
       <div class="field"><label>内容</label><textarea id="f-content" placeholder="写点什么…">${esc(d.content || "")}</textarea></div>
       <div class="field"><label>日期</label><input id="f-date" type="date" value="${d.date || isoToday()}"/></div>`;
   }
-  // layout variant selector
+  // layout variant selector（默认折叠进「外观与图片」，新建/编辑时不再占首屏）
   const layoutOpts = [{ v: "default", l: "标准" }, { v: "feature", l: "大图" }, { v: "quote", l: "引文" }];
-  fields = `<div class="field"><label>卡片样式</label><div class="seg" id="f-layout">${layoutOpts.map(o => `<div class="opt ${o.v === (d.layout || "default") ? "on" : ""}" data-v="${o.v}">${o.l}</div>`).join("")}</div></div>` + fields;
+  const layoutField = `<div class="field"><label>卡片样式</label><div class="seg" id="f-layout">${layoutOpts.map(o => `<div class="opt ${o.v === (d.layout || "default") ? "on" : ""}" data-v="${o.v}">${o.l}</div>`).join("")}</div></div>`;
   // custom fields (from m.fields config) — rendered after type-specific fields
   (m.fields || []).forEach(f => {
     const v = d[f.key] || "";
@@ -148,10 +148,11 @@ export function openEditor(key, item) {
     else if (f.type === "number") fields += `<div class="field"><label>${esc(f.label)}</label><input id="f-cf-${f.key}" type="number" value="${attr(v)}" placeholder="${attr(f.placeholder || "")}"/></div>`;
     else fields += `<div class="field"><label>${esc(f.label)}</label><input id="f-cf-${f.key}" value="${attr(v)}" placeholder="${attr(f.placeholder || "")}"/></div>`;
   });
-  // 图片支持云端上传、外链和项目风格预设。
-  fields += mediaFieldHTML(key, d);
-  const overlay = document.createElement("div"); overlay.className = "overlay";
-  overlay.innerHTML = `<div class="modal"><h3>${editing ? "编辑" : "新建"} · ${m.name}</h3><div class="sub">${m.desc}</div>${fields}
+  // 外观与图片统一折叠：需要时才展开，减轻弹窗首屏重量
+  fields += `<details class="modal-fold"><summary>外观与图片</summary><div>${layoutField}${mediaFieldHTML(key, d)}</div></details>`;
+  const overlay = document.createElement("div"); overlay.className = "overlay editor-overlay";
+  overlay.innerHTML = `<div class="modal editor-modal"><div class="modal-head"><h3>${editing ? "编辑" : "新建"} · ${m.name}</h3><div class="sub">${m.desc}</div></div>
+    <div class="modal-body">${fields}</div>
     <div class="modal-actions">${editing ? '<button class="link-danger" id="m-del">删除</button>' : ""}<div class="spacer"></div>
       <button class="btn ghost" id="m-cancel">取消</button><button class="btn" id="m-save">保存</button></div></div>`;
   document.body.appendChild(overlay);
@@ -189,19 +190,24 @@ export function openEditor(key, item) {
   };
 }
 
-/* ---------- delete confirm ---------- */
+/* ---------- delete with undo ---------- */
+// 直接删除并弹出「已删除 · 撤销」轻提示，不再弹确认框；撤销恢复本地并重新推送同步
 export function confirmDelete(key, id) {
-  const item = (getData()[key] || []).find(i => i.id == id); if (!item) return;
-  const overlay = document.createElement("div"); overlay.className = "overlay";
-  overlay.innerHTML = `<div class="modal" style="width:400px"><h3>删除记录</h3><div class="sub">确定删除「${esc(item.title || "这条记录")}」？此操作不可撤销。</div>
-    <div class="modal-actions"><div class="spacer"></div><button class="btn ghost" id="c-cancel">取消</button><button class="btn danger" id="c-ok">删除</button></div></div>`;
-  document.body.appendChild(overlay);
-  const close = () => overlay.remove();
-  overlay.onclick = e => { if (e.target === overlay) close(); };
-  overlay.querySelector("#c-cancel").onclick = close;
-  overlay.querySelector("#c-ok").onclick = () => {
-    if (typeof window.markRecordDeleted === "function") window.markRecordDeleted(key, id);
-    getData()[key] = getData()[key].filter(i => i.id != id);
-    save(); bump(); close();
+  const all = getData()[key] || [];
+  const index = all.findIndex(i => i.id == id);
+  if (index < 0) return;
+  const [removed] = all.splice(index, 1);
+  save(); bump();
+  if (typeof window.markRecordDeleted === "function") window.markRecordDeleted(key, id);
+  const title = (removed.title || "这条记录").slice(0, 14);
+  const undo = () => {
+    const list = getData()[key] || [];
+    const position = Math.min(index, list.length);
+    removed.updated_at = new Date().toISOString();
+    list.splice(position, 0, removed);
+    save(); bump();
+    // record 型操作 upsert 时 deleted_at 置 null，可覆盖之前的删除标记
+    if (typeof window.syncRecord === "function") window.syncRecord({ moduleKey: key, record: removed });
   };
+  window.Toast?.show?.(`已删除「${title}」`, { action: { label: "撤销", onClick: undo }, duration: 5000 });
 }
