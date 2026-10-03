@@ -123,6 +123,8 @@
         openSets = {};
         persistDraft();
         render();
+        // 回到记录列表时回到顶部，让最新记录可见（浏览器不会自动复位滚动位置）
+        window.scrollTo({ top:0, behavior:shouldAnimate() ? "smooth" : "auto" });
       });
       container.querySelector("#workout-add-exercise")?.addEventListener("click", openExerciseLibrary);
       container.querySelector("#workout-add-floating")?.addEventListener("click", openExerciseLibrary);
@@ -245,6 +247,8 @@
         openSets = {};
         persistDraft();
         render();
+        // 结束训练回到记录列表时回到顶部，让最新提交的记录可见
+        window.scrollTo({ top: 0, behavior: shouldAnimate() ? "smooth" : "auto" });
       });
     }
 

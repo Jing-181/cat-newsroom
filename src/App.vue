@@ -87,6 +87,8 @@ onMounted(() => {
   });
   // 设备模式切换已废弃：统一响应式样式切换，不再跳转 HTML
   updateAuthUI();
+  // 同步层检测到正式账号会话失效时，自动弹出登录框（数据已保留在本机）
+  window.addEventListener("cat-newsroom:login-required", () => openAuthModal("login"));
 });
 
 function onAvatarClick() { avatarInputRef.value?.click(); }
