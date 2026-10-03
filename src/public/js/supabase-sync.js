@@ -81,6 +81,23 @@ async function initSupabase() {
     }
     syncStatus = "online";
     setupRealtime();
+    // 监听认证状态变化：session 过期/登出/切换时及时更新 currentUser，
+    // 避免用户在不知情的情况下以匿名身份记录数据。
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !session)) {
+        currentUser = null;
+        syncStatus = "offline";
+        if (syncChannel) { sb.removeChannel(syncChannel); syncChannel = null; }
+        updateSyncIndicator();
+        if (typeof window.updateAuthUI === "function") window.updateAuthUI();
+      } else if (session?.user) {
+        const userChanged = !currentUser || currentUser.id !== session.user.id;
+        currentUser = session.user;
+        if (userChanged) { setupRealtime(); }
+        updateSyncIndicator();
+        if (typeof window.updateAuthUI === "function") window.updateAuthUI();
+      }
+    });
     updateSyncIndicator();
     return true;
   } catch (error) {
@@ -294,7 +311,16 @@ async function signUp(username, password) {
 async function signIn(username, password) {
   if (!sb) return { error: new Error("Supabase 未初始化") };
   const { data: authData, error } = await sb.auth.signInWithPassword({ email: usernameToEmail(username), password });
-  if (!error && authData.user) window.location.reload();
+  if (!error && authData.user) {
+    // 与 signUp 保持一致：登录成功后把本地数据（可能是匿名期间产生的记录）
+    // 作为当前正式账号的初始记录上云，避免 reload 后 replaceLocalWithCloud 覆盖丢失。
+    currentUser = authData.user; syncStatus = "online"; setupRealtime();
+    deferOutboxProcessing = true;
+    queueLocalAccountMigration();
+    deferOutboxProcessing = false;
+    await processOutbox();
+    window.location.reload();
+  }
   return { data: authData, error };
 }
 
