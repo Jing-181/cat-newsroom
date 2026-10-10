@@ -8,6 +8,10 @@ const SUPABASE_CONFIG = {
 
 const SYNC_OUTBOX_KEY = "cat-newsroom-sync-outbox-v1";
 const META_FIELDS = { __avatar: "avatar", __pomo: "pomo_stats", __trend: "trend_data", __homeOrder: "home_order" };
+// 本机最近登录过的正式账号：用于区分「新访客」与「会话失效的老用户」，
+// 避免老用户被静默降级成匿名账号后，新记录写进别的账号。
+const LAST_ACCOUNT_KEY = "cat-newsroom-last-account";
+const SUPABASE_PROJECT_REF = (SUPABASE_CONFIG.url.split("//")[1] || "").split(".")[0];
 let sb = null;
 let syncStatus = "offline";
 let currentUser = null;
@@ -19,6 +23,8 @@ let deferOutboxProcessing = false;
 let retryTimer = null;
 let lastSyncAt = null;
 let pageInitSyncDone = false;
+let explicitSignOut = false;
+let authStateUnsubscribe = null;
 
 const isoNow = () => new Date().toISOString();
 const operationId = () => `op-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -85,12 +91,42 @@ async function initSupabase() {
     const clientUrl = normalizeHeaderValue(SUPABASE_CONFIG.url, "Supabase 地址");
     const clientKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
     sb = supabase.createClient(clientUrl, clientKey, { auth: { persistSession: true, autoRefreshToken: true } });
+    // 监听认证状态变化：会话过期/登出/切换时及时更新 currentUser，
+    // 避免用户在不知情的情况下以匿名身份记录数据（记录被写进别的账号）。
+    // initSupabase 可能被重复调用（如离线时点击同步指示器重连），先退订旧监听避免累积。
+    if (authStateUnsubscribe) authStateUnsubscribe();
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !session)) {
+        currentUser = null;
+        syncStatus = "offline";
+        if (syncChannel) { sb.removeChannel(syncChannel); syncChannel = null; }
+        updateSyncIndicator();
+        if (typeof window.updateAuthUI === "function") window.updateAuthUI();
+        if (!explicitSignOut) notifyLoginRequired();
+      } else if (session?.user) {
+        const userChanged = !currentUser || currentUser.id !== session.user.id;
+        currentUser = session.user;
+        if (!session.user.is_anonymous) markRealAccount(session.user.id);
+        if (userChanged) setupRealtime();
+        updateSyncIndicator();
+        if (typeof window.updateAuthUI === "function") window.updateAuthUI();
+      }
+    });
+    authStateUnsubscribe = () => subscription.unsubscribe();
     const { data: { session } } = await sb.auth.getSession();
-    if (session) currentUser = session.user;
-    else {
+    if (session) {
+      currentUser = session.user;
+      if (!session.user.is_anonymous) markRealAccount(session.user.id);
+    } else if (!localStorage.getItem(LAST_ACCOUNT_KEY)) {
       const { data: anonymous, error } = await sb.auth.signInAnonymously();
       if (error) throw error;
       currentUser = anonymous.user;
+    } else {
+      // 本机登录过正式账号但会话已失效：不静默降级成匿名账号，数据保留在本机，
+      // 提示用户重新登录；登录成功后再把本地数据迁移上云。
+      syncStatus = "offline"; updateSyncIndicator();
+      notifyLoginRequired();
+      return false;
     }
     syncStatus = "online";
     setupRealtime();
@@ -99,10 +135,10 @@ async function initSupabase() {
   } catch (error) {
     console.error("[sync] 初始化失败:", error);
     if (/ByteString|invalid character/i.test(String(error?.message || error))) {
-      // 清理损坏的持久化会话，避免 Supabase 自动刷新持续构造非法 Authorization 头。
+      // 只清理本项目损坏的持久化会话，避免误删其它 Supabase 项目的登录态。
       for (let index = localStorage.length - 1; index >= 0; index -= 1) {
         const key = localStorage.key(index) || "";
-        if (key.includes("-auth-token")) localStorage.removeItem(key);
+        if (key.startsWith("sb-") && key.includes(SUPABASE_PROJECT_REF) && key.endsWith("-auth-token")) localStorage.removeItem(key);
       }
     }
     syncStatus = "error"; updateSyncIndicator(); return false;
@@ -328,6 +364,17 @@ function setupRealtime() {
 
 function usernameToEmail(username) { return `${String(username || "").trim()}@cat-newsroom.local`; }
 
+// 记住本机最近登录的正式账号，用于区分「新访客」与「会话失效的老用户」。
+function markRealAccount(userId) {
+  try { localStorage.setItem(LAST_ACCOUNT_KEY, userId); } catch (_) {}
+}
+
+// 会话失效时提示用户重新登录：只发事件，提示不再依赖全局垫片（Toast 已收进 src/lib/toast.js）；
+// App 层监听到事件后弹提示并打开登录弹窗。
+function notifyLoginRequired() {
+  try { window.dispatchEvent(new CustomEvent("cat-newsroom:login-required", { detail: { message: "登录状态已失效，数据已保留在本机，请重新登录" } })); } catch (_) {}
+}
+
 function queueLocalAccountMigration() {
   const local = getLocalData();
   if (!local || typeof CONFIG === "undefined") return;
@@ -341,11 +388,33 @@ function queueLocalAccountMigration() {
   });
 }
 
+// 登录正式账号后，只把「本地有、但该账号云端还没有」的记录迁移上云：
+// 既保住匿名/离线期间产生的新记录，又不会用本地旧数据覆盖其它设备的新记录。
+async function queueMissingLocalRecords() {
+  const local = getLocalData();
+  if (!local || !sb || !currentUser || typeof CONFIG === "undefined") return;
+  const { data: rows, error } = await sb.from("workbench_records")
+    .select("id").eq("user_id", currentUser.id);
+  if (error) return;
+  const existing = new Set((rows || []).filter(row => !row.deleted_at).map(row => String(row.id)));
+  CONFIG.modules.forEach(module => (local[module.key] || []).forEach(record => {
+    if (!existing.has(String(record.id))) syncRecord({ moduleKey: module.key, record });
+  }));
+  const { data: meta } = await sb.from("workbench_meta")
+    .select("avatar,pomo_stats,trend_data").eq("user_id", currentUser.id).maybeSingle();
+  if (!meta) {
+    ["__avatar", "__pomo", "__trend"].forEach(field => {
+      if (Object.prototype.hasOwnProperty.call(local, field)) syncMetaField({ field, value: local[field] });
+    });
+  }
+}
+
 async function signUp(username, password) {
   if (!sb) return { error: new Error("Supabase 未初始化") };
   const { data: authData, error } = await sb.auth.signUp({ email: usernameToEmail(username), password });
   if (!error && authData.user) {
     currentUser = authData.user; syncStatus = "online"; setupRealtime();
+    markRealAccount(authData.user.id);
     deferOutboxProcessing = true;
     queueLocalAccountMigration();
     deferOutboxProcessing = false;
@@ -358,11 +427,23 @@ async function signUp(username, password) {
 async function signIn(username, password) {
   if (!sb) return { error: new Error("Supabase 未初始化") };
   const { data: authData, error } = await sb.auth.signInWithPassword({ email: usernameToEmail(username), password });
-  if (!error && authData.user) window.location.reload();
+  if (!error && authData.user) {
+    // 登录成功后：先记住正式账号，再把本地存在但云端缺失的记录迁移上云，
+    // 避免 reload 后 replaceLocalWithCloud 用云端数据覆盖掉匿名/离线期间产生的记录。
+    currentUser = authData.user; syncStatus = "online"; setupRealtime();
+    markRealAccount(authData.user.id);
+    deferOutboxProcessing = true;
+    await queueMissingLocalRecords();
+    deferOutboxProcessing = false;
+    await processOutbox();
+    window.location.reload();
+  }
   return { data: authData, error };
 }
 
 async function signOut() {
+  explicitSignOut = true;
+  try { localStorage.removeItem(LAST_ACCOUNT_KEY); } catch (_) {}
   if (sb) await sb.auth.signOut();
   if (syncChannel) { sb.removeChannel(syncChannel); syncChannel = null; }
   window.location.reload();

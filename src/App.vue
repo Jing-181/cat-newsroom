@@ -8,6 +8,7 @@ import { getData, save, bump, renderAfterWorkoutDialog } from "./lib/store.js";
 import { ensurePomodoroController } from "./lib/pomodoro.js";
 import { openAuthModal } from "./lib/auth-modal.js";
 import { updateAuthUI } from "./lib/auth-ui.js";
+import Toast from "./lib/toast.js";
 import AppDialog from "./lib/app-dialog.js";
 import DataBackup from "./lib/data-backup.js";
 import DeviceMode from "./lib/device-mode.js";
@@ -91,6 +92,12 @@ onMounted(() => {
     confirm: message => AppDialog.confirm(message, { title: "导入本地备份", danger: true, okText: "覆盖本地数据" }),
   });
   updateAuthUI();
+  // 同步层检测到正式账号会话失效时，提示并自动弹出登录框（数据已保留在本机）；
+  // 提示文案由同步层事件带过来，Toast 由 App 层用 ESM 模块调，不再走全局垫片。
+  window.addEventListener("cat-newsroom:login-required", event => {
+    Toast.show(event.detail?.message || "登录状态已失效，请重新登录", { duration: 6000 });
+    openAuthModal("login");
+  });
 });
 
 function onAvatarClick() { avatarInputRef.value?.click(); }
