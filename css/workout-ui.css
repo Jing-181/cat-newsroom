@@ -20,7 +20,7 @@ html, body { overflow-x:clip; }
   font-size:16px; line-height:1;
   cursor:pointer;
   flex:0 0 36px !important;
-  transition:border-color .15s ease, color .15s ease;
+  transition:border-color var(--dur-fast), color var(--dur-fast);
 }
 .plan-menu-icon:hover { border-color:var(--module-4); color:var(--module-4); }
 .workout-head h2 { min-width:0; margin:0; font-size:20px; font-style:normal; overflow-wrap:anywhere; }
@@ -35,22 +35,22 @@ html, body { overflow-x:clip; }
 .workout-btn.danger, .icon-action.danger { color:var(--danger); }
 .workout-btn.compact { min-height:32px; padding:0 10px; font-size:12px; }
 /* 开始训练是页面唯一主操作：整行大按钮，比日切换和历史都醒目 */
-#workout-start { width:100%; min-height:48px; border-radius:12px; font-size:15px; }
+#workout-start { width:100%; min-height:48px; border-radius:var(--radius-tile); font-size:15px; }
 .workout-days { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px; scrollbar-width:thin; }
 .workout-days button { min-height:36px; border:1px solid var(--border-input); border-radius:8px; padding:0 12px; color:var(--text-secondary); background:var(--surface-card); cursor:pointer; white-space:nowrap; }
-.workout-days button.on { border-color:var(--module-3); color:var(--text); background:color-mix(in srgb,var(--module-3) 12%,var(--surface-card)); font-weight:750; }
+.workout-days button.on { border-color:var(--module-3); color:var(--text); background:color-mix(in srgb,var(--module-3) 12%,var(--surface-card)); font-weight:700; }
 .workout-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; align-items:start; min-width:0; }
 /* 层级只保留三层：页面 → 动作卡(.session-exercise) → 组(.set-row)。
    中间容器不再叠加边框/背景/阴影，避免"每一级都是组件"的碎裂感。 */
 .workout-panel { min-width:0; padding:0; border:0; background:none; box-shadow:none; }
-.workout-panel-title { display:flex; align-items:center; gap:8px; min-height:32px; margin-bottom:8px; font-size:14px; font-weight:800; }
+.workout-panel-title { display:flex; align-items:center; gap:8px; min-height:32px; margin-bottom:8px; font-size:14px; font-weight:700; }
 .workout-panel-title > span:first-child { flex:1; }
 .quick-exercises { display:flex; gap:8px; overflow-x:auto; margin:0 0 12px; padding:2px; }
-.quick-exercises button { min-height:32px; border:1px solid var(--border-input); border-radius:999px; padding:0 10px; color:var(--text); background:var(--surface-card); cursor:pointer; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+.quick-exercises button { min-height:32px; border:1px solid var(--border-input); border-radius:var(--radius-pill); padding:0 10px; color:var(--text); background:var(--surface-card); cursor:pointer; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
 .quick-exercises button:hover { border-color:var(--module-4); color:var(--module-4); }
 .quick-exercises .more { color:var(--text-secondary); }
 .exercise-library { display:grid; gap:8px; max-height:620px; overflow:auto; transform-origin:top; }
-.exercise-option { display:flex; align-items:center; gap:8px; width:100%; min-width:0; padding:12px; border:1px solid var(--border); border-radius:12px; color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
+.exercise-option { display:flex; align-items:center; gap:8px; width:100%; min-width:0; padding:12px; border:1px solid var(--border); border-radius:var(--radius-tile); color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
 .exercise-option:hover { border-color:var(--module-4); }
 .exercise-option:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
 .exercise-option:disabled { opacity:.55; cursor:not-allowed; }
@@ -68,22 +68,35 @@ html, body { overflow-x:clip; }
 .exercise-icon.mini { width:16px; height:16px; font-size:7px; border-radius:3px; margin-right:4px; }
 .exercise-option .info { min-width:0; flex:1; }
 .exercise-option .name, .exercise-option .meta { display:block; }
-.exercise-option .name { font-size:13px; font-weight:750; overflow-wrap:anywhere; }
+.exercise-option .name { font-size:13px; font-weight:700; overflow-wrap:anywhere; }
 .exercise-option .meta { margin-top:2px; font-size:11px; color:var(--text-secondary); }
-.exercise-state { flex:0 0 auto; color:var(--module-4); font-size:12px; font-weight:750; white-space:nowrap; }
+.exercise-state { flex:0 0 auto; color:var(--module-4); font-size:12px; font-weight:700; white-space:nowrap; }
 .exercise-option.is-added .exercise-state { color:var(--text-secondary); }
 .dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); max-height:min(60vh,540px); padding:2px; }
+/* 自定义动作：动作库没收录时自己命名，已用过的从历史里回捞成 chips */
+.exercise-custom { display:grid; gap:8px; margin:0 0 10px; padding:10px 12px; border:1px dashed var(--border-input); border-radius:var(--radius-tile); background:var(--surface-nested); }
+.exercise-custom form { display:flex; gap:8px; }
+.exercise-custom input { flex:1; min-width:0; min-height:38px; border:1px solid var(--border-input); border-radius:var(--radius-control); padding:0 10px; color:var(--text); background:var(--surface-card); font:inherit; font-size:13px; }
+.exercise-custom input:focus-visible { outline:2px solid var(--module-4); outline-offset:1px; border-color:var(--module-4); }
+.exercise-custom .hint { margin:0; font-size:11px; line-height:1.5; color:var(--text-secondary); }
+.exercise-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.exercise-chip { min-height:30px; border:1px dashed var(--border-input); border-radius:var(--radius-pill); padding:0 10px; color:var(--text); background:var(--surface-card); cursor:pointer; font:inherit; font-size:12px; font-weight:700; }
+.exercise-chip:hover { border-color:var(--module-4); color:var(--module-4); }
+.exercise-chip:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
 .icon-action { width:34px; height:34px; flex:0 0 auto; border:1px solid var(--border-input); border-radius:8px; color:var(--text); background:var(--surface-card); cursor:pointer; font-size:19px; }
 .session-list { display:grid; gap:12px; min-width:0; }
-.session-empty { padding:32px 16px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border-input); border-radius:12px; }
+.session-empty { padding:32px 16px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border-input); border-radius:var(--radius-card); }
 /* 动作卡：整页唯一的"实体"层级，边框与圆角只在这一级出现 */
-.session-exercise { min-width:0; border:1px solid var(--border); border-radius:14px; background:var(--surface-card); box-shadow:var(--shadow-card); overflow:hidden; transition:border-color .18s, box-shadow .2s; }
-.session-exercise:focus-within { border-color:color-mix(in srgb,var(--module-4) 38%,var(--border)); box-shadow:var(--shadow-overlay); }
+.session-exercise { min-width:0; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); box-shadow:var(--shadow-card); overflow:hidden; transition:border-color var(--dur-fast), box-shadow var(--dur-base) var(--ease-out); }
+.session-exercise:focus-within { border-color:color-mix(in srgb,var(--module-4) 38%,var(--border)); box-shadow:var(--shadow-hover); }
 .session-exercise-head { display:flex; align-items:center; gap:8px; min-width:0; padding:11px 16px; background:linear-gradient(180deg,color-mix(in srgb,var(--surface-nested) 88%,var(--page-bg)),var(--surface-nested)); border-bottom:1px solid var(--border); }
 /* 动作名、肌群、组进度并排一行；一行放不下时整项换行，而不是把某一项压扁 */
 .session-exercise-head > div { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; flex:1; }
-.session-exercise-head strong { min-width:0; font-size:15px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere; }
+.session-exercise-head strong { min-width:0; font-size:15px; font-weight:700; letter-spacing:-.01em; overflow-wrap:anywhere; }
 .session-exercise-head span { min-width:0; color:var(--text-secondary); font-size:12px; overflow-wrap:anywhere; }
+/* 头部的移除动作和组里的删除同档："移除动作"是次要操作，不该是这一区域里边框最重的东西 */
+.session-exercise-head .icon-action { border-color:transparent; background:none; color:var(--text-tertiary); }
+.session-exercise-head .icon-action:hover { color:var(--danger); }
 /* 组不再各占一张卡片：默认无边框无底色，仅用细分隔线区隔，当前组才用浅底强调 */
 .set-list { display:grid; gap:0; padding:4px 16px 8px; }
 .set-row { display:grid; gap:8px; min-width:0; padding:8px 0; border:0; background:none; }
@@ -98,14 +111,14 @@ html, body { overflow-x:clip; }
 .set-row .icon-action { width:32px; height:32px; border:0; background:none; color:var(--text-tertiary); font-size:18px; border-radius:8px; }
 .set-row .icon-action:hover { color:var(--module-4); }
 /* 当前组：唯一的强强调，用品牌棕浅底 + 内描边，与动作卡头部的灰底区分开 */
-.set-row.is-active { margin:0 -8px; padding:12px 8px; border-top-color:transparent; border-radius:12px; background:color-mix(in srgb,var(--module-4) 8%,var(--surface-card)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--module-4) 32%,transparent); }
+.set-row.is-active { margin:0 -8px; padding:12px 8px; border-top-color:transparent; border-radius:var(--radius-tile); background:color-mix(in srgb,var(--module-4) 8%,var(--surface-card)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--module-4) 32%,transparent); }
 .set-line { display:flex; align-items:center; gap:8px; flex:1; min-width:0; border:0; padding:0; color:var(--text); background:none; cursor:pointer; font:inherit; text-align:left; }
 /* 记录文字贴左跟组序号挨着，箭头跟记录走；右侧整段留白，删除叉独立靠右 */
 .set-line b { min-width:0; flex:0 1 auto; font-size:13px; text-align:left; overflow-wrap:anywhere; }
 .set-index { flex:0 0 auto; font-size:12px; color:var(--text-secondary); font-weight:700; }
 /* 已录组右侧的轻箭头：紧跟在记录后面，表示整行可点开接着改 */
 .set-chevron { flex:0 0 auto; color:var(--text-tertiary); font-size:16px; line-height:1; }
-/* 上次表现贴左，和组序号挨着；窄屏换行而不是截断 */
+/* 上一组的参照值贴左，和组序号挨着；窄屏换行而不是截断 */
 .set-hint { flex:0 1 auto; min-width:0; text-align:left; font-size:12px; line-height:1.4; color:var(--text-tertiary); white-space:normal; overflow-wrap:anywhere; }
 .set-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .set-fields.cardio-fields { grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -124,8 +137,8 @@ html, body { overflow-x:clip; }
 .set-more-panel label span { font-size:12px; color:var(--text-secondary); }
 .set-more-panel input { width:100%; min-width:0; height:36px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 8px; color:var(--text); background:var(--surface-card); }
 .set-more-panel .note input { text-align:left; }
-/* 组进度是头部并排的第三项：小胶囊自己占位，颜色要浅过头部灰底才看得见 */
-.set-progress { flex:0 0 auto; padding:3px 9px; border-radius:999px; font-size:11px; font-style:normal; font-weight:800; letter-spacing:.02em; color:var(--text-secondary); background:var(--surface-card); border:1px solid var(--border); }
+/* 组进度是头部并排的第三项：小胶囊自己占位，用正文色保证 11px 下也读得清（它是这张卡唯一的进度读数） */
+.set-progress { flex:0 0 auto; padding:3px 9px; border-radius:var(--radius-pill); font-size:11px; font-style:normal; font-weight:700; letter-spacing:.02em; color:var(--text); background:var(--surface-card); border:1px solid var(--border); }
 .set-progress.all-done { color:var(--module-1); background:color-mix(in srgb,var(--module-1) 12%,var(--surface-card)); border-color:color-mix(in srgb,var(--module-1) 28%,transparent); }
 .stepper { display:flex; align-items:stretch; min-width:0; }
 .stepper-btn { flex:0 0 28px; border:1px solid var(--border-input); background:var(--surface-nested); color:var(--text); cursor:pointer; font-size:16px; font-weight:700; }
@@ -134,14 +147,14 @@ html, body { overflow-x:clip; }
 .stepper input { border-radius:0 !important; flex:1; min-width:0; }
 /* 底部操作栏：添加动作（次要）+ 完成训练（主按钮）并排 */
 .workout-bottom-bar { display:flex; align-items:stretch; gap:8px; padding:8px 2px calc(8px + env(safe-area-inset-bottom)); }
-.workout-bottom-bar .workout-btn { flex:0 0 auto; min-height:44px; border-radius:12px; }
+.workout-bottom-bar .workout-btn { flex:0 0 auto; min-height:44px; border-radius:var(--radius-tile); }
 .workout-bottom-bar #workout-finish { flex:1; min-width:0; }
 .workout-bottom-bar #workout-add-floating { padding:0 16px; }
 /* 动作脚部：加组是主操作、动作说明是次要链接、组间歇是纯信息，三个层级分开 */
 .session-exercise-foot { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:8px 16px; border-top:1px solid var(--border); }
 .session-exercise-foot button { border:0; padding:0; background:none; cursor:pointer; white-space:nowrap; }
 /* 加一组：这一行的主操作，用描边胶囊突出 */
-.session-exercise-foot [data-set-add] { display:inline-flex; align-items:center; min-height:26px; padding:0 12px; border:1px solid var(--module-4); border-radius:999px; color:var(--module-4); font-size:12px; font-weight:700; }
+.session-exercise-foot [data-set-add] { display:inline-flex; align-items:center; min-height:26px; padding:0 12px; border:1px solid var(--module-4); border-radius:var(--radius-pill); color:var(--module-4); font-size:12px; font-weight:700; }
 .session-exercise-foot [data-set-add]:hover { color:var(--surface-card); background:var(--module-4); }
 /* 动作说明：次级文字链接，弱化处理 */
 .session-exercise-foot [data-exercise-info] { color:var(--text-tertiary); font-size:12px; font-weight:600; text-decoration:underline; text-underline-offset:2px; }
@@ -150,25 +163,25 @@ html, body { overflow-x:clip; }
 .session-exercise-foot .rest-advice { min-width:0; font-size:12px; line-height:1.4; color:var(--text-tertiary); }
 .session-exercise-foot .rest-advice b { color:var(--text-secondary); }
 .workout-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
-.workout-stat { padding:8px 12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
+.workout-stat { padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-nested); }
 .workout-stat b { display:block; font-size:18px; }
 .workout-stat span { font-size:11px; color:var(--text-secondary); }
-.workout-completion { display:grid; gap:8px; padding:12px 16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); }
+.workout-completion { display:grid; gap:8px; padding:12px 16px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); }
 /* 结束训练区标题：让底部三个输入框有明确的上下文，不再是悬空的一排输入 */
-.workout-completion-title { margin:0; font-size:14px; font-weight:800; color:var(--text); }
+.workout-completion-title { margin:0; font-size:14px; font-weight:700; color:var(--text); }
 .workout-fields { display:grid; grid-template-columns:minmax(150px,.7fr) minmax(150px,.7fr) minmax(220px,1.6fr); gap:12px; align-items:end; }
 .workout-field { min-width:0; }
 .workout-field label { display:block; min-height:1lh; margin-bottom:4px; font-size:12px; color:var(--text-secondary); }
 .workout-field input { width:100%; height:40px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 12px; color:var(--text); background:var(--surface-card); }
 .workout-history { display:flex; flex-direction:column; gap:16px; }
 .history-group-block { min-width:0; }
-.history-month { display:flex; align-items:center; gap:8px; margin:2px 2px 12px; font-size:12px; font-weight:800; letter-spacing:.06em; color:var(--text-tertiary); }
+.history-month { display:flex; align-items:center; gap:8px; margin:2px 2px 12px; font-size:12px; font-weight:700; letter-spacing:.06em; color:var(--text-tertiary); }
 .history-month::after { content:""; flex:1; height:1px; background:var(--border); }
 .history-group { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-.history-card { display:flex; flex-direction:column; min-width:0; padding:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); box-shadow:var(--shadow-card); transition:border-color .15s, box-shadow .18s, transform .12s; }
-.history-card:hover { border-color:var(--border-input); box-shadow:var(--shadow-overlay); transform:translateY(-1px); }
+.history-card { display:flex; flex-direction:column; min-width:0; padding:16px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); box-shadow:var(--shadow-card); transition:border-color var(--dur-fast), box-shadow var(--dur-base) var(--ease-out); }
+.history-card:hover { border-color:var(--border-input); box-shadow:var(--shadow-hover); }
 .history-card-copy { min-width:0; flex:1; }
-.history-card h4 { margin:0 0 8px; font-size:15px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere; }
+.history-card h4 { margin:0 0 8px; font-size:15px; font-weight:700; letter-spacing:-.01em; overflow-wrap:anywhere; }
 .history-meta { display:flex; flex-wrap:wrap; gap:4px 0; font-size:12px; line-height:1.7; color:var(--text-secondary); }
 .history-meta span:not(:first-child)::before { content:"·"; margin-right:12px; color:var(--text-tertiary); }
 .history-actions { display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border); }
@@ -180,11 +193,11 @@ html, body { overflow-x:clip; }
 .dialog-head h3 { margin:4px 0 0; font-size:20px; font-style:normal; overflow-wrap:anywhere; }
 .dialog-kicker { color:var(--text-secondary); font-size:11px; }
 .record-facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:0 0 16px; }
-.record-facts div { padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
+.record-facts div { padding:12px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-nested); }
 .record-facts dt { color:var(--text-secondary); font-size:11px; }
-.record-facts dd { margin:4px 0 0; font-size:13px; font-weight:750; }
+.record-facts dd { margin:4px 0 0; font-size:13px; font-weight:700; }
 .record-exercises { display:grid; gap:12px; }
-.record-exercises section { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.record-exercises section { border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; }
 .record-exercises h4 { margin:0; padding:12px 16px; background:var(--surface-nested); display:flex; align-items:center; }
 .record-set { display:grid; grid-template-columns:70px minmax(0,1fr) auto; gap:8px; padding:12px 16px; border-top:1px solid var(--border); font-size:13px; }
 .record-set em { color:var(--text-secondary); font-style:normal; }
@@ -208,7 +221,7 @@ html, body { overflow-x:clip; }
 .mobile-shell .set-fields input { height:40px; font-size:16px; }
 .mobile-shell .stepper-btn { flex-basis:32px; font-size:18px; }
 .mobile-shell .history-group { grid-template-columns:minmax(0,1fr); }
-.mobile-shell .workout-summary { display:flex; gap:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface-nested); }
+.mobile-shell .workout-summary { display:flex; gap:0; border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; background:var(--surface-nested); }
 .mobile-shell .workout-stat { flex:1; min-width:0; padding:8px 4px; border:0; border-right:1px solid var(--border); border-radius:0; text-align:center; }
 .mobile-shell .workout-stat:last-child { border-right:0; }
 .mobile-shell .workout-stat b { font-size:15px; }
@@ -254,7 +267,7 @@ html, body { overflow-x:clip; }
   .workout-layout { grid-template-columns:minmax(0,1fr); }
   .dialog-library { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .history-group { grid-template-columns:minmax(0,1fr); }
-  .workout-summary { display:flex; gap:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface-nested); }
+  .workout-summary { display:flex; gap:0; border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; background:var(--surface-nested); }
   .workout-stat { flex:1; min-width:0; border:0; border-right:1px solid var(--border); border-radius:0; text-align:center; }
   .workout-stat:last-child { border-right:0; }
   .workout-stat b { font-size:15px; }
@@ -278,7 +291,7 @@ html, body { overflow-x:clip; }
   .workout-fields, .legacy-fields { grid-template-columns:minmax(0,1fr); }
   .workout-fields .note, .legacy-fields .note { grid-column:auto; }
   .workout-bottom-bar { gap:8px; }
-  .workout-bottom-bar .workout-btn { min-height:44px; border-radius:12px; }
+  .workout-bottom-bar .workout-btn { min-height:44px; border-radius:var(--radius-tile); }
 }
 
 @media (prefers-reduced-motion:reduce) {
@@ -291,29 +304,30 @@ html, body { overflow-x:clip; }
 
 /* 训练计划日卡视图 */
 .plan-day-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; max-height:min(62vh,560px); overflow-y:auto; padding:2px; }
-.plan-day-card { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-input); border-radius:var(--radius-card); background:var(--surface-card); cursor:pointer; transition:border-color .15s ease, transform .15s ease; }
-.plan-day-card:hover { border-color:var(--module-4); transform:translateY(-1px); }
+.plan-day-card { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-input); border-radius:var(--radius-card); background:var(--surface-card); cursor:pointer; transition:border-color var(--dur-fast); }
+.plan-day-card:hover { border-color:var(--module-4); }
 .plan-day-card.is-done { border-color:color-mix(in srgb,var(--module-3) 55%,var(--border-input)); background:color-mix(in srgb,var(--module-3) 6%,var(--surface-card)); }
 .plan-day-card header { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
 .plan-day-card h4 { margin:0; font-size:15px; }
 .plan-day-card header span { color:var(--text-secondary); font-size:12px; }
-.plan-day-card header em { margin-left:auto; color:var(--module-3); font-style:normal; font-size:12px; font-weight:750; white-space:nowrap; }
+.plan-day-card header em { margin-left:auto; color:var(--module-3); font-style:normal; font-size:12px; font-weight:700; white-space:nowrap; }
 .plan-day-card ul { margin:0; padding:0 0 0 18px; display:grid; gap:4px; }
 .plan-day-card li { font-size:12.5px; line-height:1.5; color:var(--text-secondary); }
 .plan-day-card.is-done li { color:var(--text-secondary); }
 
 /* ---- 上次表现：日期 + 每组明细 ---- */
-/* 三段数据挨着排、之间留 8px 呼吸距离；底部只留 4px，和下面组列表的 4px 顶距拼成 8px，不再比头部宽 */
-.exercise-last { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:0; padding:0 16px 4px; font-size:12px; line-height:1.5; }
+/* 这里只说"上次哪天、练了几组"，每一组的重量次数在对应的组行上，同一份数据只说一遍。
+   顶部留 6px 别贴着头部分隔线；底下只留 4px，和下面组列表的 4px 顶距拼成 8px。 */
+.exercise-last { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:0; padding:6px 16px 4px; font-size:12px; line-height:1.5; }
 .exercise-last.is-first { color:var(--text-tertiary); }
 .exercise-last-date { flex:0 0 auto; color:var(--text-secondary); }
-.exercise-last b { min-width:0; font-size:12px; font-weight:700; color:var(--text); overflow-wrap:anywhere; }
-.exercise-last-count { flex:0 0 auto; color:var(--text-tertiary); font-size:11px; }
+/* 组数跟日期同一档：这行只有两个事实，再弱下去"上次练了几组"就读不出来了 */
+.exercise-last-count { flex:0 0 auto; color:var(--text-secondary); font-size:12px; }
 
 /* ---- 动作进展：默认收起的折叠块（训练页与历史页共用）---- */
 /* 用原生 <details> 折叠，不占训练主流程的视觉重量；点开才看长期轨迹。 */
-.workout-fold { margin-bottom:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); overflow:hidden; }
-.workout-fold > summary { display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; font-size:14px; font-weight:800; list-style:none; }
+.workout-fold { margin-bottom:12px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); overflow:hidden; }
+.workout-fold > summary { display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; font-size:14px; font-weight:700; list-style:none; }
 .workout-fold > summary::-webkit-details-marker { display:none; }
 .workout-fold > summary::after { content:"▾"; flex:0 0 auto; color:var(--text-tertiary); font-size:12px; }
 .workout-fold[open] > summary::after { content:"▴"; }
@@ -323,25 +337,25 @@ html, body { overflow-x:clip; }
 .exercise-trends { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; }
 /* 弹窗里单列铺开，动作多时纵向滚动更顺手 */
 .exercise-trends.in-dialog { grid-template-columns:minmax(0,1fr); }
-.trend-chip { display:flex; flex-direction:column; gap:8px; min-width:0; padding:12px; border:1px solid var(--border); border-radius:12px; color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
+.trend-chip { display:flex; flex-direction:column; gap:8px; min-width:0; padding:12px; border:1px solid var(--border); border-radius:var(--radius-tile); color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
 .trend-chip:hover { border-color:var(--module-4); }
 .trend-chip:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
-.trend-name { font-size:12.5px; font-weight:750; }
+.trend-name { font-size:12.5px; font-weight:700; }
 .trend-flow { display:flex; flex-wrap:wrap; align-items:center; gap:4px 2px; min-width:0; font-size:11px; color:var(--text); }
-.trend-flow b { font-weight:750; white-space:nowrap; }
+.trend-flow b { font-weight:700; white-space:nowrap; }
 .trend-flow i { font-style:normal; color:var(--text-tertiary); }
 .trend-meta { font-size:11px; color:var(--text-tertiary); }
-.trend-hero { display:flex; flex-wrap:wrap; gap:6px 4px; padding:12px; margin-bottom:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
+.trend-hero { display:flex; flex-wrap:wrap; gap:6px 4px; padding:12px; margin-bottom:16px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-nested); }
 .trend-hero .trend-flow { font-size:13px; gap:6px 4px; }
 .trend-list { display:grid; gap:8px; }
-.trend-item { display:grid; gap:8px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface-card); }
+.trend-item { display:grid; gap:8px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--surface-card); }
 .trend-item header { display:flex; align-items:baseline; gap:8px; }
 .trend-item header span { flex:0 0 auto; font-size:11px; color:var(--text-secondary); font-weight:700; }
 .trend-item header b { min-width:0; flex:1; font-size:12.5px; overflow-wrap:anywhere; }
 .trend-meta-row { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12px; color:var(--text-tertiary); }
 
 /* ---- 详情弹窗：动作进展入口与副标题 ---- */
-.record-trend-link { margin-left:auto; border:1px solid var(--border-input); border-radius:999px; padding:4px 12px; color:var(--module-4); background:var(--surface-card); cursor:pointer; font-size:11px; font-weight:750; }
+.record-trend-link { margin-left:auto; border:1px solid var(--border-input); border-radius:var(--radius-pill); padding:4px 12px; color:var(--module-4); background:var(--surface-card); cursor:pointer; font-size:11px; font-weight:700; }
 .record-trend-link:hover { border-color:var(--module-4); }
 .dialog-sub { margin:-8px 0 16px; font-size:12px; color:var(--text-secondary); }
 

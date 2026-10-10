@@ -8,8 +8,7 @@
 .m-topbar, .m-tabs, .m-scrim { display: none; }
 
 @media (max-width: 820px) {
-  /* 覆盖 desktop.css 的 min-width:1000px，禁止横向滚动。
-     用 overflow-x:clip 而非 hidden：既裁掉横向溢出，又不会把祖先变成滚动容器，
+  /* 禁止窄屏横向滚动。用 overflow-x:clip 而非 hidden：既裁掉横向溢出，又不会把祖先变成滚动容器，
      从而保证 .m-topbar 的 position:sticky 悬浮生效，也避免 iOS 页面被整体缩放。 */
   html, body { min-width: 0; overflow-x: clip; -webkit-tap-highlight-color: transparent; }
   .layout { overflow-x: clip; }
@@ -20,11 +19,11 @@
   /* 顶栏 */
   .m-topbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 40;
     padding: 10px 14px; background: linear-gradient(180deg, var(--drawer-bg-top), var(--drawer-bg)); color: var(--drawer-text); }
-  .m-topbar .m-menu-btn { flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid var(--drawer-active); border-radius: 11px;
+  .m-topbar .m-menu-btn { flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid var(--drawer-active); border-radius: var(--radius-tile);
     background: transparent; color: var(--drawer-text); display: grid; place-items: center; cursor: pointer; }
   .m-topbar .m-brand { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
-  .m-topbar .m-brand img { width: 34px; height: 34px; border-radius: 10px; object-fit: cover; flex: 0 0 auto; }
-  .m-topbar .m-brand h1 { font-size: 15px; font-weight: 800; letter-spacing: .02em; }
+  .m-topbar .m-brand img { width: 34px; height: 34px; border-radius: var(--radius-control); object-fit: cover; flex: 0 0 auto; }
+  .m-topbar .m-brand h1 { font-size: 15px; font-weight: 700; letter-spacing: .02em; }
   .m-topbar .m-brand p { font-size: 10.5px; opacity: .5; margin-top: 1px; }
   .m-topbar .sync-indicator { font-size: 10.5px; padding: 4px 10px; color: var(--drawer-text); border-color: var(--drawer-active); background: var(--drawer-hover); }
   .m-topbar .sync-indicator::before { width: 6px; height: 6px; }
@@ -101,11 +100,11 @@
   .tk-row { padding: 7px 0; }
 
   /* 记录卡片移动端：操作按钮悬浮右上角（轻量、始终可见），不再独占卡片底部一行，卡片更精致 */
-  .rec { padding: 12px 14px; border-radius: 14px; }
+  .rec { padding: 12px 14px; border-radius: var(--radius-tile); }
   .rec-grid { gap: 10px; }
   .rec .acts { position: absolute; top: 10px; right: 10px; transform: none; order: 0; margin: 0; padding: 0;
     border: 0; background: transparent; opacity: .55; justify-content: flex-start; gap: 0; }
-  .rec .acts button { width: 30px; height: 30px; border-radius: 9px; }
+  .rec .acts button { width: 30px; height: 30px; border-radius: var(--radius-control); }
   .rec .acts button:active { background: var(--surface-nested); color: var(--text); opacity: 1; }
   .rec .top { flex-wrap: wrap; order: 0; }
   .rec-layout-default .top { padding-right: 96px; }
@@ -142,7 +141,7 @@
   .modal { width: 100%; max-width: 92vw; }
   /* 编辑弹窗移动端：底部 sheet 化，操作栏吸底始终可见，保存按钮不滚动也能点到 */
   .overlay.editor-overlay { align-items: flex-end; }
-  .editor-modal { width: 100%; max-width: 100%; border-radius: 18px 18px 0 0; max-height: 88dvh; }
+  .editor-modal { width: 100%; max-width: 100%; border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; max-height: 88dvh; }
   .editor-modal .modal-head { padding: 20px 18px 0; }
   .editor-modal .modal-body { padding: 14px 18px 4px; }
   .editor-modal .modal-actions { padding: 12px 18px calc(16px + env(safe-area-inset-bottom)); }
@@ -156,4 +155,14 @@
 /* 移动端：卡片大图留出更高空间，竖图完整显示 */
 @media (max-width: 820px) {
   .rec.rec-layout-feature .thumb { height: 300px; }
+}
+
+/* 821–1099px：已进桌面外壳但宽度不够，多列网格降级，
+   避免 821–999px 区间被 body 的 min-width 顶出横向滚动条 */
+@media (min-width: 821px) and (max-width: 1099px) {
+  .g-4, .mod-summary, .modcard-grid, .pin-list-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g-main { grid-template-columns: minmax(0, 1fr); }
+  .mod-layout { grid-template-columns: minmax(0, 1fr) 260px; }
+  .ov2-body { grid-template-columns: minmax(0, 1fr); }
+  .header h2 { font-size: 24px; }
 }

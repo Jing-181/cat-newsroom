@@ -24,6 +24,19 @@ const isoNow = () => new Date().toISOString();
 const operationId = () => `op-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const getLocalData = () => typeof data === "undefined" ? null : data;
 
+// 演示数据守卫（实现在 src/lib/demo-data.js）：没被动过的样板记录不上云。
+// 经典脚本没有模块系统，走 window.DemoData 桥；桥不在时退回到只看 __seed 标识。
+function isDemoRecord(moduleKey, record) {
+  const api = typeof window !== "undefined" ? window.DemoData : null;
+  if (api && typeof api.isDemoRecord === "function") return api.isDemoRecord(moduleKey, record);
+  return !!(record && typeof record === "object" && record.__seed === true);
+}
+
+function stripSeedFlag(record) {
+  const api = typeof window !== "undefined" ? window.DemoData : null;
+  return api && typeof api.stripSeedFlag === "function" ? api.stripSeedFlag(record) : record;
+}
+
 function localDateKey(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -169,6 +182,36 @@ async function runFullSync(options = {}) {
   }
 }
 
+// 一次性清理：把已经混进账号的演示数据（内容与样板模板完全一致的行）删掉。
+// 默认只看不删；确认后传 { commit: true } 才真删。用户编辑过的记录不会命中。
+async function purgeDemoRecords(options = {}) {
+  const commit = options.commit === true;
+  if (!sb || !currentUser) throw new Error("云端未连接");
+  if (currentUser.is_anonymous) throw new Error("请先登录正式账号再清理");
+  const cloudData = await fetchAllCloudData();
+  const targets = [];
+  CONFIG.modules.forEach(module => {
+    (cloudData?.[module.key] || []).forEach(record => {
+      if (!isDemoRecord(module.key, record)) return;
+      targets.push({ moduleKey: module.key, id: String(record.id), title: record.title || record.name || String(record.id) });
+    });
+  });
+  if (!commit) return { commit: false, found: targets.length, targets };
+  for (const target of targets) {
+    const { error } = await sb.from("workbench_records").delete().eq("user_id", currentUser.id).eq("id", target.id);
+    if (error) throw error;
+  }
+  const local = getLocalData();
+  if (local) {
+    targets.forEach(({ moduleKey, id }) => {
+      local[moduleKey] = (local[moduleKey] || []).filter(item => String(item.id) !== id);
+    });
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
+  }
+  if (onRemoteUpdate) onRemoteUpdate({ table: "workbench_records", eventType: "DELETE" });
+  return { commit: true, removed: targets.length, targets };
+}
+
 async function executeOperation(operation) {
   if (operation.type === "record") {
     const record = operation.record;
@@ -191,12 +234,27 @@ async function executeOperation(operation) {
   }
 }
 
+// 从 outbox 里剔掉演示数据的上传操作（修复前排队的老样板数据没有 __seed 标识，靠内容比对识别）
+function dropDemoOperations(outbox) {
+  return (outbox || []).filter(operation => {
+    const demo = operation.type === "record" && isDemoRecord(operation.moduleKey, operation.record);
+    if (demo) console.info("[sync] 跳过演示数据操作:", operation.moduleKey, operation.record?.id);
+    return !demo;
+  });
+}
+
 async function processOutbox() {
   if (!sb || !currentUser || syncStatus !== "online" || processingOutbox) return false;
   processingOutbox = true;
   try {
     let outbox = readOutbox();
     while (outbox.length) {
+      const cleaned = dropDemoOperations(outbox);
+      if (cleaned.length !== outbox.length) {
+        outbox = cleaned;
+        writeOutbox(outbox);
+        if (!outbox.length) break;
+      }
       const current = outbox[0];
       await executeOperation(current);
       outbox = readOutbox().filter(item => item.operationId !== current.operationId);
@@ -220,8 +278,10 @@ function syncRecord(input, recordId) {
     ? (getLocalData()?.[moduleKey] || []).find(item => String(item.id) === String(recordId))
     : input.record;
   if (!record) return null;
+  // 样板记录不上云（用户改过 / 新加的记录内容与样板不同，照常同步）
+  if (isDemoRecord(moduleKey, record)) return null;
   record.updated_at = isoNow();
-  return queueOperation({ type: "record", moduleKey, record: structuredClone(record) });
+  return queueOperation({ type: "record", moduleKey, record: stripSeedFlag(structuredClone(record)) });
 }
 
 function syncDelete(input, recordId) {
@@ -271,7 +331,11 @@ function usernameToEmail(username) { return `${String(username || "").trim()}@ca
 function queueLocalAccountMigration() {
   const local = getLocalData();
   if (!local || typeof CONFIG === "undefined") return;
-  CONFIG.modules.forEach(module => (local[module.key] || []).forEach(record => syncRecord({ moduleKey: module.key, record })));
+  // 只把用户自己新增/改过的记录迁到新账号，样板数据留在本地
+  CONFIG.modules.forEach(module => (local[module.key] || []).forEach(record => {
+    if (isDemoRecord(module.key, record)) return;
+    syncRecord({ moduleKey: module.key, record });
+  }));
   ["__avatar", "__pomo", "__trend"].forEach(field => {
     if (Object.prototype.hasOwnProperty.call(local, field)) syncMetaField({ field, value: local[field] });
   });

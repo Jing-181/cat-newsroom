@@ -1,5 +1,6 @@
 // AI 本周生活报：状态机（生成/轮询/错误）、往期历史查看、历史周补生成、卡片渲染与导出（与主站逻辑一致）
 import { esc } from "./icons.js";
+import AppDialog from "./app-dialog.js";
 import { currentWeekStart, todayKey, buildWeekSeries, buildWeekOptions, buildWeekOverview, weekOptionsHTML, weekOptionLabel, buildSnapshotStatText } from "./weekly-report-utils.js";
 
 let weeklyReport = null, weeklyReportMeta = null, weeklyReportLoading = false, weeklyReportWaiting = false,
@@ -106,7 +107,7 @@ async function confirmGenerateWeek(option) {
   const message = option.state === "error"
     ? `该周生活报之前生成失败${reason}。点击确定重新生成。`
     : `该周尚未生成生活报，点击确定开始生成（数据不足的日期会写成轻量鼓励）。`;
-  const ok = await window.AppDialog?.confirm(message, { title: `补生成 ${option.weekStart} 周生活报`, okText: "开始生成" });
+  const ok = await AppDialog.confirm(message, { title: `补生成 ${option.weekStart} 周生活报`, okText: "开始生成" });
   if (ok) maybeGenerateWeeklyReport(true, option.weekStart);
 }
 
@@ -226,7 +227,7 @@ export async function maybeGenerateWeeklyReport(force = false, targetWeek = null
     }
   } catch (e) {
     if (requestSeq === weeklyReportRequestSeq) { weeklyReportWaiting = false; weeklyReportError = e.message || "AI 生活报生成失败"; }
-    if (force) await window.AppDialog?.alert(weeklyReportError, { title: "周报生成失败" });
+    if (force) await AppDialog.alert(weeklyReportError, { title: "周报生成失败" });
   } finally {
     if (requestSeq === weeklyReportRequestSeq) { weeklyReportLoading = false; refreshWeeklyReportSlot(); }
   }

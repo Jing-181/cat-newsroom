@@ -11,6 +11,8 @@ import { weeklyReportSlotHTML, initWeeklyReport } from "../../lib/weekly-report.
 import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
 import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, groupOf } from "../../lib/home-layout.js";
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
+import Workout from "../../lib/workout.js";
+import WorkoutPlan from "../../lib/workout-plan.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
@@ -167,16 +169,16 @@ function booksTileHTML() {
 function goalsTileHTML() {
   const wk = weekDates(); const inWeek = new Set(wk);
   const colors = ["var(--module-3)", "var(--module-1)", "var(--module-2)", "var(--module-4)", "var(--module-5)"];
-  const sessions = (data().sport || []).filter(x => typeof Workout !== "undefined" && Workout.isSession(x) && x.status === "completed" && inWeek.has(x.date));
+  const sessions = (data().sport || []).filter(x => Workout.isSession(x) && x.status === "completed" && inWeek.has(x.date));
   sessions.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const setCount = sessions.reduce((s, x) => s + (Workout.summary(x).setCount || 0), 0);
   const volume = Math.round(sessions.reduce((s, x) => s + (Workout.summary(x).volume || 0), 0));
   // 训练计划进度：生成过计划且有完成记录才显示进度条
   let planRow = "";
   try {
-    const plan = window.WorkoutPlan?.load?.();
-    const progress = window.WorkoutPlan?.loadProgress?.();
-    if (plan && progress && window.WorkoutPlan?.isProgressValid?.(progress, plan.generated_at) && plan.days.length) {
+    const plan = WorkoutPlan.load();
+    const progress = WorkoutPlan.loadProgress();
+    if (plan && progress && WorkoutPlan.isProgressValid(progress, plan.generated_at) && plan.days.length) {
       const done = Object.keys(progress.days || {}).length;
       const pct = Math.min(100, Math.round(done / plan.days.length * 100));
       planRow = `<div class="goals-plan"><span>训练计划</span><div class="bbar"><i style="width:${pct}%"></i></div><b>${done}/${plan.days.length} 天</b></div>`;

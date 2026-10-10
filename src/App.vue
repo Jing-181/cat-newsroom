@@ -8,6 +8,9 @@ import { getData, save, bump, renderAfterWorkoutDialog } from "./lib/store.js";
 import { ensurePomodoroController } from "./lib/pomodoro.js";
 import { openAuthModal } from "./lib/auth-modal.js";
 import { updateAuthUI } from "./lib/auth-ui.js";
+import AppDialog from "./lib/app-dialog.js";
+import DataBackup from "./lib/data-backup.js";
+import DeviceMode from "./lib/device-mode.js";
 import HomeView from "./modules/home/HomeView.vue";
 import InsightView from "./modules/insight/InsightView.vue";
 import TodoView from "./modules/todo/TodoView.vue";
@@ -25,7 +28,7 @@ const VIEWS = {
   settings: SettingsView,
 };
 
-const saved = typeof window.DeviceMode?.restoreView === "function" ? window.DeviceMode.restoreView() : "home";
+const saved = DeviceMode.restoreView();
 const view = ref(VIEWS[saved] ? saved : "home");
 const current = computed(() => VIEWS[view.value] || HomeView);
 
@@ -33,25 +36,41 @@ function go(key) {
   if (!VIEWS[key]) return;
   view.value = key;
   drawerOpen.value = false; // 移动端选完模块后收起抽屉
-  window.DeviceMode?.saveView?.(key);
+  DeviceMode.saveView(key);
   window.scrollTo({ top: 0 });
 }
 
 function onNavigate(key) { go(key); }
 
 const avatarInputRef = ref(null);
+const backupExportRef = ref(null);
+const backupImportRef = ref(null);
+const backupInputRef = ref(null);
 const drawerOpen = ref(false);
+const avatarSrc = ref("/assets/avatar.jpg");
 const todayText = dateStr();
 
 function toggleDrawer(open) { drawerOpen.value = open ?? !drawerOpen.value; }
 
-function applyAvatar(src) {
-  document.querySelectorAll(".js-avatar").forEach(img => { img.src = src; });
-}
+function applyAvatar(src) { avatarSrc.value = src; }
 
 async function syncNow() {
   await window.runFullSync?.({ reason: "manual" });
   renderAfterWorkoutDialog();
+}
+
+// 同步指示器的文字与颜色由同步层写（它是那两个 <span> 的宿主），这里只接点击
+async function onSyncIndicatorClick() {
+  const s = window.getSyncStatus?.();
+  if (s === "online") {
+    const user = window.getCurrentUser?.();
+    if (user && user.is_anonymous) openAuthModal("login");
+    else if (user && user.email) {
+      if (await AppDialog.confirm("确定登出？", { title: "退出当前账号", danger: true, okText: "退出登录" })) window.signOut?.().then(() => updateAuthUI());
+    }
+  } else if (s === "offline" || s === "error") {
+    window.initSupabase?.().then(ok => { if (ok) syncNow(); });
+  }
 }
 
 onMounted(() => {
@@ -60,32 +79,17 @@ onMounted(() => {
   // 头像：读本地已存头像
   const avatar = getData().__avatar;
   if (avatar) applyAvatar(avatar);
-  // 同步指示器点击（桌面侧栏与移动顶栏两处）：在线→登出/登录，离线→重连
-  document.querySelectorAll("#sync-indicator").forEach(el => el.onclick = async () => {
-    const s = window.getSyncStatus?.();
-    if (s === "online") {
-      const user = window.getCurrentUser?.();
-      if (user && user.is_anonymous) openAuthModal("login");
-      else if (user && user.email) {
-        if (await window.AppDialog.confirm("确定登出？", { title: "退出当前账号", danger: true, okText: "退出登录" })) window.signOut?.().then(() => updateAuthUI());
-      }
-    } else if (s === "offline" || s === "error") {
-      window.initSupabase?.().then(ok => { if (ok) syncNow(); });
-    }
-  });
-  document.getElementById("sync-now").onclick = () => syncNow();
-  // 备份导入导出
-  window.DataBackup?.mount({
-    exportButton: document.getElementById("backup-export"),
-    importButton: document.getElementById("backup-import"),
-    input: document.getElementById("backup-input"),
+  // 备份导入导出（三个按钮都是模板里的 ref，不再按 id 去 DOM 里找）
+  DataBackup.mount({
+    exportButton: backupExportRef.value,
+    importButton: backupImportRef.value,
+    input: backupInputRef.value,
     getData: () => getData(),
     setData: next => { window.data = next; save(); bump(); updateAuthUI(); },
     storageKey: CONFIG.storageKey,
     moduleKeys: CONFIG.modules.map(module => module.key),
-    confirm: message => window.AppDialog.confirm(message, { title: "导入本地备份", danger: true, okText: "覆盖本地数据" }),
+    confirm: message => AppDialog.confirm(message, { title: "导入本地备份", danger: true, okText: "覆盖本地数据" }),
   });
-  // 设备模式切换已废弃：统一响应式样式切换，不再跳转 HTML
   updateAuthUI();
 });
 
@@ -111,13 +115,13 @@ function onAvatarChange(e) {
     <!-- 移动顶栏（≤820px 显示） -->
     <header class="m-topbar">
       <button class="m-menu-btn" type="button" aria-label="打开菜单" @click="toggleDrawer(true)"><span v-html="icon('menu', 20)"></span></button>
-      <div class="m-brand"><img class="js-avatar" src="/assets/avatar.jpg" alt="头像"/><div class="m-brand-tx"><h1>{{ CONFIG.owner }}</h1><p>{{ todayText }}</p></div></div>
-      <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
+      <div class="m-brand"><img class="js-avatar" :src="avatarSrc" alt="头像"/><div class="m-brand-tx"><h1>{{ CONFIG.owner }}</h1><p>{{ todayText }}</p></div></div>
+      <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
     </header>
     <!-- sidebar（PC 常驻；窄屏收起为抽屉） -->
     <aside class="sidebar" :class="{ 'm-open': drawerOpen }">
       <div class="brand">
-        <div class="ava" title="点击更换头像" @click="onAvatarClick"><img class="js-avatar" src="/assets/avatar.jpg" alt="头像"/><span class="cam" v-html="icon('camera', 18)"></span></div>
+        <div class="ava" title="点击更换头像" @click="onAvatarClick"><img class="js-avatar" :src="avatarSrc" alt="头像"/><span class="cam" v-html="icon('camera', 18)"></span></div>
         <input type="file" accept="image/*" hidden ref="avatarInputRef" @change="onAvatarChange"/>
         <div><h1 id="brandName">{{ CONFIG.owner }}</h1><p id="brandSlogan">{{ CONFIG.slogan }}</p></div>
       </div>
@@ -131,11 +135,11 @@ function onAvatarChange(e) {
         <a class="navi" :class="{ active: view === 'settings' }" @click="go('settings')"><span v-html="icon('settings', 19)"></span>个人配置</a>
       </nav>
       <div class="sync-area" id="syncArea">
-        <span class="sync-indicator sync-off" id="sync-indicator">本地模式</span>
+        <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
         <span class="sync-user-email" id="syncEmail"></span>
-        <button class="sync-now" id="sync-now" type="button">立即同步</button>
-        <div class="backup-actions"><button class="sync-now" id="backup-export" type="button">导出备份</button><button class="sync-now" id="backup-import" type="button">导入备份</button></div>
-        <input id="backup-input" type="file" accept="application/json,.json" hidden>
+        <button class="sync-now" id="sync-now" type="button" @click="syncNow">立即同步</button>
+        <div class="backup-actions"><button class="sync-now" id="backup-export" ref="backupExportRef" type="button">导出备份</button><button class="sync-now" id="backup-import" ref="backupImportRef" type="button">导入备份</button></div>
+        <input id="backup-input" ref="backupInputRef" type="file" accept="application/json,.json" hidden>
       </div>
       <div class="foot" id="foot">猫咪编辑部 · 云端同步版</div>
     </aside>

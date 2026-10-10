@@ -6,6 +6,8 @@ import { modOf } from "../lib/config.js";
 import { icon } from "../lib/icons.js";
 import { today, dateStr, streak } from "../lib/utils.js";
 import { getData, persist, subscribe } from "../lib/store.js";
+import RecordList from "../lib/record-list.js";
+import RecordMedia from "../lib/record-media.js";
 import { recHTML, sideStats, headHero, recordPagerHTML } from "../lib/record-view.js";
 import { openEditor, confirmDelete } from "../lib/editor.js";
 
@@ -31,7 +33,7 @@ function recordListBody(m, it, q) {
     const body = rows + doneBlock;
     return body || `<div class="empty"><span class="e">${icon(m.icon, 28)}</span><div>还没有待办，记一件不用马上做的事吧</div></div>`;
   }
-  const page = window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
+  const page = RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE);
   recordPage = page.page;
   return page.items.length ? page.items.map(x => recHTML(m, x)).join("")
     : `<div class="empty"><span class="e">${icon(m.icon, 28)}</span><div>${q ? "没有匹配的记录" : "还没有记录，点右上角「新建」添加第一条吧"}</div></div>`;
@@ -40,13 +42,13 @@ function recordListBody(m, it, q) {
 // 仅刷新受搜索影响的记录列表与计数，不重建搜索框（避免打断中文输入法）
 function renderResults() {
   const m = mod();
-  const all = window.RecordList.sortNewest(getData()[props.moduleKey] || []);
+  const all = RecordList.sortNewest(getData()[props.moduleKey] || []);
   const q = searchQ.trim().toLowerCase();
   const it = q ? all.filter(x => (x.title || "").toLowerCase().includes(q) || (x.note || x.content || "").toLowerCase().includes(q)) : all;
   const grid = root.value.querySelector(".rec-grid"); if (grid) grid.innerHTML = recordListBody(m, it, q);
   const cnt = root.value.querySelector("#rec-count"); if (cnt) cnt.textContent = `${it.length} 条`;
   const pager = root.value.querySelector("#record-pager");
-  if (pager) pager.outerHTML = m.type === "todo" && !q ? "" : recordPagerHTML(window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE));
+  if (pager) pager.outerHTML = m.type === "todo" && !q ? "" : recordPagerHTML(RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE));
   wireModule();
 }
 
@@ -82,7 +84,7 @@ function wireModule() {
   // 点击卡片图片弹出完整原图，不触发展开编辑
   scope.querySelectorAll(".rec .thumb").forEach(img => img.onclick = e => {
     e.stopPropagation();
-    window.RecordMedia?.openImageViewer?.(img.getAttribute("src") || img.src);
+    RecordMedia.openImageViewer(img.getAttribute("src") || img.src);
   });
   scope.querySelectorAll(".js-del").forEach(el => el.onclick = e => { e.stopPropagation(); confirmDelete(props.moduleKey, el.dataset.id); });
   scope.querySelectorAll(".js-pin").forEach(el => el.onclick = e => {
@@ -90,9 +92,9 @@ function wireModule() {
     const x = (getData()[props.moduleKey]).find(i => i.id == el.dataset.id);
     x.pinned = !x.pinned; persist(props.moduleKey, x);
   });
-  window.RecordList.wireDrag(scope.querySelector(".rec-grid") || scope, (movingId, targetId, after) => {
+  RecordList.wireDrag(scope.querySelector(".rec-grid") || scope, (movingId, targetId, after) => {
     const data = getData();
-    data[props.moduleKey] = window.RecordList.reorder(data[props.moduleKey] || [], movingId, targetId, after);
+    data[props.moduleKey] = RecordList.reorder(data[props.moduleKey] || [], movingId, targetId, after);
     window.store.save();
     data[props.moduleKey].forEach(record => window.syncRecord?.({ moduleKey: props.moduleKey, record }));
     render();
@@ -106,7 +108,7 @@ function wireModule() {
 
 function render() {
   const m = mod();
-  const all = window.RecordList.sortNewest(getData()[props.moduleKey] || []);
+  const all = RecordList.sortNewest(getData()[props.moduleKey] || []);
   let it = all;
   const t = today();
   const q = searchQ.trim().toLowerCase();
@@ -145,7 +147,7 @@ function render() {
     <div class="mod-layout">
       <div class="mod-main">
         <div class="sec-title">全部记录 <span id="rec-count" style="margin-left:auto;font-weight:500;color:var(--text-secondary);font-size:12px">${it.length} 条</span></div>
-        <div class="rec-grid">${body}</div>${m.type === "todo" && !q ? "" : recordPagerHTML(window.RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE))}
+        <div class="rec-grid">${body}</div>${m.type === "todo" && !q ? "" : recordPagerHTML(RecordList.paginate(it, recordPage, RECORD_PAGE_SIZE))}
       </div>
       <aside class="mod-side">${sideStats(m, all)}</aside>
     </div>`;

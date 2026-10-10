@@ -1,0 +1,4 @@
+{
+  "//": "把 tests/ 划成 ES 模块作用域：测试一律用 import 加载被测模块。ESM 的 default 导入对 CJS（UMD 包装的经典脚本）与 ESM 两种目标都成立，所以被测文件迁到 ESM 之后测试不用改加载方式。",
+  "type": "module"
+}

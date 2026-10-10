@@ -1,5 +1,8 @@
-// 预构建：把根目录的全局脚本与旧版静态站（桌面/移动页 + assets/css/js）拷贝进 src/public，
-// 由 Vite 原样输出到 dist，保证设备切换器与旧书签地址不失效
+// 预构建：只把运行期真的会按 URL 取的东西放进 src/public。
+// 应用自己的 js/ 与 css/ 由 Vite 直接从源码树取（main.js 副作用 import、styles.css @import），
+// 不再整目录拷副本 —— 之前副本与源文件并行存在，出现过"改了根文件、页面读的却是旧副本"。
+// 留在 public 的只有三类：src/index.html 以普通 script 加载的两个同步脚本、
+// 旧书签地址与设备切换器指向的跳转壳、App.vue 默认头像走的 /assets/。
 import { mkdirSync, copyFileSync, cpSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,11 +14,10 @@ const publicDir = resolve(root, "src/public");
 // [源, 目标（相对 public）]：文件逐字拷贝，目录递归拷贝
 const entries = [
   ["supabase-sync.js", "js/supabase-sync.js"],
+  ["js/sync-hooks.js", "js/sync-hooks.js"],
   ["workbench-desktop.html", "workbench-desktop.html"],
   ["workbench-mobile.html", "workbench-mobile.html"],
   ["assets", "assets"],
-  ["css", "css"],
-  ["js", "js"],
 ];
 
 mkdirSync(publicDir, { recursive: true });

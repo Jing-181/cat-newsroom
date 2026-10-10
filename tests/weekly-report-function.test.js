@@ -1,10 +1,12 @@
 // 周报云函数补历史周能力的关键逻辑回归检查（静态断言，Deno 函数无法在 Node 直接执行）
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const fn = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/generate-weekly-report/index.ts"), "utf8");
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const fn = fs.readFileSync(path.join(root, "supabase/functions/generate-weekly-report/index.ts"), "utf8");
 
 test("list 接口返回最早记录周并纳入生成失败与生成中状态", () => {
   assert.match(fn, /earliest_week_start/);

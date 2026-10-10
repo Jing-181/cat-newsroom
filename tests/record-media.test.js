@@ -1,6 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const RecordMedia = require("../js/record-media.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import RecordMedia from "../src/lib/record-media.js";
 
 test("默认配图会按模块和卡片样式给出稳定选择", () => {
   assert.equal(RecordMedia.defaultPresetId("checkin"), "window-cat");

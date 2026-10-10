@@ -1,12 +1,32 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.join(__dirname, "..");
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 const MODULE_KEYS = ["todo", "checkin", "read", "sport", "money", "note", "hot"];
+
+const walkSource = dir => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap(entry => {
+  const relative = `${dir}/${entry.name}`;
+  if (entry.isDirectory()) return walkSource(relative);
+  return /\.(js|vue)$/.test(entry.name) ? [relative] : [];
+});
+
+test("领域库不再给经典脚本留全局垫片，只剩约定好的几个契约", () => {
+  // 已收尾：这些模块只走 import，不再挂 window
+  const removedShims = ["Toast", "AppDialog", "DataBackup", "DeviceMode", "RecordList", "RecordMedia", "WorkbenchCore"];
+  const shimPattern = new RegExp(`window\\.(${removedShims.join("|")})\\b`);
+  for (const file of [...walkSource("src"), "supabase-sync.js"]) {
+    assert.doesNotMatch(read(file), shimPattern, `${file} 还在用已删掉的全局垫片`);
+  }
+  // 剩下的就是 supabase-sync.js（经典脚本）与渲染层之间的明确契约
+  const contracts = read("src/main.js") + read("src/lib/store.js");
+  assert.match(contracts, /window\.CONFIG =/);
+  assert.match(contracts, /window\.data =/);
+});
 
 test("vite 配置使用带内容 hash 文件名、相对 base、模块独立 chunk 与共享层 chunk", () => {
   const config = read("vite.config.js");
@@ -34,12 +54,20 @@ test("Vue 入口以普通 script 加载同步脚本并挂载 main", () => {
 test("main.js 副作用导入全部领域库并暴露全局 CONFIG/同步钩子", () => {
   const main = read("src/main.js");
   for (const moduleName of [
-    "sync-core", "api-client", "workbench-core", "data-backup", "app-dialog", "pomodoro",
+    "sync-core", "api-client", "data-backup", "app-dialog",
     "device-mode", "workout-catalog", "workout", "workout-plan", "workout-view", "workout-ui",
-    "record-media", "record-list",
+    "record-media", "record-list", "toast",
   ]) {
-    assert.match(main, new RegExp(`import "../js/${moduleName}\\.js"`));
+    // 迁移期里每个模块要么还在根目录 js/（经典脚本），要么已迁到 src/lib/（ESM）；
+    // 断言写入的文件真的存在，避免路径写错也蒙混过关
+    const fromClassic = main.includes(`import "../js/${moduleName}.js"`);
+    const fromMigrated = main.includes(`import "./lib/${moduleName}.js"`);
+    assert.ok(fromClassic || fromMigrated, `${moduleName} 没有被 main.js 导入`);
+    const target = fromClassic ? `js/${moduleName}.js` : `src/lib/${moduleName}.js`;
+    assert.ok(fs.existsSync(path.join(root, target)), `${moduleName} 导入的文件不存在：${target}`);
   }
+  // 番茄钟界面不再是全局脚本：由同域的 src/lib/pomodoro.js 直接 import
+  assert.match(read("src/lib/pomodoro.js"), /import Pomodoro from "\.\/pomodoro-view\.js"/);
   assert.match(main, /window\.CONFIG = CONFIG/);
   assert.match(main, /window\.__onSyncReady = applyCloud/);
   assert.match(main, /window\.__onRemoteUpdate = applyRemote/);
@@ -70,14 +98,17 @@ test("6 个通用模块各自是独立组件并接入通用引擎", () => {
   }
 });
 
-test("运动组件复用 WorkoutUI 并读写同一数据键", () => {
+test("运动组件复用 WorkoutUI，并通过 store.js 读写同一数据键", () => {
   const component = read("src/modules/workout/SportView.vue");
   assert.match(component, /WorkoutUI\.mount/);
-  assert.match(component, /cat-newsroom-data-v2/);
-  assert.match(component, /moduleKey: MODULE_KEY/);
-  assert.match(component, /syncRecord\?\./);
-  assert.match(component, /syncDelete\?\./);
+  // 落盘与同步统一走 store：组件不再自己解析 localStorage，也不再重复调同步层
+  assert.match(component, /persist\(MODULE_KEY, record\)/);
+  assert.match(component, /remove\(MODULE_KEY, record\.id\)/);
+  assert.doesNotMatch(component, /localStorage/);
   assert.match(component, /addEventListener\("storage"/);
+  const store = read("src/lib/store.js");
+  assert.match(store, /export function remove\(moduleKey, recordId/);
+  assert.match(store, /window\.syncDelete\(\{ moduleKey, recordId \}\)/);
 });
 
 test("首页与洞察接入周报槽，共享层含编辑/周报/番茄钟", () => {
@@ -117,6 +148,27 @@ test("本周生活报槽位带 b12 全宽类，首页 bento 网格中不被压�
   const styles = read("src/desktop.css");
   assert.match(styles, /\.report-card \{ margin-top:16px; \}/); // 洞察页块级上下文保留间距
   assert.match(styles, /\.bento \.report-card \{ margin-top:0; \}/); // 首页 bento 内由 gap 控制间距
+});
+
+test("个人配置页的示范数据清理：先扫描、确认后才真删、再重拉云端", () => {
+  const settings = read("src/modules/settings/SettingsView.vue");
+  assert.match(settings, /const scan = await purge\(\);/); // 先 dry-run
+  assert.match(settings, /await purge\(\{ commit: true \}\)/); // 确认后才删
+  assert.match(settings, /await window\.runFullSync\?\.\(\{ reason: "manual" \}\)/); // 删完让本地跟上
+  const sync = read("supabase-sync.js");
+  assert.match(sync, /async function purgeDemoRecords\(options = \{\}\)/);
+  assert.match(sync, /if \(!commit\) return \{ commit: false/);
+  assert.match(sync, /if \(currentUser\.is_anonymous\) throw new Error/); // 匿名账号不让动云端
+});
+
+test("开发服务器启动脚本：后台运行、日志落盘、关终端不会被杀", () => {
+  const script = read("scripts/dev-server.sh");
+  // 直接跑 vite 入口，不经过 npx：npx 会多包一层进程，pid 文件就指不准了
+  assert.match(script, /nohup node "\$ROOT\/node_modules\/vite\/bin\/vite\.js"/);
+  assert.match(script, /copy-supabase-sync\.mjs/); // 启动前先刷新 src/public 副本
+  assert.match(script, /--strictPort/); // 端口被占时直接报错，不偷偷换端口
+  assert.match(script, /lsof -nP -iTCP:"\$PORT" -sTCP:LISTEN/); // 用真实监听进程判断起没起来
+  assert.match(read("package.json"), /"dev:start": "sh scripts\/dev-server\.sh start"/);
 });
 
 test("构建产物（如存在）：相对路径、同步脚本与每个模块独立压缩 chunk", () => {

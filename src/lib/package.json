@@ -1,0 +1,4 @@
+{
+  "//": "把 src/lib 划成 ES 模块作用域：这些文件本来就全是 ESM 语法，且 tests/ 会直接 import 它们。Node 需要这个标记才不会把 .js 按 CommonJS 解析。Vite 打包不依赖此文件。",
+  "type": "module"
+}

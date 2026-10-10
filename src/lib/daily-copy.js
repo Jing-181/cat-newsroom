@@ -2,6 +2,7 @@
 // 「换一条」只在池内切换（不消耗 token）；生成入口在首页空态（7 条）与个人配置页（14 条）。
 // 拉取成功后结果写入 localStorage（按用户隔离）；进页面先渲染本地缓存，接口返回后再静默刷新，避免等待与整页闪动。
 import { icon, esc } from "./icons.js";
+import { openAuthModal } from "./auth-modal.js";
 
 let batch = null;        // { item_count, items, status, generated_at, error }
 let batchLoading = false;
@@ -130,7 +131,7 @@ export function refreshDailyCopySlot(container = document) {
     refreshDailyCopySlot(container);
   });
   scope.querySelector("#daily-copy-generate")?.addEventListener("click", () => generateDailyCopyBatch(7, container));
-  scope.querySelector("#daily-copy-login")?.addEventListener("click", () => window.openAuthModalRef?.current?.("login") || (window.openAuthModal && window.openAuthModal("login")));
+  scope.querySelector("#daily-copy-login")?.addEventListener("click", () => openAuthModal("login"));
 }
 
 // 初始化：先渲染本地缓存（无需等待接口），再静默拉云端刷新，失败保留缓存内容

@@ -6,6 +6,9 @@
     "check": "node --check supabase-sync.js && node --test tests/*.test.js",
     "predev:vue": "node scripts/copy-supabase-sync.mjs",
     "dev:vue": "vite --config vite.config.js",
+    "dev:start": "sh scripts/dev-server.sh start",
+    "dev:stop": "sh scripts/dev-server.sh stop",
+    "dev:status": "sh scripts/dev-server.sh status",
     "prebuild": "node scripts/copy-supabase-sync.mjs",
     "build": "vite build --config vite.config.js",
     "build:vue": "vite build --config vite.config.js"

@@ -1,6 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const api = require("../js/api-client.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import api from "../js/api-client.js";
 
 test("API 客户端解析成功 JSON 并发送超时信号", async () => {
   let request;

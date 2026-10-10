@@ -3,9 +3,12 @@ import { modOf } from "./config.js";
 import { icon, esc, attr } from "./icons.js";
 import { isoToday } from "./utils.js";
 import { getData, persist, save, bump } from "./store.js";
+import AppDialog from "./app-dialog.js";
+import RecordList from "./record-list.js";
+import RecordMedia from "./record-media.js";
+import Toast from "./toast.js";
 
 function mediaFieldHTML(key, d) {
-  if (typeof RecordMedia === "undefined") return `<div class="field"><label>图片 URL（可选）</label><input id="f-image" value="${attr(d.image || "")}" placeholder="https://..."/></div>`;
   const layout = d.layout || "default";
   const preset = d.image_preset || RecordMedia.defaultPresetId(key, layout);
   const preview = d.image || (RecordMedia.getPreset(preset)?.src || "");
@@ -41,7 +44,7 @@ function selectedImagePreset(overlay) {
 
 function updateImagePreview(overlay) {
   const preview = overlay.querySelector("#f-image-preview");
-  if (!preview || typeof RecordMedia === "undefined") return;
+  if (!preview) return;
   const url = (overlay.querySelector("#f-image")?.value || "").trim();
   const preset = RecordMedia.getPreset(selectedImagePreset(overlay));
   preview.src = url || preset?.src || "";
@@ -55,7 +58,6 @@ function wirePresetCards(overlay) {
 }
 
 function refreshMediaPresets(overlay, key) {
-  if (typeof RecordMedia === "undefined") return;
   const grid = overlay.querySelector("#f-image-preset");
   const layout = overlay.querySelector("#f-layout .on")?.dataset.v || "default";
   if (!grid) return;
@@ -89,7 +91,7 @@ function wireMediaEditor(overlay, key, d) {
     try {
       const result = await window.uploadCardImage(picked, { moduleKey: key, recordId: d.id });
       input.value = result.url; updateImagePreview(overlay);
-    } catch (e) { await window.AppDialog.alert(e.message || "图片上传失败", { title: "图片上传失败" }); }
+    } catch (e) { await AppDialog.alert(e.message || "图片上传失败", { title: "图片上传失败" }); }
     finally { upload.disabled = false; upload.innerHTML = old; file.value = ""; }
   });
 }
@@ -103,7 +105,7 @@ function newItem(m) {
   else item = { ...base, title: "", content: "", mood: (m.moods && m.moods[0]) || "", date: isoToday() };
   // initialize custom fields
   (m.fields || []).forEach(f => { if (!(f.key in item)) item[f.key] = f.type === "select" ? (f.options && f.options[0] || "") : ""; });
-  if (typeof RecordMedia !== "undefined") item.image_preset = RecordMedia.defaultPresetId(m.key, item.layout || "default");
+  item.image_preset = RecordMedia.defaultPresetId(m.key, item.layout || "default");
   return item;
 }
 
@@ -184,8 +186,8 @@ export function openEditor(key, item) {
     });
     // 保存图片 URL 和默认配图选择。
     d.image = (val("#f-image") || "").trim();
-    d.image_preset = selectedImagePreset(overlay) || d.image_preset || (typeof RecordMedia !== "undefined" ? RecordMedia.defaultPresetId(key, d.layout) : "");
-    if (!editing) { const records = getData()[key] = getData()[key] || []; window.RecordList.placeNewAtTop(records, d); records.unshift(d); }
+    d.image_preset = selectedImagePreset(overlay) || d.image_preset || RecordMedia.defaultPresetId(key, d.layout);
+    if (!editing) { const records = getData()[key] = getData()[key] || []; RecordList.placeNewAtTop(records, d); records.unshift(d); }
     persist(key, d); close();
   };
 }
@@ -209,5 +211,5 @@ export function confirmDelete(key, id) {
     // record 型操作 upsert 时 deleted_at 置 null，可覆盖之前的删除标记
     if (typeof window.syncRecord === "function") window.syncRecord({ moduleKey: key, record: removed });
   };
-  window.Toast?.show?.(`已删除「${title}」`, { action: { label: "撤销", onClick: undo }, duration: 5000 });
+  Toast.show(`已删除「${title}」`, { action: { label: "撤销", onClick: undo }, duration: 5000 });
 }

@@ -9,3 +9,5 @@ src/public/*
 .trae-html-share-packages/
 .env
 .env.local
+.dev-server.pid
+.dev-server.log

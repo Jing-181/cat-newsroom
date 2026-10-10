@@ -1,6 +1,10 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const mode = require("../js/device-mode.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import mode from "../src/lib/device-mode.js";
+
+const mobileShell = fileURLToPath(new URL("../workbench-mobile.html", import.meta.url));
 
 test("自动模式按视口与输入能力选择界面", () => {
   assert.equal(mode.resolveMode({ preference: "auto", width: 390, coarsePointer: true }), "mobile");
@@ -14,8 +18,7 @@ test("手动偏好优先于自动判断", () => {
 });
 
 test("旧版移动端入口已退役并跳转到最新版", () => {
-  const fs = require("node:fs");
-  const html = fs.readFileSync(require.resolve("../workbench-mobile.html"), "utf8");
+  const html = fs.readFileSync(mobileShell, "utf8");
   assert.match(html, /url=\.\/index\.html/);
   assert.match(html, /location\.replace\("\.\/index\.html"\)/);
   assert.doesNotMatch(html, /mobile-shell/, "旧版移动外壳已随退役移除");

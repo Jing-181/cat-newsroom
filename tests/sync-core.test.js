@@ -1,6 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const sync = require("../js/sync-core.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import sync from "../js/sync-core.js";
 
 test("Realtime 只更新事件对应记录", () => {
   const local = { todo: [{ id: "1", title: "旧", updated_at: "2026-01-01T00:00:00Z" }], note: [{ id: "2", title: "保留" }] };

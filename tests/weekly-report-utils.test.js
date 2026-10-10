@@ -1,9 +1,11 @@
 // 周报历史补生成：周序列 / 状态标注 / 下拉选项 纯逻辑测试
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
+import * as weeklyReportUtils from "../src/lib/weekly-report-utils.js";
 
-const utilsPromise = import("../src/lib/weekly-report-utils.js");
-const utils = async () => await utilsPromise;
+// 用例正文用 `const { x } = await utils()` 取函数，await 一个普通对象同样成立，
+// 所以只把加载方式换成静态 import，正文一行不动。
+const utils = () => weeklyReportUtils;
 
 test("currentWeekStart 返回本地本周一（周二归本周、周日归上周）", async () => {
   const { currentWeekStart } = await utils();

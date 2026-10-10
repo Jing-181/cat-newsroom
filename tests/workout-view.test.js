@@ -1,15 +1,10 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const vm = require("node:vm");
-const workout = require("../js/workout.js");
-const catalog = require("../js/workout-catalog.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import workout from "../src/lib/workout.js";
+import workoutView from "../src/lib/workout-view.js";
 
-function loadView() {
-  const window = { Workout:workout, WorkoutCatalog:catalog };
-  vm.runInNewContext(fs.readFileSync(require.resolve("../js/workout-view.js"), "utf8"), { window });
-  return window.WorkoutView;
-}
+// 界面模块已经是 ESM，直接 import 即可，不用再造一个干净的 window 去 vm 里跑
+const loadView = () => workoutView;
 
 test("训练编辑器提供日期、动作弹窗和保存入口", () => {
   const view = loadView();
@@ -90,7 +85,7 @@ test("动作进展默认收起：训练页与历史页都改用折叠块", () =>
   assert.doesNotMatch(idle, /<details class="workout-fold" open/);
 });
 
-test("上次每组明细显示在训练区，如 20×10 / 20×10 / 17.5×12", () => {
+test("上次表现：卡片级只给日期与组数，每组明细贴到对应的组行上", () => {
   const view = loadView();
   const history = [workout.createSession("chest", new Date(2026, 8, 10))];
   workout.addExercise(history[0], "dumbbell_bench_press");
@@ -103,8 +98,11 @@ test("上次每组明细显示在训练区，如 20×10 / 20×10 / 17.5×12", ()
   const session = workout.createSession("chest", new Date(2026, 8, 20));
   workout.addExercise(session, "dumbbell_bench_press", history);
   const html = view.editorHtml(session, "chest", history);
-  assert.match(html, /20×10 \/ 20×10 \/ 17.5×12/);
   assert.match(html, /class="exercise-last"/);
+  assert.match(html, /exercise-last-count">· 3 组</);
+  assert.match(html, /class="set-hint" title="上次这一组：20×10">20×10</);
+  // 整段明细不再重复出现在卡片级
+  assert.doesNotMatch(html, /20×10 \/ 20×10 \/ 17.5×12/);
 });
 
 test("动作选择器支持整项点击并标记已添加动作", () => {
@@ -115,6 +113,19 @@ test("动作选择器支持整项点击并标记已添加动作", () => {
   assert.match(html, /class="exercise-option is-added"/);
   assert.match(html, /data-add-exercise="dumbbell_bench_press" disabled/);
   assert.match(html, />已添加</);
+});
+
+test("动作选择器提供自定义动作入口，并列出用过的自定义动作", () => {
+  const view = loadView();
+  const session = workout.createSession("legs", new Date(2026, 9, 8));
+  const html = view.exerciseLibraryHtml("legs", session.exercises, [{ id: "custom_农夫行走", name: "农夫行走" }]);
+  assert.match(html, /id="workout-custom-form"/);
+  assert.match(html, /id="workout-custom-name"[^>]*maxlength="20"/);
+  assert.match(html, /data-add-custom="农夫行走"/);
+  // 已经加进本次训练的自定义动作不再作为待选 chip 出现
+  workout.addCustomExercise(session, "农夫行走");
+  const again = view.exerciseLibraryHtml("legs", session.exercises, [{ id: "custom_农夫行走", name: "农夫行走" }]);
+  assert.doesNotMatch(again, /data-add-custom=/);
 });
 
 test("训练详情展示动作组次且历史卡提供编辑入口", () => {
@@ -148,7 +159,8 @@ test("空闲视图恢复训练计划菜单，保留开始训练入口", () => {
   const html = view.idleHtml("chest", []);
   assert.match(html, /id="workout-plan-menu"/);
   assert.match(html, /id="workout-plan"/);
-  assert.match(html, /id="workout-preferences"/);
+  // 运动偏好入口已暂停：等偏好与计划的组合方式重新设计后再挂回来
+  assert.doesNotMatch(html, /id="workout-preferences"/);
   assert.match(html, /id="workout-start"/);
 });
 

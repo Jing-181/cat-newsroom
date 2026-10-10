@@ -1,5 +1,6 @@
 /* 猫咪生活报 shared theme tokens. Keep public values here; page files only own layout overrides. */
 :root {
+  /* 色彩 —— 旧报纸暖调 */
   --page-bg: #f3ecd9;
   --surface-card: #faf3e3;
   --surface-nested: #ede4cc;
@@ -7,7 +8,7 @@
   --border-input: #c9b896;
   --text: #5a4a38;
   --text-secondary: #8a7560;
-  --text-tertiary: #b09880;
+  --text-tertiary: #a08a70;      /* 由 #b09880 略加深：小字号弱提示需过 3:1 对比 */
   --accent: #c47128;
   --accent-muted: #f5e8cf;
   --on-accent: #faf3e3;
@@ -18,20 +19,45 @@
   --module-5: #4a6b5c;
   --danger: #b8482e;
   --danger-muted: #f0dccd;
+
+  /* 深色卡（番茄钟、时钟卡、概览侧栏）：共用的暖棕底色与文字，别再散写字面量 */
+  --ink-bg-from: #4a3a28;
+  --ink-bg-mid: #3a2e20;
+  --ink-bg-to: #2e2316;
+  --ink-text: #f0e8d5;
+  --ink-text-mute: rgba(240,232,213,.55);
+  --ink-hover: rgba(240,232,213,.06); /* 极淡墨色底：悬停与静置通用 */
+  --ink-line: rgba(240,232,213,.09);  /* 深色卡上的分隔线 */
+
+  /* 侧栏抽屉（深色） */
   --drawer-bg: #3a2e20;
   --drawer-bg-top: #4a3a28;
   --drawer-text: #f0e8d5;
   --drawer-text-mute: rgba(240,232,213,.55);
   --drawer-hover: rgba(240,232,213,.1);
   --drawer-active: rgba(240,232,213,.09);
+
   --greet-image: url("../assets/greet-banner.jpg");
   --page-texture: url("../assets/paper-texture.jpg");
-  --radius-control: 6px;
-  --radius-tile: 10px;
-  --radius-card: 14px;
+
+  /* 圆角家族：控件 10 / 卡面 12 / 弹窗与通栏 20 / 胶囊 999。
+     新样式一律用 token，不再写 6/7/9/11/14px 这类一次性字面量。 */
+  --radius-control: 10px;
+  --radius-tile: 12px;
+  --radius-card: 12px;
   --radius-sheet: 20px;
+  --radius-pill: 999px;
+
+  /* 阴影：默认卡 / hover / 浮层 */
   --shadow-card: 0 1px 2px rgba(90,74,56,.05), 0 3px 14px rgba(90,74,56,.06);
+  --shadow-hover: 0 2px 6px rgba(90,74,56,.08), 0 8px 18px rgba(90,74,56,.07);
   --shadow-overlay: 0 8px 24px rgba(90,74,56,.14);
+
+  /* 动效：统一缓动；hover 只用 --dur-fast */
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --dur-fast: .15s;
+  --dur-base: .22s;
+
   --font: Georgia, "Songti SC", "STSong", "PingFang SC", serif;
   --font-sans: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 }

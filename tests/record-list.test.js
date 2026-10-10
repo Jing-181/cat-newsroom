@@ -1,6 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const RecordList = require("../js/record-list.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import RecordList from "../src/lib/record-list.js";
 
 test("records default to newest first", () => {
   const records = [{ id: 1 }, { id: 3 }, { id: 2 }];

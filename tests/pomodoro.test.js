@@ -1,6 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const pomo = require("../js/pomodoro.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import pomo from "../src/lib/pomodoro-view.js";
 
 test("番茄钟使用绝对结束时间计算剩余时间", () => {
   const state = pomo.createRunning("focus", 1000);

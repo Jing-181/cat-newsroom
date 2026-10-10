@@ -1,7 +1,7 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const plan = require("../js/workout-plan.js");
-const workout = require("../js/workout.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import plan from "../src/lib/workout-plan.js";
+import workout from "../src/lib/workout.js";
 
 function fakeStorage() {
   const map = new Map();
@@ -33,10 +33,11 @@ test("生成 2 轮 × 3 天 PPL 结构", () => {
   assert.equal(result.days[3].title, "力量训练·推 · 第 2 轮");
 });
 
-test("每天 4 复合 + 2 孤立，第 2 轮复合相同、孤立替换", () => {
+test("推/拉日 4 复合 + 2 孤立、腿日 4 + 3（腿屈伸/腿弯举捆绑），第 2 轮复合相同、孤立替换", () => {
   const result = plan.generatePlan({ preferences: { goal: "hypertrophy" }, records: [] });
   for (const day of result.days) {
-    assert.equal(day.exercises.length, 6);
+    // 腿日多一个孤立位：捆绑对占两位，另留一个轮换位。
+    assert.equal(day.exercises.length, day.split_day === "legs" ? 7 : 6, `${day.split_day} 第 ${day.round} 轮动作数`);
   }
   const first = result.days[0], second = result.days[3];
   const firstCompounds = first.exercises.slice(0, 4).map(e => e.exercise_id);
@@ -48,7 +49,26 @@ test("每天 4 复合 + 2 孤立，第 2 轮复合相同、孤立替换", () => 
   assert.ok(first.exercises.every(e => e.sets === 4 || e.sets === 3));
 });
 
-test("动作名从目录补齐且顺序为 1..6", () => {
+test("腿日：哈克深蹲不再默认出现，腿屈伸 + 腿弯举绑定同一天，内收/外展进轮换位", () => {
+  const result = plan.generatePlan({ preferences: {}, records: [] });
+  const round1 = result.days[2], round2 = result.days[5];
+  const round1Ids = round1.exercises.map(e => e.exercise_id);
+  const round2Ids = round2.exercises.map(e => e.exercise_id);
+  // 捆绑对：两轮都在，且不会被拆到不同轮次
+  [round1Ids, round2Ids].forEach(ids => {
+    assert.ok(ids.includes("leg_extension") && ids.includes("leg_curl"), "腿屈伸 + 腿弯举应同天出现");
+    assert.ok(!ids.includes("hack_squat"), "哈克深蹲不应再进默认计划");
+    // 传统硬拉留在池内作轮换备选，不进入默认前 4 个复合
+    assert.ok(!ids.includes("conventional_deadlift"), "传统硬拉不强制出现");
+  });
+  // 轮换位：第 1 轮内收、第 2 轮外展
+  assert.ok(round1Ids.includes("seated_hip_adduction"));
+  assert.ok(round2Ids.includes("seated_hip_abduction"));
+  // 复合部分两轮一致，便于对比进步
+  assert.deepEqual(round2Ids.slice(0, 4), round1Ids.slice(0, 4));
+});
+
+test("动作名从目录补齐且顺序连续", () => {
   const result = plan.generatePlan({ preferences: {}, records: [] });
   for (const day of result.days) {
     day.exercises.forEach((e, index) => {

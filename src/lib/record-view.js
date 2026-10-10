@@ -2,6 +2,7 @@
 import { icon, esc, attr } from "./icons.js";
 import { today, avgProgress, streak, ringSVG } from "./utils.js";
 import { getData } from "./store.js";
+import RecordMedia from "./record-media.js";
 
 /* per-module hero header: icon + big number + label */
 export function headHero(m, big, label) {
@@ -22,7 +23,7 @@ export function recHTML(m, x) {
   const layout = x.layout || "default";
   const layoutCls = `rec-layout-${layout}`;
   // 没有上传图时也按模块/样式补一张默认配图。
-  const imageSrc = x.image || (typeof RecordMedia !== "undefined" ? RecordMedia.resolveRecordImage(x, m.key, layout) : "");
+  const imageSrc = x.image || RecordMedia.resolveRecordImage(x, m.key, layout);
   const thumb = imageSrc ? `<img class="thumb" src="${attr(imageSrc)}" alt="查看图片">` : "";
 
   // feature layout: 大图在上 + 标题 + 正文在下 (适合有图记录)

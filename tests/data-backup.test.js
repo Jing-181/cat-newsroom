@@ -1,6 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const backup = require("../js/data-backup.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import backup from "../src/lib/data-backup.js";
 
 const keys = ["todo", "sport"];
 

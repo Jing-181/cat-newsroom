@@ -1,6 +1,7 @@
 // 数据仓库：全局 data 绑定（同步层 supabase-sync.js 通过全局词法作用域直接读写）、
 // 持久化、同步、跨标签 storage 刷新与订阅通知（Vue 组件按需重渲染）
 import { CONFIG } from "./config.js";
+import { SEED_FLAG, markSeedRecords } from "./demo-data.js";
 
 function load() {
   try {
@@ -8,7 +9,8 @@ function load() {
     if (raw) return JSON.parse(raw);
   } catch (_) { /* 损坏数据回退到种子 */ }
   const d = {};
-  CONFIG.modules.forEach(m => { d[m.key] = structuredClone(m.seed || []); });
+  // 样板记录全部打上 __seed 标识：同步层据此判断「这条不是用户自己加的」
+  CONFIG.modules.forEach(m => { d[m.key] = markSeedRecords(structuredClone(m.seed || [])); });
   return d;
 }
 
@@ -44,6 +46,8 @@ export function bump() {
 // 同步去重：远端回环时跳过（与主站 pendingSyncRecords 一致）
 const pendingSyncRecords = new Map();
 export function persist(moduleKey, record, { render: shouldRender = true } = {}) {
+  // 用户动过这条样板记录就不再算演示数据，标识跟着去掉（同步层另有内容比对兜底）
+  if (record && typeof record === "object" && Object.prototype.hasOwnProperty.call(record, SEED_FLAG)) delete record[SEED_FLAG];
   save();
   if (moduleKey && record) {
     const key = `${moduleKey}:${record.id}`;
@@ -52,6 +56,26 @@ export function persist(moduleKey, record, { render: shouldRender = true } = {})
     if (typeof window.syncRecord === "function") window.syncRecord({ moduleKey, record });
   }
   if (shouldRender) bump();
+}
+
+// 删除一条记录：本地抹掉 + 通知同步层（记录可能已被调用方自行移出数组，找不到也无妨）
+export function remove(moduleKey, recordId, { render: shouldRender = true } = {}) {
+  const list = getData()[moduleKey];
+  if (Array.isArray(list)) {
+    const index = list.findIndex(item => String(item.id) === String(recordId));
+    if (index >= 0) list.splice(index, 1);
+  }
+  save();
+  if (typeof window.syncDelete === "function") window.syncDelete({ moduleKey, recordId });
+  if (shouldRender) bump();
+}
+
+// 元数据字段（__pomo / __homeOrder 这类非记录数据）：写内存、落盘、同步云端
+// （不触发重渲染，需要刷新的调用方自己 bump）
+export function saveMetaField(field, value) {
+  getData()[field] = value;
+  save();
+  if (typeof window.syncMetaField === "function") window.syncMetaField({ field, value });
 }
 
 // 跨标签页同步刷新

@@ -3,13 +3,16 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG } from "../../lib/config.js";
 import { HOME_CARDS, DEFAULT_HOME_ORDER } from "../../lib/home-layout.js";
-import { getData, save, subscribe } from "../../lib/store.js";
+import { getData, save, subscribe, saveMetaField } from "../../lib/store.js";
 import { initDailyCopy, generateDailyCopyBatch, getDailyBatchInfo } from "../../lib/daily-copy.js";
+import AppDialog from "../../lib/app-dialog.js";
+import Toast from "../../lib/toast.js";
 
 const root = ref(null);
 const order = ref([]);
 const batchInfo = ref({ loading: true });
 const syncing = ref(false);
+const purging = ref(false);
 const versionVisible = ref(true);
 
 // 首页版本显示开关（本地保存，默认显示）
@@ -17,7 +20,7 @@ function toggleVersion() {
   versionVisible.value = !versionVisible.value;
   getData().__homeVersionVisible = versionVisible.value;
   save();
-  window.Toast?.show(versionVisible.value ? "首页将显示版本信息" : "首页版本信息已隐藏");
+  Toast.show(versionVisible.value ? "首页将显示版本信息" : "首页版本信息已隐藏");
 }
 
 const batchInfoText = computed(() => {
@@ -44,16 +47,36 @@ function toCards(keys) {
 
 function resetOrder() {
   order.value = toCards(DEFAULT_HOME_ORDER);
-  window.Toast?.show("已恢复默认顺序，记得保存");
+  Toast.show("已恢复默认顺序，记得保存");
 }
 
 function saveOrder() {
-  const data = getData();
-  data.__homeOrder = order.value.map(c => c.key);
-  save();
-  window.syncMetaField?.({ field: "__homeOrder", value: data.__homeOrder });
+  saveMetaField("__homeOrder", order.value.map(c => c.key));
   window.dispatchEvent(new CustomEvent("home-order-changed"));
-  window.Toast?.show("首页排序已保存");
+  Toast.show("首页排序已保存");
+}
+
+// 清理示范数据：先扫云端（dry-run）报条数，确认后再真删；同步层负责云端与本地一起清
+async function purgeDemo() {
+  const purge = window.purgeDemoRecords;
+  if (typeof purge !== "function") { Toast.show("同步层未就绪，稍后再试"); return; }
+  purging.value = true;
+  try {
+    const scan = await purge();
+    if (!scan || !scan.found) { Toast.show("云端没有示范数据"); return; }
+    const preview = scan.targets.slice(0, 5).map(t => t.title).join("、");
+    const rest = scan.found > 5 ? ` 等 ${scan.found} 条` : "";
+    const ok = await AppDialog.confirm(`云端有 ${scan.found} 条示范数据（${preview}${rest}）。清理会同时删掉云端与本地这几条，不可撤销。`, { title: "清理示范数据", danger: true, okText: "清理" });
+    if (!ok) return;
+    const result = await purge({ commit: true });
+    // 云端变了，重新拉一次让本地与界面跟上（同步层已直接改过 localStorage）
+    await window.runFullSync?.({ reason: "manual" });
+    Toast.show(`已清理 ${result.removed} 条示范数据`);
+  } catch (error) {
+    await AppDialog.alert(error.message || "清理失败，请稍后再试", { title: "清理失败" });
+  } finally {
+    purging.value = false;
+  }
 }
 
 async function loadOrder() {
@@ -76,13 +99,13 @@ async function refreshBatch() {
 
 async function regenerate() {
   if (syncing.value) return;
-  const ok = await window.AppDialog.confirm("重新生成将调用 AI 生成 14 条新文案，消耗一次 AI 额度。确定继续？", { title: "重新生成每日一卡", okText: "生成" });
+  const ok = await AppDialog.confirm("重新生成将调用 AI 生成 14 条新文案，消耗一次 AI 额度。确定继续？", { title: "重新生成每日一卡", okText: "生成" });
   if (!ok) return;
   syncing.value = true;
   try {
     await generateDailyCopyBatch(14, root.value);
     batchInfo.value = getDailyBatchInfo();
-    window.Toast?.show("已重新生成 14 条文案");
+    Toast.show("已重新生成 14 条文案");
   } catch (_) {
     batchInfo.value = getDailyBatchInfo();
   } finally {
@@ -147,6 +170,18 @@ onBeforeUnmount(() => { if (unsub) unsub(); });
         </button>
       </div>
       <div class="set-note">关闭后首页不再显示版本号。</div>
+    </div>
+
+    <div class="sec-title">数据维护</div>
+    <div class="setting-card">
+      <div class="set-row">
+        <div class="set-tx">
+          <div class="set-name">清理示范数据</div>
+          <div class="set-desc">扫描云端里与内置示范内容完全一致的记录（需要先登录正式账号）</div>
+        </div>
+        <button class="btn ghost" :disabled="purging" @click="purgeDemo">{{ purging ? "处理中…" : "扫描并清理" }}</button>
+      </div>
+      <div class="set-note">第一次点只扫描，确认后才真删；清理不可撤销。你自己新增或改过的记录不会被误判。</div>
     </div>
   </div>
 </template>

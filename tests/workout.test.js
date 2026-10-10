@@ -1,6 +1,84 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const workout = require("../js/workout.js");
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import workout from "../src/lib/workout.js";
+
+test("动作库 id 与名称唯一、字段齐全，BADGE 短名不留死键", () => {
+  const exercises = workout.catalog.exercises;
+  const ids = exercises.map(item => item.id);
+  const names = exercises.map(item => item.name);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(new Set(names).size, names.length);
+  const days = new Set(workout.catalog.trainingDays.map(day => day.id));
+  exercises.forEach(item => {
+    assert.ok(item.name && item.bodyPart && item.equipment && item.muscles && item.tips && item.icon, `字段不全：${item.id}`);
+    assert.ok(item.trainingDays.length && item.trainingDays.every(day => days.has(day)), `训练日非法：${item.id}`);
+  });
+  const source = readFileSync(new URL("../src/lib/workout-catalog.js", import.meta.url), "utf8");
+  const badgeStart = source.indexOf("const BADGE = {");
+  const badgeBlock = source.slice(badgeStart, source.indexOf("};", badgeStart));
+  const badgeIds = [...badgeBlock.matchAll(/([a-z0-9_]+):"/g)].map(match => match[1]);
+  assert.deepEqual(badgeIds.filter(badgeId => !ids.includes(badgeId)), []);
+});
+
+test("腿日补齐内收与外展，有氧日补齐常用项目", () => {
+  const legs = workout.catalog.forDay("legs").map(item => item.name);
+  ["坐姿腿内收", "坐姿腿外展", "侧弓步", "单腿罗马尼亚硬拉", "北欧腿弯举", "坐姿提踵"].forEach(name => assert.ok(legs.includes(name), name));
+  const cardio = workout.catalog.forDay("cardio").map(item => item.name);
+  ["坡度快走", "跳绳", "越野跑", "羽毛球"].forEach(name => assert.ok(cardio.includes(name), name));
+});
+
+test("自定义动作：id 由名称派生，同名动作在历史里连成同一条轨迹", () => {
+  const session = workout.createSession("legs", new Date(2026, 9, 8));
+  workout.addCustomExercise(session, "  器械内收  ");
+  assert.equal(session.exercises.length, 1);
+  const entry = session.exercises[0];
+  assert.equal(entry.name, "器械内收");
+  assert.equal(entry.exercise_id, "custom_器械内收");
+  assert.equal(entry.body_part, "自定义");
+  assert.equal(entry.equipment, "自定义");
+  assert.equal(entry.planned_sets, 1);
+  // 重名与空名都不再加一条
+  workout.addCustomExercise(session, "器械内收");
+  workout.addCustomExercise(session, "   ");
+  assert.equal(session.exercises.length, 1);
+  // 下次再练同一个动作：id 一致，并预填上次那一组
+  entry.sets[0] = { weight_kg: 40, reps: 12 };
+  session.status = "completed";
+  const next = workout.createSession("legs", new Date(2026, 9, 10));
+  workout.addCustomExercise(next, "器械内收", [session]);
+  assert.equal(next.exercises[0].exercise_id, entry.exercise_id);
+  assert.equal(next.exercises[0].sets[0].weight_kg, 40);
+  assert.equal(next.exercises[0].sets[0].reps, 12);
+});
+
+test("有氧恢复日的自定义动作按有氧形态记录，其余训练日按力量形态记录", () => {
+  const cardio = workout.createSession("cardio", new Date(2026, 9, 8));
+  workout.addCustomExercise(cardio, "爬坡走");
+  assert.equal(cardio.exercises[0].equipment, "有氧");
+  assert.ok("duration_min" in cardio.exercises[0].sets[0]);
+  const legs = workout.createSession("legs", new Date(2026, 9, 8));
+  workout.addCustomExercise(legs, "器械内收");
+  assert.ok("reps" in legs.exercises[0].sets[0]);
+});
+
+test("用过的自定义动作从历史记录里回捞，最近用过的排在前面", () => {
+  const older = workout.createSession("legs", new Date(2026, 8, 1));
+  workout.addCustomExercise(older, "器械内收");
+  older.status = "completed";
+  older.updated_at = "2026-09-01T10:00:00.000Z";
+  const newer = workout.createSession("legs", new Date(2026, 9, 1));
+  workout.addCustomExercise(newer, "农夫行走");
+  newer.status = "completed";
+  newer.updated_at = "2026-10-01T10:00:00.000Z";
+  const list = workout.customExercises([older, newer]);
+  assert.deepEqual(list.map(item => item.name), ["农夫行走", "器械内收"]);
+  assert.equal(list[1].id, "custom_器械内收");
+  // 预置动作不进自定义清单，已删除的记录也不回捞
+  assert.deepEqual(workout.customExercises([{ kind: "workout_session", schema_version: 2, exercises: [{ exercise_id: "calf_raise", name: "站姿提踵" }] }]), []);
+  newer.deleted_at = "2026-10-02T10:00:00.000Z";
+  assert.deepEqual(workout.customExercises([newer]).map(item => item.name), []);
+});
 
 test("胸日包含卧推动作和任意日小肌群动作", () => {
   const names = workout.catalog.forDay("chest").map(item => item.name);

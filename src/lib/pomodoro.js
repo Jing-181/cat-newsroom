@@ -1,20 +1,20 @@
 // 番茄钟：共享状态 + 全局控制器（一次挂载，首页与全站共用）
-import { CONFIG } from "./config.js";
-import { getData, bump } from "./store.js";
+import { getData, bump, saveMetaField } from "./store.js";
 import { pad2 } from "./utils.js";
+import Pomodoro from "./pomodoro-view.js";
 
 export const pomo = { running: false, remain: 25 * 60, total: 25 * 60 };
 
 let controller = null;
 
 export function ensurePomodoroController() {
-  if (controller || typeof window.Pomodoro === "undefined") return controller;
-  controller = window.Pomodoro.mount({
+  if (controller) return controller;
+  controller = Pomodoro.mount({
     onComplete: async durationSec => {
       const data = getData();
       data.__pomo = data.__pomo || { count: 0, min: 0 };
       data.__pomo.count++; data.__pomo.min += Math.round(durationSec / 60);
-      window.WorkbenchCore?.saveMeta?.(CONFIG.storageKey, data, "__pomo", data.__pomo);
+      saveMetaField("__pomo", data.__pomo);
       bump();
     },
     onState: state => {
