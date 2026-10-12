@@ -41,6 +41,9 @@
     border: none; background: transparent; color: var(--drawer-text-mute); font-size: 11px; font-weight: 600; cursor: pointer; }
   .m-tabs button.active { color: var(--drawer-text); }
   .m-tabs button svg { display: block; }
+  /* 按下即反馈：触摸设备上 :hover 基本不会触发，没有按压态会觉得点了没反应 */
+  .m-tabs button:active { color: var(--drawer-text); background: var(--drawer-hover); }
+  .m-topbar .m-menu-btn:active { background: var(--drawer-hover); }
 
   /* 抽屉遮罩 */
   .m-scrim { display: block; position: fixed; inset: 0; z-index: 39; background: rgba(58,46,32,.45);

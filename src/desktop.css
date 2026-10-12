@@ -33,6 +33,8 @@
   .navi { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: var(--radius-tile); cursor: pointer;
     font-size: 14px; font-weight: 500; color: color-mix(in srgb, var(--drawer-text) 82%, transparent); transition: background .15s; margin-bottom: 2px; }
   .navi:hover { background: var(--drawer-hover); }
+  /* 触摸设备没有 hover，点下去要立刻给反馈；只改底色，不做位移（位移留给 active 之后的拖动态） */
+  .navi:active { background: var(--drawer-active); }
   .navi.active { background: var(--drawer-active); color: var(--drawer-text); font-weight: 700; }
   .navi svg { color: var(--drawer-text-mute); flex: 0 0 auto; }
   .navi.active svg { color: var(--drawer-text); }
@@ -42,6 +44,10 @@
   /* ---------- main ---------- */
   .main { margin-left: var(--sidebar-w); padding: 26px 34px 48px; }
   .main > #screen { max-width: 1180px; }
+  /* 模块切换时主视区整块重建，给它一次淡入：只做入场不做离场，
+     否则要等旧页面淡出才能看到新页面，点了会有迟带感。 */
+  @keyframes viewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .view-swap { animation: viewIn var(--dur-base) var(--ease-out); }
   .header { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 6px; }
   .header h2 { font-size: 27px; font-weight: 700; letter-spacing: -.02em; }
   .header p { color: var(--text-secondary); font-size: 13px; margin-top: 5px; }

@@ -66,20 +66,31 @@ export function weeklyReportSlotHTML() {
   return `<div id="weekly-report-slot" class="b12">${weeklyReportTileHTML()}</div>`;
 }
 
+// 已经绑过事件的插槽：视图 render() 每次会重建插槽元素，只有同一个元素才需要去重
+const wiredReportSlots = new WeakSet();
+
 export function refreshWeeklyReportSlot(container = document) {
   const slot = container.querySelector("#weekly-report-slot");
   if (!slot) return;
-  // 重绘前记录已展开的日报详情，切换周后恢复，避免折叠状态丢失
-  const openDetails = new Set();
-  slot.querySelectorAll("details.report-day[open]").forEach(detail => {
-    const summary = detail.querySelector("summary");
-    if (summary) openDetails.add(summary.textContent);
-  });
-  slot.innerHTML = weeklyReportTileHTML();
-  slot.querySelectorAll("details.report-day").forEach(detail => {
-    const summary = detail.querySelector("summary");
-    if (summary && openDetails.has(summary.textContent)) detail.open = true;
-  });
+  const html = weeklyReportTileHTML();
+  // 同一份状态可能被刷新两次（视图 render 一次、init 一次），内容一样就不再重画：
+  // 省下一次整块重排，也不会把已展开的日报详情折叠回去
+  if (slot.innerHTML !== html) {
+    // 重绘前记录已展开的日报详情，切换周后恢复，避免折叠状态丢失
+    const openDetails = new Set();
+    slot.querySelectorAll("details.report-day[open]").forEach(detail => {
+      const summary = detail.querySelector("summary");
+      if (summary) openDetails.add(summary.textContent);
+    });
+    slot.innerHTML = html;
+    slot.querySelectorAll("details.report-day").forEach(detail => {
+      const summary = detail.querySelector("summary");
+      if (summary && openDetails.has(summary.textContent)) detail.open = true;
+    });
+    wiredReportSlots.delete(slot); // 子节点整个换新，旧监听器也跟着没了
+  }
+  if (wiredReportSlots.has(slot)) return;
+  wiredReportSlots.add(slot);
   const reportButton = slot.querySelector("#report-generate, #report-refresh");
   if (reportButton) reportButton.onclick = () => maybeGenerateWeeklyReport(true);
   slot.querySelector("#report-check")?.addEventListener("click", () => checkWeeklyReportResult(weeklyReportTargetWeek || currentWeekStart()));
@@ -112,8 +123,19 @@ async function confirmGenerateWeek(option) {
 }
 
 // 初始化：拉取当周已存周报 + 往期列表（生成过的周报一直保留，可随时查看）
+// 切模块回来时会重复挂载，同周 5 分钟内的数据直接复用缓存，不再重复请求（否则每次进首页/洞察都会把周报卡重拉一遍）
+const WEEKLY_REPORT_CACHE_MS = 5 * 60 * 1000;
+let weeklyReportLoadedWeek = "";
+let weeklyReportLoadedAt = 0;
+
 export async function initWeeklyReport(container = document) {
-  await Promise.all([fetchWeeklyReportList(), fetchWeeklyReportCurrent()]);
+  const week = currentWeekStart();
+  const cached = weeklyReportLoadedWeek === week && (Date.now() - weeklyReportLoadedAt) < WEEKLY_REPORT_CACHE_MS;
+  if (!cached) {
+    await Promise.all([fetchWeeklyReportList(), fetchWeeklyReportCurrent()]);
+    weeklyReportLoadedWeek = currentWeekStart();
+    weeklyReportLoadedAt = Date.now();
+  }
   refreshWeeklyReportSlot(container);
 }
 

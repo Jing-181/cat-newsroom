@@ -34,6 +34,25 @@ export function weekDates() {
   return arr;
 }
 
+// 本周起始日（周一）的 ISO 日期，作为「按周存放」数据的归档标识
+// （本周状态、周报快照这类数据只在本周有意义，跨周必须整体失效）
+export function weekStartKey(date = new Date()) {
+  const dow = (date.getDay() + 6) % 7;
+  const mon = new Date(date);
+  mon.setDate(date.getDate() - dow);
+  return localDateKey(mon);
+}
+
+// 本周状态 7 天：新结构 { week, days } 带周归属，跨周自动归零；
+// 升级前的裸数组没有周归属，只能按空处理，否则上周的分数会一直留在本周。
+export function trendDays(value) {
+  const blank = [null, null, null, null, null, null, null];
+  if (!Array.isArray(value) && value && Array.isArray(value.days) && value.days.length === 7) {
+    return value.week === weekStartKey() ? value.days.slice() : blank;
+  }
+  return blank;
+}
+
 export function weekNum() {
   const n = new Date();
   const s = new Date(n.getFullYear(), 0, 1);

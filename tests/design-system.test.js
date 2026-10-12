@@ -31,8 +31,12 @@ test("周报生成只在用户操作时触发，不在页面初始化时自动�
   assert.match(src, /reportButton\.onclick = \(\) => maybeGenerateWeeklyReport\(true\)/);
   assert.match(src, /checkWeeklyReportResult/); // 生成中由用户主动「检查结果」
   assert.doesNotMatch(src, /isPoll|weeklyReportPolls|setTimeout\([^)]*maybeGenerateWeeklyReport/);
-  // 初始化只拉取列表与当前周，不触发生成
-  assert.match(src, /initWeeklyReport[\s\S]{0,120}Promise\.all\(\[fetchWeeklyReportList\(\), fetchWeeklyReportCurrent\(\)\]\)/);
+  // 初始化只拉取列表与当前周，不触发生成（同周 5 分钟内命中缓存，不重复请求）
+  const start = src.indexOf("export async function initWeeklyReport");
+  assert.ok(start >= 0, "weekly-report.js 应当导出 initWeeklyReport");
+  const initSource = src.slice(start, src.indexOf("\n}", start) + 2);
+  assert.match(initSource, /Promise\.all\(\[fetchWeeklyReportList\(\), fetchWeeklyReportCurrent\(\)\]\)/);
+  assert.doesNotMatch(initSource, /maybeGenerateWeeklyReport/);
 });
 
 test("Vue 应用提供本地备份入口并监听同源标签页数据变化", () => {

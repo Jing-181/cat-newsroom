@@ -58,8 +58,9 @@ function setLine(set, { index, exerciseIndex, setIndex, equipment }) {
     </div>`;
 }
 
-function stepperField(label, field, set, { exerciseIndex, setIndex, down, up, min, step }) {
-  return `<label><span>${label}</span><div class="stepper"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${down}" aria-label="减少${label}">−</button><input type="number" min="${min}" step="${step}" value="${escapeHtml(set[field] === 0 ? "" : set[field])}" placeholder="${min === "0" ? "0" : "1"}" inputmode="decimal" data-set-field="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="${label}"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${up}" aria-label="增加${label}">+</button></div></label>`;
+function stepperField(label, field, set, { exerciseIndex, setIndex, down, up, min, step, placeholder, title }) {
+  const hint = placeholder || (min === "0" ? "0" : "1");
+  return `<label><span>${label}</span><div class="stepper"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${down}" aria-label="减少${label}">−</button><input type="number" min="${min}" step="${step}" value="${escapeHtml(set[field] === 0 ? "" : set[field])}" placeholder="${hint}" ${title ? `title="${escapeHtml(title)}" ` : ""}inputmode="decimal" data-set-field="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="${label}"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${up}" aria-label="增加${label}">+</button></div></label>`;
 }
 
 function morePanel(set, exercise, { exerciseIndex, setIndex }) {
@@ -75,10 +76,17 @@ function morePanel(set, exercise, { exerciseIndex, setIndex }) {
 
 function setRowActive(exercise, set, exerciseIndex, setIndex, previousSets) {
   const cardio = isCardio(exercise);
+  // 自重类动作重量可负：负数=助力（弹力带/助力器械），0=纯自重，正数=负重腰带
+  const assistable = !cardio && Workout.allowsAssist(exercise);
   const fields = cardio
     ? `<label><span>时长（分）</span><input type="number" min="0" step="1" value="${escapeHtml(set.duration_min === 0 ? "" : set.duration_min)}" placeholder="分钟" inputmode="numeric" data-set-field="duration_min" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="时长"></label><label><span>距离 km</span><input type="number" min="0" step="0.1" value="${escapeHtml(set.distance_km === 0 ? "" : set.distance_km)}" placeholder="0" inputmode="decimal" data-set-field="distance_km" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="距离"></label><label><span>配速</span><input value="${escapeHtml(set.pace)}" placeholder="如 6'00\"" data-set-field="pace" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="配速"></label>`
     : [
-      stepperField("重量 kg", "weight_kg", set, { exerciseIndex, setIndex, down: "-2.5", up: "2.5", min: "0", step: "2.5" }),
+      stepperField("重量 kg", "weight_kg", set, {
+        exerciseIndex, setIndex, down: "-2.5", up: "2.5",
+        min: assistable ? "-200" : "0", step: "2.5",
+        placeholder: assistable ? "0=自重" : "0",
+        title: assistable ? "0 = 纯自重，负数 = 助力（如 -20）" : "本组重量",
+      }),
       stepperField("次数", "reps", set, { exerciseIndex, setIndex, down: "-1", up: "1", min: "0", step: "1" }),
     ].join("");
   // 同一组序上一次怎么练的，直接贴在当前组上，衔接时有参照。
@@ -108,8 +116,11 @@ function progressText(exercise) {
 
 // 卡片级只说"上次哪天、练了几组"；每一组的具体重量次数贴到对应的组行上（见 setRowActive），
 // 同一份数据不在两处各出现一遍。
-function lastPerformanceHtml(previous) {
-  if (!previous) return `<p class="exercise-last is-first">首次记录此动作，先把重量和次数填好。</p>`;
+function lastPerformanceHtml(previous, exercise) {
+  if (!previous) {
+    const assist = Workout.allowsAssist(exercise) ? "；自重动作重量填 0 表示纯自重，填负数表示助力（如 -20）" : "，先把重量和次数填好";
+    return `<p class="exercise-last is-first">首次记录此动作${assist}。</p>`;
+  }
   return `<p class="exercise-last"><span class="exercise-last-date">上次 ${escapeHtml(previous.date)}</span><span class="exercise-last-count">· ${previous.sets.length} 组</span></p>`;
 }
 
@@ -132,7 +143,7 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
           const pending = exercise.sets.findIndex(set => !Workout.setHasRecord(set));
           const openIndex = Number.isInteger(explicitOpen) ? Math.min(explicitOpen, exercise.sets.length - 1) : (pending >= 0 ? pending : exercise.sets.length - 1);
           return `<article class="session-exercise" data-exercise-card="${exerciseIndex}"><div class="session-exercise-head"><div><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)}</span><em class="set-progress ${progress.done && progress.done === progress.total ? "all-done" : ""}">${progress.label}</em></div><button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button></div>
-          ${lastPerformanceHtml(previous)}
+          ${lastPerformanceHtml(previous, exercise)}
           <div class="set-list">${setRows(exercise, exerciseIndex, openIndex, previous?.sets)}</div>
           <div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button><span class="rest-advice" title="${escapeHtml(advice.reason)}">组间歇建议 <b>${escapeHtml(advice.minutes)}</b>（${escapeHtml(advice.label)}）</span><button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
         }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>

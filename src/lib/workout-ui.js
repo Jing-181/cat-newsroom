@@ -247,7 +247,9 @@ function mount(container, options) {
       const exercise = session.exercises[exerciseIndex];
       const set = exercise?.sets[setIndex];
       if (!set) return;
-      const minimum = field === "reps" ? 1 : 0;
+      // 自重类动作重量可负（负数=助力），其余动作重量下限为 0；次数至少 1 个
+      const assistable = Workout.allowsAssist(exercise);
+      const minimum = field === "reps" ? 1 : (assistable ? -200 : 0);
       set[field] = Math.max(minimum, Number(set[field] || 0) + step);
       const input = container.querySelector(`[data-set-field="${field}"][data-exercise="${exerciseIndex}"][data-set="${setIndex}"]`);
       if (input) input.value = set[field];

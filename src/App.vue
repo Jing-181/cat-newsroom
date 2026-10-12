@@ -101,19 +101,81 @@ onMounted(() => {
 });
 
 function onAvatarClick() { avatarInputRef.value?.click(); }
-function onAvatarChange(e) {
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const data = getData();
-    data.__avatar = reader.result;
-    applyAvatar(reader.result);
-    save();
-    if (window.getSyncStatus?.() === "online") window.saveMetaCloud?.("__avatar", reader.result);
-  };
-  reader.readAsDataURL(f);
+
+function readAsDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取图片失败"));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error("这个图片格式浏览器打不开"));
+    img.onload = () => resolve(img);
+    img.src = src;
+  });
+}
+
+// 头像统一先压到最长边 320px 的 JPEG：手机原图动辄几 MB，本地存会顶满配额，上传也慢。
+// 压不动（老浏览器没有 canvas.toBlob）就返回 null，由调用方退回原图。
+async function compressAvatar(file) {
+  try {
+    const img = await loadImage(await readAsDataURL(file));
+    const scale = Math.min(1, 320 / Math.max(img.width || 1, img.height || 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round((img.width || 1) * scale));
+    canvas.height = Math.max(1, Math.round((img.height || 1) * scale));
+    const ctx = canvas.getContext("2d");
+    // JPEG 没有透明通道，先铺白底，否则 PNG 的透明区会变成黑块
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return await new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.85));
+  } catch (_) {
+    return null;
+  }
+}
+
+// 头像存什么：登录状态下传进 card-images 存储，拿到一个带 uid 的新 URL（每次上传路径都不同，天然不会命中缓存）；
+// 未登录、离线或上传失败时退回压缩后的 dataURL 内联在本地，不依赖网络也能换头像。
+async function avatarSource(file) {
+  const blob = (await compressAvatar(file)) || file;
+  const user = window.getCurrentUser?.();
+  if (user && !user.is_anonymous && typeof window.uploadCardImage === "function") {
+    try {
+      const named = blob instanceof File ? blob : new File([blob], "avatar.jpg", { type: blob.type || "image/jpeg" });
+      const uploaded = await window.uploadCardImage(named, { moduleKey: "avatar", recordId: "avatar" });
+      if (uploaded?.url) return { src: `${uploaded.url}?v=${Date.now()}`, warning: "" };
+    } catch (error) {
+      // 上传失败不挡住换头像：这次先存在本地，并把原因说清楚
+      return { src: await readAsDataURL(blob), warning: `云端上传失败，头像已先存在本机：${error?.message || "网络异常"}` };
+    }
+  }
+  return { src: await readAsDataURL(blob), warning: "" };
+}
+
+async function onAvatarChange(e) {
+  const file = e.target.files && e.target.files[0];
   e.target.value = "";
+  if (!file) return;
+  if (file.type && !/^image\//.test(file.type)) { Toast.show("请选一张图片"); return; }
+  const previous = avatarSrc.value;
+  try {
+    const { src, warning } = await avatarSource(file);
+    applyAvatar(src);
+    const data = getData();
+    data.__avatar = src;
+    save();
+    if (window.getSyncStatus?.() === "online") window.saveMetaCloud?.("__avatar", src);
+    Toast.show(warning || "头像已更新", warning ? { duration: 6000 } : undefined);
+  } catch (error) {
+    applyAvatar(previous);
+    Toast.show(error?.message || "头像更新失败，换一张试试");
+  }
 }
 </script>
 
@@ -150,9 +212,11 @@ function onAvatarChange(e) {
       </div>
       <div class="foot" id="foot">猫咪编辑部 · 云端同步版</div>
     </aside>
-    <!-- 主视区 -->
+    <!-- 主视区：切换模块时整块重建，靠 .view-swap 的入场动画把切换变成一次淡入，而不是硬闪 -->
     <main class="main">
-      <component :is="current" :key="view" @navigate="onNavigate" />
+      <div class="view-swap" :key="view">
+        <component :is="current" :key="view" @navigate="onNavigate" />
+      </div>
     </main>
     <!-- 移动底栏（≤820px 显示） -->
     <nav class="m-tabs">

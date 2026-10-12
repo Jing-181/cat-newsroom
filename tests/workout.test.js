@@ -202,6 +202,30 @@ test("组记录紧凑格式用于上次每组明细展示", () => {
   assert.equal(workout.formatSetCompact({ weight_kg: 0, reps: 12 }, "杠铃"), "自重×12");
 });
 
+test("自重动作：重量 0 显示自重，负数显示助力", () => {
+  const pullUp = { equipment: "自重" };
+  assert.equal(workout.allowsAssist(pullUp), true);
+  assert.equal(workout.allowsAssist({ equipment: "杠铃" }), false);
+  assert.equal(workout.formatSetText({ weight_kg: 0, reps: 8 }, "自重"), "自重 × 8");
+  assert.equal(workout.formatSetText({ weight_kg: -20, reps: 8 }, "自重"), "助力 20 kg × 8");
+  assert.equal(workout.formatSetText({ weight_kg: 10, reps: 8 }, "自重"), "10 kg × 8");
+  assert.equal(workout.formatSetCompact({ weight_kg: -20, reps: 8 }, "自重"), "助力20×8");
+  // 非自重动作没填重量时仍保留 0 kg，不假装成自重
+  assert.equal(workout.formatSetText({ weight_kg: 0, reps: 8 }, "杠铃"), "0 kg × 8");
+});
+
+test("助力组不进容量统计（避免负数把总容量抵消掉）", () => {
+  const session = {
+    kind: "workout_session", schema_version: 2, status: "completed",
+    exercises: [{
+      exercise_id: "pull_up", name: "引体向上", equipment: "自重",
+      sets: [{ weight_kg: -20, reps: 8 }, { weight_kg: 0, reps: 5 }],
+    }],
+  };
+  assert.equal(workout.calculateStats(session).volume, 0);
+  assert.equal(workout.exerciseHistory([session], "pull_up")[0].volume, 0);
+});
+
 test("旧运动记录保持兼容", () => {
   assert.equal(workout.summary({ id: 1, title: "跑步", current: 20, target: 30 }).legacy, true);
 });

@@ -1,5 +1,5 @@
 // 全局配置：与主站 workbench-desktop.html 的 CONFIG 完全一致（数据键、模块定义、快速记录、概览环、每日一句）
-import { isoToday, today, avgProgress, localDateKey } from "./utils.js";
+import { isoToday, today, avgProgress, localDateKey, trendDays } from "./utils.js";
 
 // mock 训练记录用的相对日期：n 天前的 ISO 日期，让历史列表和「动作进展」一打开就有内容。
 const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return localDateKey(d); };
@@ -48,9 +48,10 @@ export const CONFIG = {
   ],
 
   // 本周状态趋势（真实数据：读取用户填写的 __trend，7 个数字；没有就留空）
+  // 数据带周归属，跨周自动返回空的 7 天，不把上周的分数画进本周曲线。
   trend: {
     title: "本周状态趋势", unit: "分",
-    series: d => (Array.isArray(d.__trend) && d.__trend.length === 7) ? d.__trend : [],
+    series: d => trendDays(d.__trend),
   },
 
   // 快速记录按钮（点了直接给对应模块新建）

@@ -9,6 +9,11 @@ import catalog from "./workout-catalog.js";
 // 重量允许为 0：自重动作（引体、俯卧撑）重量就是 0，但次数写了就是真实训练。
 // 没有任何数值的空组同样不属于训练记录，界面直接删除而不是标记状态。
 const CARDIO_EQUIPMENT = ["有氧", "恢复"];
+// 自重类动作（引体向上、双杠臂屈伸、俯卧撑）没有外加负重，但可以用弹力带或助力器械做退阶。
+// 重量写负数表示助力，0 表示纯自重，写正数则是加负重腰带。
+const ASSIST_EQUIPMENT = ["自重", "自重/器械"];
+// 文案上能说「自重」的器械类型：只有这些动作在重量为 0 时用「自重」代替「0 kg」
+const BODYWEIGHT_EQUIPMENT = ["自重", "自重/器械", "哑铃/自重"];
 // 组间歇推荐：大肌群恢复慢，间歇留长一点；小肌群恢复快，可以短一些。
 // 只作为填写时的参考文案，不倒计时、不强制、也不写入历史。
 const REST_ADVICE = {
@@ -37,6 +42,15 @@ function isSession(record) {
 
 function isCardio(exercise) {
   return CARDIO_EQUIPMENT.includes(exercise?.equipment);
+}
+
+function isBodyweight(exercise) {
+  return BODYWEIGHT_EQUIPMENT.includes(exercise?.equipment);
+}
+
+// 该动作能不能记录助力（负重量）：自重类动作才开放
+function allowsAssist(exercise) {
+  return ASSIST_EQUIPMENT.includes(exercise?.equipment);
 }
 
 function setHasRecord(set) {
@@ -210,7 +224,7 @@ function calculateStats(session) {
     exerciseCount: (session?.exercises || []).length,
     setCount: sets.length,
     reps: strengthSets.reduce((sum, set) => sum + Number(set.reps || 0), 0),
-    volume: strengthSets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0),
+    volume: strengthSets.reduce((sum, set) => sum + Math.max(0, Number(set.weight_kg || 0)) * Number(set.reps || 0), 0),
   };
 }
 
@@ -239,7 +253,7 @@ function exerciseHistory(records, exerciseId, limit = 8) {
     items.push({
       sessionId: session.id, date: session.date, title: session.title,
       equipment: exercise.equipment, sets, setCount: sets.length,
-      volume: sets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0),
+      volume: sets.reduce((sum, set) => sum + Math.max(0, Number(set.weight_kg || 0)) * Number(set.reps || 0), 0),
       topWeight: sets.reduce((max, set) => Math.max(max, Number(set.weight_kg || 0)), 0),
     });
     if (items.length >= limit) break;
@@ -265,7 +279,7 @@ function trackedExercises(records) {
       if (date > entry.lastDate) {
         entry.lastDate = date;
         entry.lastSets = sets;
-        entry.lastVolume = sets.reduce((sum, set) => sum + Number(set.weight_kg || 0) * Number(set.reps || 0), 0);
+        entry.lastVolume = sets.reduce((sum, set) => sum + Math.max(0, Number(set.weight_kg || 0)) * Number(set.reps || 0), 0);
       }
       map.set(exercise.exercise_id, entry);
     }
@@ -275,6 +289,14 @@ function trackedExercises(records) {
 
 // ---- 组记录展示 ----
 
+// 负重文案：负数=助力（弹力带/助力器械），0=自重（仅自重类动作，其他动作显示 0 kg），正数=负重
+function weightText(weight, equipment) {
+  const value = Number(weight || 0);
+  if (value < 0) return `助力 ${trim(-value)} kg`;
+  if (value === 0) return isBodyweight({ equipment }) ? "自重" : "0 kg";
+  return `${trim(value)} kg`;
+}
+
 function formatSetText(set, equipment) {
   if (isCardio({ equipment })) {
     const parts = [`${num(set?.duration_min)} 分钟`];
@@ -282,10 +304,10 @@ function formatSetText(set, equipment) {
     if (set?.pace) parts.push(String(set.pace));
     return parts.join(" · ");
   }
-  return `${num(set?.weight_kg)} kg × ${num(set?.reps)}`;
+  return `${weightText(set?.weight_kg, equipment)} × ${num(set?.reps)}`;
 }
 
-// 紧凑写法：20×10，自重动作显示为 自重×12。
+// 紧凑写法：20×10，自重动作显示为 自重×12，助力动作显示为 助力20×8。
 function formatSetCompact(set, equipment) {
   if (isCardio({ equipment })) {
     const parts = [`${num(set?.duration_min)}分`];
@@ -293,7 +315,8 @@ function formatSetCompact(set, equipment) {
     return parts.join(" ");
   }
   const weight = Number(set?.weight_kg || 0);
-  return `${weight > 0 ? trim(weight) : "自重"}×${num(set?.reps)}`;
+  const label = weight < 0 ? `助力${trim(-weight)}` : (weight > 0 ? trim(weight) : "自重");
+  return `${label}×${num(set?.reps)}`;
 }
 
 function formatSetList(sets, equipment) {
@@ -337,7 +360,7 @@ function sortRecords(records) {
 
 const Workout = {
   catalog, REST_ADVICE, restAdvice,
-  isSession, isCardio, setHasRecord, recordedSets, createSet,
+  isSession, isCardio, isBodyweight, allowsAssist, setHasRecord, recordedSets, createSet,
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
   addSet, removeSet,
   calculateStats, summary,
@@ -347,7 +370,7 @@ const Workout = {
 export default Workout;
 export {
   catalog, REST_ADVICE, restAdvice,
-  isSession, isCardio, setHasRecord, recordedSets, createSet,
+  isSession, isCardio, isBodyweight, allowsAssist, setHasRecord, recordedSets, createSet,
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
   addSet, removeSet,
   calculateStats, summary,

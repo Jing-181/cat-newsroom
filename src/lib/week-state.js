@@ -1,13 +1,13 @@
-// 本周状态共享逻辑：洞察页大格子 + 首页趋势卡下方紧凑条，读写 data().__trend（7 个数字，null=未记录）
-import { today, weekDates } from "./utils.js";
+// 本周状态共享逻辑：洞察页大格子 + 首页趋势卡下方紧凑条，读写 data().__trend
+// 存储结构 { week: 本周周一ISO日期, days: [7 个数字] }，week 对不上就当作没记录，跨周自动归零
+import { today, weekDates, weekStartKey, trendDays } from "./utils.js";
 import { getData, save } from "./store.js";
 
 const DOW = ["一", "二", "三", "四", "五", "六", "日"];
 
 // 读当前 7 天趋势数组（缺省补 null）
 export function readTrend() {
-  const value = getData().__trend;
-  return Array.isArray(value) && value.length === 7 ? value : [null, null, null, null, null, null, null];
+  return trendDays(getData().__trend);
 }
 
 // 点击循环：1→2→3→4→5→清空
@@ -15,14 +15,14 @@ export function nextTrendValue(current) {
   return current == null ? 1 : (current >= 5 ? null : current + 1);
 }
 
-// 写某天状态：更新本地存储并同步云端
+// 写某天状态：连同本周标识一起写入本地存储并同步云端
 export function writeTrendDay(index, value) {
   const d = getData();
   const trend = readTrend();
   trend[index] = value;
-  d.__trend = trend;
+  d.__trend = { week: weekStartKey(), days: trend };
   save();
-  if (typeof window.saveMetaCloud === "function") window.saveMetaCloud("__trend", trend);
+  if (typeof window.saveMetaCloud === "function") window.saveMetaCloud("__trend", d.__trend);
 }
 
 // 生成 7 天格子 HTML；compact=true 用于首页趋势卡下方的紧凑条
