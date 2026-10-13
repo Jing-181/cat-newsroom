@@ -51,6 +51,17 @@ test("训练记录连嵌套的动作实例一起比对", () => {
   assert.equal(DemoData.isDemoRecord("sport", edited), false, "改过组数就不再是演示数据");
 });
 
+test("样板日期随「今天」漂移（相对日期）仍判为演示数据", () => {
+  // 运动 seed 的 date 由 daysAgo(n) 生成、记账/日记/收藏由 isoToday() 生成：
+  // 昨天的样板今天再比对，日期已经不同。若把日期算进比对，这些老样板会被当成用户记录同步上云。
+  const sport = markedSeed("sport").find(record => record.id === "seed-workout-legs-1");
+  assert.equal(DemoData.isDemoRecord("sport", { ...sport, date: "2026-10-02" }), true, "跨天的训练样板仍应被识别");
+  const money = { ...markedSeed("money")[0], date: "2026-10-02" };
+  assert.equal(DemoData.isDemoRecord("money", money), true, "跨天的记账样板仍应被识别");
+  const note = { ...markedSeed("note")[0], date: "2026-10-02" };
+  assert.equal(DemoData.isDemoRecord("note", note), true, "跨天的日记样板仍应被识别");
+});
+
 test("上云前去掉 __seed 标识，且不改动本地记录", () => {
   const todo = markedSeed("todo")[0];
   const uploaded = DemoData.stripSeedFlag(todo);

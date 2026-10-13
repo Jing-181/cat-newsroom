@@ -10,8 +10,13 @@ import { CONFIG } from "./config.js";
 
 export const SEED_FLAG = "__seed";
 
-// 比对时忽略的字段：标识本身，以及同步层会反复改写的 updated_at
-const IGNORED_KEYS = new Set([SEED_FLAG, "updated_at"]);
+// 比对时忽略的字段：
+//   - __seed 标识本身、同步层反复改写的 updated_at；
+//   - date：样板日期是「相对今天」生成的（运动 seed 走 daysAgo(n)，记账/日记/收藏走 isoToday()），
+//     同一条样板换一天加载就会得到另一个日期。早期已经落到 localStorage / outbox / 云端的样板数据，
+//     今天再拿模板比对必然对不上，会被误判成用户记录而同步上云——这正是账号里残留 mock 数据的成因。
+//     日期不是判定依据：模板 id 与其余字段都稳定，忽略 date 后判定只依赖稳定内容。
+const IGNORED_KEYS = new Set([SEED_FLAG, "updated_at", "date"]);
 
 // 键顺序无关的稳定序列化：云端回来的行会带上 id/updated_at，字段顺序与本地样板不同
 function canonical(value) {
