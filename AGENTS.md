@@ -6,6 +6,8 @@
 ## 这是什么
 
 猫咪生活报（Cat Life Daily）：一个单人用的生活工作台。十个模块——首页概览、洞察周报、待办、习惯打卡、阅读进度、运动健身、记账、日记、今日收藏、设置。
+
+训练周复盘是只读展示：数据由 Hana 的定时任务每周一 07:30 写入 Supabase，前端读只读视图 `training_reports_feed`，不在浏览器里生成。
 只有 Jing 一个用户。数据存浏览器 localStorage，可选经 Supabase 跨设备同步。
 
 ## 跑起来
@@ -31,7 +33,7 @@ npm run build       # 产出 dist/（含 prebuild 拷贝步骤）
 | --- | --- | --- |
 | 统一入口 | `index.html` → `src/` | Vue 3 + Vite，root 指向 `src` |
 | 视图 | `src/modules/<key>/<Name>View.vue` | 10 个视图；6 个是薄包装，复用 `src/components/ModuleView.vue` 的通用引擎 |
-| 领域库 | `src/lib/*.js` | 全部业务领域模块：config / store / record-view / weekly-report / editor / icons / utils，以及从 `js/` 迁过来的弹窗、设备模式、备份、toast、记录列表与配图、番茄钟界面、训练家族（catalog / workout / plan / view / ui）。数据读写统一走 `store.js`（`getData` / `persist` / `remove` / `saveMetaField`），视图不再自己碰数据键 |
+| 领域库 | `src/lib/*.js` | 全部业务领域模块：config / store / record-view / training-review / editor / icons / utils，以及从 `js/` 迁过来的弹窗、设备模式、备份、toast、记录列表与配图、番茄钟界面、训练家族（catalog / workout / plan / view / ui）。数据读写统一走 `store.js`（`getData` / `persist` / `remove` / `saveMetaField`），视图不再自己碰数据键 |
 | 共享运行时 | `js/*.js` | 只剩三个同步层经典脚本（`sync-core` / `api-client` / `sync-hooks`），挂到 `window`，由 `src/main.js` 副作用导入。其余模块已全部迁到 `src/lib/` 的 ESM 且**不再挂全局垫片**：消费者一律直接 `import`，与经典脚本之间只剩 `window.CONFIG` / `window.data` / `window.store` / `window.updateAuthUI` / `window.DemoData` 这几个明确契约，见 `docs/refactor-plan-2026-10.md` |
 | 共享样式 | `css/*.css`（theme / components / workout-ui / app-dialog / record-media） | 全局 token 与组件 |
 | 桌面布局样式 | `src/desktop.css`、`src/responsive.css` | 由 `src/styles.css` @import |
@@ -65,7 +67,7 @@ npm run build       # 产出 dist/（含 prebuild 拷贝步骤）
 - localStorage 键：`cat-newsroom-data-v2`（`CONFIG.storageKey`）。**不要改这个键名**，会丢用户数据。
 - **演示数据隔离**：`load()` 造样板记录时给每条打 `__seed: true`（`src/lib/demo-data.js`）。同步层不看标识本身，而是拿「记录内容与 `CONFIG` 样板模板逐字段比对（忽略 `__seed` / `updated_at`）」来判是不是演示数据：完全一致的不上云，用户新增或改过的记录内容不同，照常同步（`syncRecord`、`queueLocalAccountMigration`、outbox 三处都设了卡）。上云副本会去掉 `__seed`。经典脚本读守卫走 `window.DemoData` 桥。
 - 已经混进账号的样板数据用 `purgeDemoRecords({ commit: true })` 清（浏览器控制台 `await purgeDemoRecords()` 先盘点），只删内容与样板完全一致的行，用户改过的不会命中。
-- 同步：`supabase-sync.js` + Edge Function `generate-weekly-report`；`src/main.js` 里把 `onSyncReady` / `onRemoteUpdate` 桥接到 `src/lib/store.js`。
+- 同步：`supabase-sync.js` 负责认证与记录同步；AI 相关的 Edge Function 只剩 `generate-daily-copy` 与 `generate-workout-plan`；`src/main.js` 里把 `onSyncReady` / `onRemoteUpdate` 桥接到 `src/lib/store.js`。
 - 版本号：`src/lib/config.js` 的 `CONFIG.APP_VERSION`，发布新功能时手动 bump。
 
 ## 硬约束（改代码前先确认没踩线）

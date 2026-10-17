@@ -5,7 +5,7 @@ export const HOME_GROUPS = {
   habits: { en: "HABITS&nbsp;&nbsp;&&nbsp;&nbsp;TASKS", zh: "习惯与待办" },
   focus: { en: "FOCUS&nbsp;&nbsp;&&nbsp;&nbsp;MOOD", zh: "专注与状态" },
   growth: { en: "MONEY&nbsp;&nbsp;&&nbsp;&nbsp;GROWTH", zh: "收支与成长" },
-  report: { en: "WEEKLY&nbsp;&nbsp;REPORT", zh: "本周生活报" },
+  report: { en: "TRAINING&nbsp;&nbsp;REVIEW", zh: "训练复盘" },
 };
 
 // key：卡片标识（云端排序存 key 数组）；label：设置页显示名；group：所属分组（组头自动跟随）
@@ -22,7 +22,7 @@ export const HOME_CARDS = [
   { key: "spend", label: "月度开销", group: "growth" },
   { key: "books", label: "在读好书", group: "growth" },
   { key: "goals", label: "本周目标", group: "growth" },
-  { key: "report", label: "本周生活报", group: "report" },
+  { key: "report", label: "训练周复盘", group: "report" },
 ];
 
 export const DEFAULT_HOME_ORDER = HOME_CARDS.map(card => card.key);

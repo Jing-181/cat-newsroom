@@ -13,7 +13,7 @@
 - H5 快捷动作使用弹窗集中选择，整张动作卡可点击添加；训练保存栏针对窄屏重新排版。
 - 旧版运动目标继续兼容展示；新训练以 Session 形式保存和同步。
 - 训练计划：本地规则引擎生成"2 轮 × 3 天推拉腿（PPL）"计划，点击计划日自动创建训练记录，保存后标记完成；渐进超负荷规则见 [生成原理](docs/workout-plan-generation-principles.md)。
-- AI 周报支持汇总新训练数据，并排除草稿和已删除记录。
+- 训练周复盘从云端只读视图 `training_reports_feed` 读取（每周一 07:30 由定时任务写入），前端只渲染、不生成；支持往期切换与导出 Markdown。
 - 记录卡片支持标准、大图、引文三种样式；图片可上传到 Supabase Storage、粘贴外链，或使用内置默认配图。
 
 ## 产品与设计基线
@@ -81,7 +81,6 @@ npm run build
 const SUPABASE_CONFIG = {
   url: "https://xxxxx.supabase.co", // Supabase Project URL
   anonKey: "sb_publishable_...", // 仅使用 Publishable/anon key
-  reportFunction: "generate-weekly-report",
   mediaBucket: "card-images", // 卡片图片公开读取桶
 };
 ```
@@ -90,17 +89,20 @@ Publishable/anon key 可放在前端，并由 RLS 限制数据访问；不要把
 
 卡片图片上传使用 `card-images` Storage bucket。SQL 脚本会创建公开读取桶，并限制正式登录用户只能写入自己 `userId/模块/记录/文件名` 目录；匿名会话仍可使用默认配图，但不能上传图片。若线上提示 `Bucket not found`，请在 Supabase SQL Editor 执行 [修复迁移](supabase/migrations/20260907000000_repair_card_images_storage.sql)，或使用 `supabase db push` 部署迁移后再重试。
 
-### AI 周报
+### AI 功能
 
-执行数据库脚本后，使用 Supabase CLI 部署 Edge Function：
+每日一卡与训练计划仍由 Edge Function 生成，需执行数据库脚本后用 Supabase CLI 部署：
 
 ```bash
 supabase link --project-ref <project-ref>
 supabase db push
-supabase functions deploy generate-weekly-report
+supabase functions deploy generate-daily-copy
+supabase functions deploy generate-workout-plan
 ```
 
 在 Edge Function Secrets 中配置 `AIXLUV_API_KEY`，可选配置 `AIXLUV_MODEL`。AI 密钥只存在服务端。
+
+训练周复盘不再由前端 Edge Function 生成：写入方是 Hana 的定时任务（每周一 07:30），结果 upsert 到 `training_reports`，前端通过只读视图 `training_reports_feed` 读取。旧的 `generate-weekly-report` 已下线。
 
 ## 部署
 
@@ -127,7 +129,8 @@ supabase functions deploy generate-weekly-report
 | `js/record-media.js` | 记录默认配图、图片 URL 回退和图库选择 |
 | `js/sync-core.js` | 全量合并、Realtime 应用和 outbox 去重 |
 | `supabase-sync.js` | Supabase 认证、原子同步和手动/初始化全量同步 |
-| `supabase/functions/generate-weekly-report/` | AI 周报 Edge Function |
+| `supabase/functions/generate-daily-copy/` | 每日一卡 Edge Function |
+| `supabase/functions/generate-workout-plan/` | 训练计划 Edge Function |
 | `supabase/migrations/20260901000000_card_images_storage.sql` | 卡片图片 Storage bucket 与 RLS 策略 |
 | `supabase/migrations/20260907000000_repair_card_images_storage.sql` | 修复线上缺失的卡片图片 bucket 与 RLS 策略 |
 | `tests/` | Node 核心逻辑测试 |
@@ -137,6 +140,7 @@ supabase functions deploy generate-weekly-report
 
 - `workbench_records` 按记录存储各模块 JSONB 数据，训练 Session 也是其中一条记录。
 - `workbench_meta` 存储头像、番茄统计和趋势数据；番茄运行倒计时只保存在本机。
-- `weekly_reports` 按用户和周缓存生活周报。
+- `weekly_reports` 保留旧的 AI 生活报历史数据（前端与生成函数已下线，不再写入）。
+- `training_reports` 存训练周复盘（`payload` 结构化结果 + `markdown` 归档原文），`training_reports_feed` 是对 anon 开放的只读视图。
 - `card-images` 公开读取图片文件；写入、替换和删除均按用户目录隔离，并要求正式账号。
 - 所有表使用 RLS 按 `auth.uid()` 隔离，匿名用户也拥有独立用户 ID。

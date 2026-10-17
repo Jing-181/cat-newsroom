@@ -2,7 +2,6 @@
 const SUPABASE_CONFIG = {
   url: "https://qqtasmilusrpyxhrqptd.supabase.co",
   anonKey: "sb_publishable_xnVYIwduEPYcIpV0aLSC0Q_Lz8U7nf5",
-  reportFunction: "generate-weekly-report",
   mediaBucket: "card-images",
 };
 
@@ -43,17 +42,10 @@ function stripSeedFlag(record) {
   return api && typeof api.stripSeedFlag === "function" ? api.stripSeedFlag(record) : record;
 }
 
-function localDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function localWeekStartKey(date = new Date()) {
-  const value = new Date(date);
-  value.setDate(value.getDate() - (value.getDay() + 6) % 7);
-  return localDateKey(value);
+// 交给 ESM 侧的只读出口（src/lib/training-review.js 读训练复盘视图时用）。
+// SUPABASE_CONFIG 是顶层 const，经典脚本里不会成为 window 属性，所以显式吐一个函数。
+function getSupabaseConfig() {
+  return { url: SUPABASE_CONFIG.url, anonKey: SUPABASE_CONFIG.anonKey };
 }
 
 function loadScript(src) {
@@ -498,29 +490,6 @@ async function uploadCardImage(file, options = {}) {
   }
   const { data: publicData } = sb.storage.from(SUPABASE_CONFIG.mediaBucket).getPublicUrl(path);
   return { path, url: publicData.publicUrl };
-}
-
-async function generateWeeklyReport(options = {}) {
-  if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成 AI 生活报");
-  try {
-    // 会话刷新也可能构造请求头，统一转换浏览器的 ByteString 异常。
-    const rawToken = await getAccessToken();
-    if (!rawToken) throw new Error("登录状态已过期，请重新登录");
-    const token = normalizeHeaderValue(rawToken, "登录令牌");
-    const apiKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
-    const headers = { apikey: apiKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-    return await ApiClient.requestJson({
-      url: `${SUPABASE_CONFIG.url}/functions/v1/${SUPABASE_CONFIG.reportFunction}`,
-      headers,
-      body: { week_start: localWeekStartKey(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...options },
-      timeoutMs: 100000,
-    });
-  } catch (error) {
-    if (/ByteString|invalid character/i.test(String(error?.message || error))) {
-      throw new Error("登录状态异常，请退出当前账号后重新登录");
-    }
-    throw error;
-  }
 }
 
 async function generateWorkoutPlan(options = {}) {

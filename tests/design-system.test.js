@@ -26,17 +26,23 @@ test("设计演示页只使用共享样式和相对资源", () => {
   assert.doesNotMatch(scripts, /localStorage|supabase|generateWeeklyReport/i);
 });
 
-test("周报生成只在用户操作时触发，不在页面初始化时自动请求，也不做轮询", () => {
-  const src = read("src/lib/weekly-report.js");
-  assert.match(src, /reportButton\.onclick = \(\) => maybeGenerateWeeklyReport\(true\)/);
-  assert.match(src, /checkWeeklyReportResult/); // 生成中由用户主动「检查结果」
-  assert.doesNotMatch(src, /isPoll|weeklyReportPolls|setTimeout\([^)]*maybeGenerateWeeklyReport/);
-  // 初始化只拉取列表与当前周，不触发生成（同周 5 分钟内命中缓存，不重复请求）
-  const start = src.indexOf("export async function initWeeklyReport");
-  assert.ok(start >= 0, "weekly-report.js 应当导出 initWeeklyReport");
+test("训练复盘只读：不调 Edge Function、不轮询、不在页面初始化时触发生成", () => {
+  const src = read("src/lib/training-review.js");
+  // 只读视图 + 公开 publishable key，没有任何生成入口
+  assert.match(src, /training_reports_feed/);
+  assert.match(src, /apikey: config\.anonKey/);
+  assert.doesNotMatch(src, /functions\/v1|generateWeeklyReport|generate-weekly-report/);
+  // 不轮询：不用 setInterval / setTimeout 重拉，也不做生成中的状态机
+  assert.doesNotMatch(src, /setInterval|setTimeout|isPoll/);
+  // 初始化只做一次「读」，同一次页面初始化 5 分钟内复用缓存
+  const start = src.indexOf("export async function initTrainingReview");
+  assert.ok(start >= 0, "training-review.js 应当导出 initTrainingReview");
   const initSource = src.slice(start, src.indexOf("\n}", start) + 2);
-  assert.match(initSource, /Promise\.all\(\[fetchWeeklyReportList\(\), fetchWeeklyReportCurrent\(\)\]\)/);
-  assert.doesNotMatch(initSource, /maybeGenerateWeeklyReport/);
+  assert.match(initSource, /CACHE_MS/);
+  assert.doesNotMatch(initSource, /exportMarkdown|\.insert|upsert/i);
+  // 同步层不再保留旧的生活报入口
+  const sync = read("supabase-sync.js");
+  assert.doesNotMatch(sync, /reportFunction|generateWeeklyReport|generate-weekly-report/);
 });
 
 test("Vue 应用提供本地备份入口并监听同源标签页数据变化", () => {

@@ -111,20 +111,25 @@ test("运动组件复用 WorkoutUI，并通过 store.js 读写同一数据键", 
   assert.match(store, /window\.syncDelete\(\{ moduleKey, recordId \}\)/);
 });
 
-test("首页与洞察接入周报槽，共享层含编辑/周报/番茄钟", () => {
+test("首页与洞察接入训练周复盘槽，共享层含编辑/复盘/番茄钟", () => {
   const home = read("src/modules/home/HomeView.vue");
   const insight = read("src/modules/insight/InsightView.vue");
-  assert.match(home, /weeklyReportSlotHTML/);
-  assert.match(insight, /weeklyReportSlotHTML/);
-  assert.match(home, /initWeeklyReport\(root\.value\)/);
-  assert.match(insight, /initWeeklyReport\(root\.value\)/);
+  assert.match(home, /trainingReviewSlotHTML/);
+  assert.match(insight, /trainingReviewSlotHTML/);
+  assert.match(home, /initTrainingReview\(root\.value\)/);
+  assert.match(insight, /initTrainingReview\(root\.value\)/);
+  // 旧的 AI 生活报整条链路不得再被引用（文件已删，import 还在就会构建失败）
+  assert.doesNotMatch(home, /weekly-report/);
+  assert.doesNotMatch(insight, /weekly-report/);
+  assert.ok(!fs.existsSync(path.join(root, "src/lib/weekly-report.js")), "weekly-report.js 应已删除");
+  assert.ok(!fs.existsSync(path.join(root, "src/lib/weekly-report-utils.js")), "weekly-report-utils.js 应已删除");
   const lib = read("src/lib/editor.js");
   assert.match(lib, /export function openEditor/);
-  const reportLib = read("src/lib/weekly-report.js");
-  assert.match(reportLib, /export async function maybeGenerateWeeklyReport/);
-  assert.match(reportLib, /export async function initWeeklyReport/);
-  assert.match(reportLib, /action: "list"/);
-  assert.match(reportLib, /report-history/);
+  const reviewLib = read("src/lib/training-review.js");
+  assert.match(reviewLib, /export async function initTrainingReview/);
+  assert.match(reviewLib, /export function trainingReviewSlotHTML/);
+  assert.match(reviewLib, /training_reports_feed/);
+  assert.match(reviewLib, /training-review-history/);
   assert.match(read("src/lib/pomodoro.js"), /export function ensurePomodoroController/);
 });
 
@@ -141,10 +146,10 @@ test("响应式外壳：样式入口引入 responsive.css，App 含移动顶栏/
   assert.match(sync, /querySelectorAll\("#sync-indicator"\)/); // 顶栏与侧栏同步指示器一并更新
 });
 
-test("本周生活报槽位带 b12 全宽类，首页 bento 网格中不被压缩成窄条", () => {
-  const reportLib = read("src/lib/weekly-report.js");
-  assert.match(reportLib, /weekly-report-slot" class="b12"/);
-  assert.match(reportLib, /tile b12 report-card/); // 复用 tile 卡片外观并占满整行
+test("训练周复盘槽位带 b12 全宽类，首页 bento 网格中不被压缩成窄条", () => {
+  const reviewLib = read("src/lib/training-review.js");
+  assert.match(reviewLib, /training-review-slot" class="b12"/);
+  assert.match(reviewLib, /tile b12 report-card/); // 复用 tile 卡片外观并占满整行
   const styles = read("src/desktop.css");
   assert.match(styles, /\.report-card \{ margin-top:16px; \}/); // 洞察页块级上下文保留间距
   assert.match(styles, /\.bento \.report-card \{ margin-top:0; \}/); // 首页 bento 内由 gap 控制间距

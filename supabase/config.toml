@@ -414,7 +414,3 @@ enabled = true
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
 
-# 周报函数：AI 生成单次最长 90 秒，超时放宽到 120 秒；沿用默认 JWT 校验
-[functions.generate-weekly-report]
-verify_jwt = true
-timeout_seconds = 120

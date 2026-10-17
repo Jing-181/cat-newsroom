@@ -80,7 +80,7 @@ js/                      ← 只留必须全局的两个同步脚本
 
 **顺手修掉一个被 `?.` 吞掉的 bug**：`daily-copy.js` 的「登录账号」按钮读 `window.openAuthModalRef` / `window.openAuthModal`，而这两个全局从来没被赋值（可选链把“点了没反应”吞了）。改成 `import { openAuthModal } from "./auth-modal.js"`。教训见 `docs/开发经验.md` 第 8 节。
 
-**收尾后剩下的全局面（有意保留，都是与经典脚本的契约）**：`window.CONFIG`、`window.data` / `window.store`（`supabase-sync.js` 直接读）、`window.updateAuthUI`（同步层改完认证状态回调）、`window.DemoData`（样板数据守卫）、`window.__reloadDailyCopy`、`window.__onSyncReady` / `window.__onRemoteUpdate`（`sync-hooks.js` 桥接）。除这些之外，`src/` 里出现的 `window.X` 都是 `supabase-sync.js` 摊出来的函数（`syncRecord` / `syncDelete` / `syncMetaField` / `saveMetaCloud` / `getCurrentUser` / `runFullSync` / …）或浏览器 API。`tests/vue-build.test.js` 新增一条用例把“垫片不许回潮”钉住。
+**收尾后剩下的全局面（有意保留，都是与经典脚本的契约）**：`window.CONFIG`、`window.data` / `window.store`（`supabase-sync.js` 直接读）、`window.updateAuthUI`（同步层改完认证状态回调）、`window.DemoData`（样板数据守卫）、`window.__reloadDailyCopy`、`window.__onSyncReady` / `window.__onRemoteUpdate`（`sync-hooks.js` 桥接）、`window.getSupabaseConfig`（2026-10 新增：ESM 侧读训练复盘只读视图时借同一份 URL 与 publishable key，不再在前端复制第二份配置）。除这些之外，`src/` 里出现的 `window.X` 都是 `supabase-sync.js` 摊出来的函数（`syncRecord` / `syncDelete` / `syncMetaField` / `saveMetaCloud` / `getCurrentUser` / `runFullSync` / …）或浏览器 API。`tests/vue-build.test.js` 新增一条用例把“垫片不许回潮”钉住。
 
 **已知撞名**：`src/lib/pomodoro.js`（40 行控制器）与原来的 `js/pomodoro.js`（184 行番茄钟界面）同名。界面那个迁到 `src/lib/pomodoro-view.js`，和 `record-view` / `workout-view` 一个命名范式。
 

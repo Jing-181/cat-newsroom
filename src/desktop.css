@@ -682,6 +682,17 @@
   .report-card ul.report-text { margin:4px 0 0; padding:0; list-style:none; }
   .report-card .report-text li { position:relative; padding-left:14px; margin-top:4px; line-height:1.7; }
   .report-card .report-text li::before { content:""; position:absolute; left:0; top:.66em; width:5px; height:5px; border-radius:50%; background:var(--text-tertiary); opacity:.7; }
+  /* 训练周复盘：一句话结论比正文重一档，作为整张卡的导语 */
+  .report-card .report-text.review-conclusion { color:var(--text); font-size:15px; margin-top:10px; }
+  /* 本周 / 上周 对照表：行首是指标名，数字列右对齐；只用 token，不加新颜色 */
+  .report-card .review-table { width:100%; border-collapse:collapse; margin-top:12px; font-family:var(--font-sans); }
+  .report-card .review-table th, .report-card .review-table td { padding:7px 0; text-align:right; border-top:1px dashed var(--border); font-size:13px; }
+  .report-card .review-table thead th { border-top:0; padding-top:0; color:var(--text-tertiary); font-size:11px; font-weight:700; }
+  .report-card .review-table th[scope="row"] { text-align:left; font-weight:600; color:var(--text-secondary); padding-right:10px; }
+  .report-card .review-table td { color:var(--text); font-variant-numeric:tabular-nums; }
+  .report-card .review-table td.delta { color:var(--text-secondary); }
+  /* 空态里的失败原因：比空态正文再弱一档，不抢眼但可读 */
+  .report-card .review-note { color:var(--text-tertiary); font-size:12px; }
   .report-history { display:flex; align-items:center; gap:8px; margin-top:14px; }
   .report-history label { color:var(--text-tertiary); font-size:12px; white-space:nowrap; }
   .report-history select { flex:1; min-width:0; height:34px; border:1px solid var(--border-input); border-radius:6px; padding:0 8px; color:var(--text); background:var(--surface-card); font-size:13px; }

@@ -1,11 +1,11 @@
 <script setup>
-// 洞察复盘：各模块进展一览 + 本周状态录入 + 本周生活报（与主站逻辑一致）
+// 洞察复盘：各模块进展一览 + 本周状态录入 + 训练周复盘（与首页共用同一份云端数据）
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG } from "../../lib/config.js";
 import { icon } from "../../lib/icons.js";
 import { today, dateStr, avgProgress, weekDates } from "../../lib/utils.js";
 import { getData, save, subscribe } from "../../lib/store.js";
-import { weeklyReportSlotHTML, initWeeklyReport, exportWeeklyReport } from "../../lib/weekly-report.js";
+import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
 
 const emit = defineEmits(["navigate"]);
@@ -36,8 +36,8 @@ function render() {
     ${trendBlockHTML()}`;
   root.value.querySelectorAll("[data-open]").forEach(el => el.onclick = () => emit("navigate", el.dataset.open));
   wireTrendCells(root.value);
-  root.value.insertAdjacentHTML("beforeend", weeklyReportSlotHTML());
-  initWeeklyReport(root.value);
+  root.value.insertAdjacentHTML("beforeend", trainingReviewSlotHTML());
+  initTrainingReview(root.value);
 }
 
 let unsub = null;

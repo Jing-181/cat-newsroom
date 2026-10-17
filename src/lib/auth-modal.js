@@ -1,6 +1,5 @@
-// 登录/注册弹窗（与主站一致），并回填周报里的登录入口
+// 登录/注册弹窗（与主站一致）
 import { esc } from "./icons.js";
-import { openAuthModalRef } from "./weekly-report.js";
 
 export function openAuthModal(mode) {
   const overlay = document.createElement("div"); overlay.className = "overlay";
@@ -34,6 +33,3 @@ export function openAuthModal(mode) {
     } else { close(); }
   };
 }
-
-// 周报卡片的「登录账号」入口复用同一个弹窗
-openAuthModalRef.current = openAuthModal;

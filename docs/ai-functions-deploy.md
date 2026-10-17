@@ -1,6 +1,8 @@
-# AI Edge Function 部署指南（周报 / 训练计划）
+# AI Edge Function 部署指南（每日一卡 / 训练计划）
 
 静态站点由 GitHub Actions 自动部署到 Pages；**两个 AI Edge Function 需要手动用 Supabase CLI 部署**。
+
+> 训练周复盘已不在 Edge Function 里。写入方是 Hana 的定时任务（每周一 07:30），结果 upsert 到 `public.training_reports`，前端通过只读视图 `public.training_reports_feed` 读（迁移：`supabase/migrations/20261017000000_training_reports.sql`）。旧的 `generate-weekly-report` 源码、配置段与前端调用已一并删除，**不要按旧文档重新部署**；已在线上部署的实例可在 Supabase 控制台删除。
 
 ## 1. 设置密钥（一次即可）
 
@@ -26,17 +28,24 @@ npx supabase secrets set \
 ```bash
 # 项目引用：qqtasmilusrpyxhrqptd（可用 supabase functions list --project-ref <ref> 复核）
 # 禁用遥测可避免沙箱/受限环境写入 ~/.supabase/telemetry.json 时报 EPERM
-SUPABASE_TELEMETRY_DISABLED=1 npx supabase functions deploy generate-weekly-report --project-ref qqtasmilusrpyxhrqptd --use-api
+SUPABASE_TELEMETRY_DISABLED=1 npx supabase functions deploy generate-daily-copy --project-ref qqtasmilusrpyxhrqptd --use-api
 SUPABASE_TELEMETRY_DISABLED=1 npx supabase functions deploy generate-workout-plan --project-ref qqtasmilusrpyxhrqptd --use-api
 ```
 
 注意（新版 CLI 与旧文档的差异）：
 - `--timeout-ms` 参数已废弃（旧版 CLI 专属），超时改由 `supabase/config.toml` 的 `[functions.<name>]` 段配置。
-- 项目缺少 `supabase/config.toml` 时 CLI 读不到 project ref，需显式传 `--project-ref`；已建 `config.toml`（含周报函数的 `verify_jwt` 与 `timeout_seconds` 配置）。
+- 项目缺少 `supabase/config.toml` 时 CLI 读不到 project ref，需显式传 `--project-ref`；已建 `config.toml`（含各函数的 `verify_jwt` 与 `timeout_seconds` 配置）。
 - `--use-api` 走服务端打包，无需本地 Docker。
-- 部署后验证：`SUPABASE_TELEMETRY_DISABLED=1 npx supabase functions list --project-ref qqtasmilusrpyxhrqptd`，看到 `generate-weekly-report` 为 ACTIVE 且 VERSION 递增即可；再 `curl -X POST https://<ref>.supabase.co/functions/v1/generate-weekly-report`（无凭证）应返回 `UNAUTHORIZED_NO_AUTH_HEADER`，说明函数在线且 JWT 校验生效。
+- 部署后验证：`SUPABASE_TELEMETRY_DISABLED=1 npx supabase functions list --project-ref qqtasmilusrpyxhrqptd`，看到目标函数为 ACTIVE 且 VERSION 递增即可；再 `curl -X POST https://<ref>.supabase.co/functions/v1/<name>`（无凭证）应返回 `UNAUTHORIZED_NO_AUTH_HEADER`，说明函数在线且 JWT 校验生效。
 
 ## 2.5 变更记录
+
+### 2026-10-17 训练周复盘替换 AI 生活报
+
+- 下线 `generate-weekly-report`：删函数源码、`config.toml` 的 `[functions.generate-weekly-report]` 段、前端 `generateWeeklyReport` 与 `SUPABASE_CONFIG.reportFunction`。
+- 新链路：Hana 定时任务（每周一 07:30）→ `public.training_reports` → 只读视图 `public.training_reports_feed` → 前端 `src/lib/training-review.js`。
+- 视图与 `sport_feed` 同构（`security_invoker = false` + 固定 `user_id` 兜底），只授 anon SELECT，前端用现有 publishable key 读，不涉及任何新密钥。
+- `weekly_reports` 表与历史数据保留不动。
 
 ### 2026-09-29 补历史周功能部署
 
@@ -53,7 +62,7 @@ SUPABASE_TELEMETRY_DISABLED=1 npx supabase functions deploy generate-workout-pla
 - 错误 `502 Upstream access forbidden`：主链路（aixluv）上游抖动，代码已做 3 次重试，失败自动切 SU8 兜底。
 - 错误 `codex request was rejected`：请求带了 `temperature`（SU8 会拒绝），确认 SU8 链路按兼容模式提交。
 - 错误 `400 模型未配置价格`：aixluv 该 key 下该模型无价格，改用 `AIXLUV_MODEL=gpt-5.5`。
-- 本地验证：`node scripts/demo-ai-report.mjs`（读取 `.env.local`，已 gitignore）。
+- 本地验证：定时代码在线上跑，本地只需验证 provider 链可用。`generate-daily-copy` 与 `generate-workout-plan` 共用同一套 `buildProviders` / `pickModel` / `fetchWithTimeout`，任一可用即代表链路通。
 
 ## 4. 环境变量总表
 

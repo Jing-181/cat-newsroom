@@ -1,5 +1,5 @@
 <script setup>
-// 首页 Bento 仪表盘：今日概览/习惯追踪/待办/番茄钟/趋势/开销/在读/周报（与主站逻辑一致）
+// 首页 Bento 仪表盘：今日概览/习惯追踪/待办/番茄钟/趋势/开销/在读/训练周复盘（与主站逻辑一致）
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG, modOf } from "../../lib/config.js";
 import { icon, esc } from "../../lib/icons.js";
@@ -7,7 +7,7 @@ import { today, dateStr, weekDates, weekNum, streak, grp, ringSVG, trendSVG, pad
 import { getData, persist, save, subscribe } from "../../lib/store.js";
 import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
-import { weeklyReportSlotHTML, initWeeklyReport } from "../../lib/weekly-report.js";
+import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
 import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
 import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, groupOf } from "../../lib/home-layout.js";
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
@@ -210,7 +210,7 @@ const RENDER_MAP = {
   daily: () => `<div class="tile b12 daily-card" id="daily-copy-slot">${dailyCopySlotHTML()}</div>`,
   habit: habitTileHTML, todo: todoTileHTML,
   pomo: pomoTileHTML, trend: trendTileHTML, spend: spendTileHTML, books: booksTileHTML, goals: goalsTileHTML,
-  report: weeklyReportSlotHTML,
+  report: trainingReviewSlotHTML,
 };
 
 function render() {
@@ -236,7 +236,7 @@ function render() {
   }
   root.value.innerHTML = html;
   wireHome();
-  initWeeklyReport(root.value);
+  initTrainingReview(root.value);
   initDailyCopy(root.value);
   startClock();
 }

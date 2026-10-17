@@ -127,6 +127,8 @@
   .report-text { line-height: 1.78; }
   .report-actions { gap: 8px; margin-top: 16px; }
   .report-history { margin-top: 16px; }
+  /* 复盘对照表窄屏收紧行高，四列不至于拥挤 */
+  .report-card .review-table th, .report-card .review-table td { padding: 6px 0; font-size: 12.5px; }
 
   /* 个人配置页窄屏：按钮换行铺满 */
   .setting-card .set-row { flex-wrap: wrap; }
