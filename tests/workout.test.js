@@ -132,7 +132,8 @@ test("新增动作会带入最近一组数据，并默认只创建一组", () =>
   history[0].exercises[0].sets = [{ weight_kg: 24, reps: 8, rpe: 9 }];
   const session = workout.createSession("chest", new Date(2026, 7, 21));
   workout.addExercise(session, "dumbbell_bench_press", history);
-  assert.deepEqual(session.exercises[0].sets, [{ weight_kg: 24, reps: 8, rpe: 9, note: "" }]);
+  // 重量与次数继承上次，RPE 是当次体感，不跟过来（否则新记录里会冒出自己没填过的数值）
+  assert.deepEqual(session.exercises[0].sets, [{ weight_kg: 24, reps: 8, rpe: "", note: "" }]);
   assert.equal(session.exercises[0].planned_sets, 1);
   assert.equal(workout.previousPerformance(history, "dumbbell_bench_press").date, "2026-08-20");
 });
@@ -244,4 +245,58 @@ test("编辑训练记录会原地更新并支持修改日期", () => {
   assert.equal(records[0].date, "2026-08-20");
   assert.equal(saved.duration_min, 45);
   assert.equal("_editing_record_id" in saved, false);
+});
+
+test("训练状态词随记录保存，旧记录缺字段按空处理", () => {
+  const session = workout.createSession("chest", new Date(2026, 9, 18));
+  session.mood = "不错";
+  const records = [];
+  const saved = workout.upsertSession(records, session);
+  assert.equal(saved.mood, "不错");
+  // 旧记录没有 mood 字段：不补造值，界面读到 undefined 时按空串处理
+  const legacy = workout.createSession("chest", new Date(2026, 9, 17));
+  delete legacy.mood;
+  const oldSaved = workout.upsertSession(records, legacy);
+  assert.equal("mood" in oldSaved, false);
+});
+
+test("动作进展按估算强度取代表组，减重加次不会读成退步", () => {
+  const heavy = { weight_kg: 90, reps: 2 };
+  const volume = { weight_kg: 70, reps: 8 };
+  // 90×2 ≈ 96，70×8 ≈ 89：强度差远小于直接看重量时 20kg 的断崖
+  assert.ok(workout.setIntensity(heavy) > workout.setIntensity(volume));
+  assert.ok(workout.setIntensity(heavy) - workout.setIntensity(volume) < 10);
+  assert.equal(workout.bestSet([volume, heavy]).weight_kg, 90);
+  // 自重动作按次数排序
+  assert.ok(workout.setIntensity({ weight_kg: 0, reps: 10 }) > workout.setIntensity({ weight_kg: 0, reps: 5 }));
+});
+
+test("上次这一练按训练日取最近一条完成记录", () => {
+  const make = (day, date, status = "completed") => {
+    const session = workout.createSession(day, new Date(`${date}T00:00:00`));
+    session.status = status;
+    session.date = date;
+    return session;
+  };
+  const records = [
+    make("chest", "2026-10-13"),
+    make("chest", "2026-10-09"),
+    make("back", "2026-10-18"),
+    make("chest", "2026-10-18", "draft"),
+  ];
+  workout.sortRecords(records);
+  assert.equal(workout.lastSessionForDay(records, "chest").date, "2026-10-13");
+  assert.equal(workout.lastSessionForDay(records, "legs"), null);
+});
+
+test("同日记录查询用于补记提示", () => {
+  const make = (day, date) => {
+    const session = workout.createSession(day, new Date(`${date}T00:00:00`));
+    session.status = "completed";
+    session.date = date;
+    return session;
+  };
+  const records = [make("chest", "2026-10-02"), make("back", "2026-10-02"), make("legs", "2026-10-03")];
+  assert.equal(workout.sessionsOnDate(records, "2026-10-02").length, 2);
+  assert.equal(workout.sessionsOnDate(records, "2026-10-04").length, 0);
 });

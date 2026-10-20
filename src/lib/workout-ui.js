@@ -113,7 +113,7 @@ function mount(container, options) {
   }
 
   function openExerciseLibrary() {
-    const html = () => WorkoutView.exerciseLibraryHtml(selectedDay, session.exercises, Workout.customExercises(records));
+    const html = () => WorkoutView.exerciseLibraryHtml(selectedDay, session.exercises, Workout.customExercises(records), records);
     const dialog = openDialog(html());
     const refresh = () => {
       dialog.querySelector("#workout-dialog-content").innerHTML = html();
@@ -268,11 +268,26 @@ function mount(container, options) {
       updateSession({ rerender:false });
     });
     container.querySelector("#workout-note")?.addEventListener("input", event => { session.note = event.target.value; updateSession({ rerender:false }); });
+    // 状态词：单选，再点一下取消。仅切 class，不重渲染，输入框不会失焦。
+    container.querySelectorAll("[data-mood]").forEach(button => button.addEventListener("click", () => {
+      const mood = button.dataset.mood;
+      session.mood = session.mood === mood ? "" : mood;
+      container.querySelectorAll("[data-mood]").forEach(chip => {
+        const on = chip.dataset.mood === session.mood;
+        chip.classList.toggle("on", on);
+        chip.setAttribute("aria-pressed", String(on));
+      });
+      updateSession({ rerender:false });
+    }));
     container.querySelector("#workout-finish")?.addEventListener("click", async () => {
       if (!session.date) return AppDialog.alert("请选择训练日期。", { title:"还差一步" });
       // 没有任何一组留下数值时不构成训练记录，提示后仍允许保存（可能是纯备注）。
       const hasRecord = Workout.calculateStats(session).setCount > 0;
       if (!hasRecord && !(await AppDialog.confirm("还没有记录任何一组，仍要保存吗？", { title:"训练尚未开始", okText:"仍然保存" }))) return;
+      // 同一天已有记录时先问一句：补记与重复保存都走这里，不硬拦，由用户决定。
+      const sameDay = Workout.sessionsOnDate(records, session.date)
+        .filter(record => String(record.id) !== String(session._editing_record_id || ""));
+      if (sameDay.length && !(await AppDialog.confirm(`${session.date} 已经有 ${sameDay.length} 条训练记录，仍要再存一条吗？`, { title:"同一天已有记录", okText:"仍然保存" }))) return;
       session.note = container.querySelector("#workout-note")?.value.trim() || "";
       const saved = Workout.upsertSession(records, session);
       options.onSave(saved);
@@ -362,6 +377,16 @@ function mount(container, options) {
       } else render();
     }));
     container.querySelector("#workout-start")?.addEventListener("click", () => { session = Workout.createSession(selectedDay); openSets = {}; persistDraft(); render(); });
+    // 补记：按选定日期开一条新训练。补的是哪一天就记哪一天，和当天记录没有区别。
+    container.querySelector("#workout-backfill")?.addEventListener("click", () => {
+      const date = container.querySelector("#workout-backfill-date")?.value;
+      if (!date) return AppDialog.alert("先选一个补记日期。", { title:"还差一步" });
+      if (date > Workout.todayKey()) return AppDialog.alert("补记日期不能晚于今天。", { title:"日期不对" });
+      session = Workout.createSession(selectedDay, new Date(`${date}T00:00:00`));
+      openSets = {};
+      persistDraft();
+      render();
+    });
     container.querySelectorAll("[data-history-view]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyView); if (record) openDialog(WorkoutView.detailHtml(record)); }));
     container.querySelectorAll("[data-history-edit]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyEdit); if (record) editRecord(record); }));
     container.querySelectorAll("[data-history-delete]").forEach(button => button.addEventListener("click", async () => {

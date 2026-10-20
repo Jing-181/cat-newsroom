@@ -210,3 +210,65 @@ test("复制文本包含日期、时长与每组重量次数", () => {
   assert.match(text, /20 kg × 10 · RPE 8/);
   assert.match(text, /第 2 组 20 kg × 9 · RPE 9/);
 });
+
+test("结束区提供状态词快捷选项与多行备注", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date());
+  const html = view.editorHtml(session, "chest");
+  assert.match(html, /class="mood-chips"/);
+  ["不错", "还阔以", "一般般", "练爽了", "起飞", "突破", "摸鱼", "腿软", "顶不住", "没睡好"].forEach(mood => assert.match(html, new RegExp(`data-mood="${mood}"`)));
+  // 备注从单行输入改成能写多行的文本域，状态词与备注都非必填
+  assert.match(html, /<textarea id="workout-note"/);
+  assert.doesNotMatch(html, /<input id="workout-note"/);
+});
+
+test("空闲页给出上次这一练与补记入口", () => {
+  const view = loadView();
+  const last = workout.createSession("chest", new Date("2026-10-13T00:00:00"));
+  last.status = "completed";
+  workout.addExercise(last, "dumbbell_bench_press");
+  last.exercises[0].sets = [{ weight_kg: 20, reps: 10 }];
+  const html = view.idleHtml("chest", [last]);
+  assert.match(html, /class="workout-last"/);
+  assert.match(html, /上次胸日/);
+  assert.match(html, /2026-10-13/);
+  assert.match(html, /哑铃卧推 20×10/);
+  assert.match(html, /id="workout-backfill"/);
+  assert.match(html, /id="workout-backfill-date"/);
+  // 没有记录时整块不渲染，不编造安排
+  assert.doesNotMatch(view.idleHtml("chest", []), /class="workout-last"/);
+});
+
+test("历史卡与详情显示状态词", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date("2026-10-13T00:00:00"));
+  session.status = "completed";
+  session.mood = "不错";
+  assert.match(view.idleHtml("chest", [session]), /class="history-mood">不错</);
+  assert.match(view.detailHtml(session), /class="record-mood">不错</);
+});
+
+test("动作选择器按练过的次数排序，常用动作排在前面", () => {
+  const view = loadView();
+  const chest = workout.catalog.forDay("chest");
+  const frequent = chest[chest.length - 1]; // 原本排在最后的动作
+  const cold = chest[0];
+  const records = [];
+  for (let i = 0; i < 3; i += 1) {
+    const session = workout.createSession("chest", new Date(`2026-10-0${i + 1}T00:00:00`));
+    session.status = "completed";
+    workout.addExercise(session, frequent.id);
+    session.exercises[0].sets = [{ weight_kg: 30, reps: 12 }];
+    records.push(session);
+  }
+  const html = view.exerciseLibraryHtml("chest", [], [], records);
+  const hotAt = html.indexOf(`data-add-exercise="${frequent.id}"`);
+  const coldAt = html.indexOf(`data-add-exercise="${cold.id}"`);
+  assert.ok(hotAt >= 0 && coldAt >= 0);
+  assert.ok(hotAt < coldAt, "练过的动作应排在没练过的前面");
+  assert.match(html, /练过 3 次/);
+  assert.match(html, /按你练过的次数排/);
+  // 没有历史时保持动作库原序，不编造常用度
+  const plain = view.exerciseLibraryHtml("chest", [], [], []);
+  assert.ok(plain.indexOf(`data-add-exercise="${cold.id}"`) < plain.indexOf(`data-add-exercise="${frequent.id}"`));
+});

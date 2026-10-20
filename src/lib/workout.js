@@ -68,20 +68,21 @@ function recordedSets(exercise) {
 }
 
 // 新组继承来源数据（上一次训练或上一组），但不继承备注；没有来源时不编造数值。
+// RPE / RIR 是当次体感，和重量次数不同，不跟过来：否则新记录的详情里会冒出自己没填过的数值。
 function createSet(exercise, previous = null) {
   if (isCardio(exercise)) {
     return {
       duration_min: num(previous?.duration_min, 0),
       distance_km: num(previous?.distance_km, 0),
       pace: previous?.pace || "",
-      rpe: previous?.rpe ?? "",
+      rpe: "",
       note: "",
     };
   }
   return {
     weight_kg: num(previous?.weight_kg, 0),
     reps: num(previous?.reps, 0),
-    rpe: previous?.rpe ?? "",
+    rpe: "",
     note: "",
   };
 }
@@ -94,7 +95,8 @@ function createSession(trainingDay = "chest", date = new Date()) {
     title: day.name, training_day: day.id, date: dateKey(startedAt),
     // 时长完全由用户填写，不做自动计时。
     duration_min: 0,
-    exercises: [], note: "", updated_at: new Date().toISOString(),
+    // mood 是训练结束区的状态词（可选）。旧记录没有这个字段，读取时按空串处理。
+    exercises: [], note: "", mood: "", updated_at: new Date().toISOString(),
   };
 }
 
@@ -217,6 +219,43 @@ function removeSet(session, exerciseIndex, setIndex) {
   return removed || null;
 }
 
+// ---- 日期与频次（空闲页的「上次这一练」用）----
+
+function todayKey() {
+  return dateKey(new Date());
+}
+
+function daysSince(dateStr, today = todayKey()) {
+  const from = Date.parse(`${dateStr}T00:00:00`);
+  const to = Date.parse(`${today}T00:00:00`);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  return Math.max(0, Math.round((to - from) / 86400000));
+}
+
+// 周一为一周的起点，和训练周复盘的口径一致。
+function weekStartKey(key = todayKey()) {
+  const day = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(day.getTime())) return "";
+  const offset = (day.getDay() + 6) % 7;
+  day.setDate(day.getDate() - offset);
+  return dateKey(day);
+}
+
+function sessionsThisWeek(records, key = todayKey()) {
+  const start = weekStartKey(key);
+  if (!start) return 0;
+  return completedSessions(records).filter(session => session.date >= start && session.date <= key).length;
+}
+
+// 某个训练日最近一次完成的记录；没有就返回 null，由界面决定怎么留白。
+function lastSessionForDay(records, trainingDay) {
+  return completedSessions(records).find(session => session.training_day === trainingDay) || null;
+}
+
+function sessionsOnDate(records, date) {
+  return (records || []).filter(record => isSession(record) && record.date === date && !record.deleted_at);
+}
+
 function calculateStats(session) {
   const sets = (session?.exercises || []).flatMap(recordedSets);
   const strengthSets = sets.filter(set => "reps" in set || "weight_kg" in set);
@@ -243,6 +282,27 @@ function restAdvice(exercise) {
 }
 
 // ---- 动作维度的长期记录（历史页的训练工具视角）----
+
+// 每次记录的代表组：按估算强度挑，而不是只挑最重的一组。
+// 90×2 与 70×8 的直接重量差很大，但强度接近；只看重量会把「减重加次」读成退步。
+// 同一动作的器械类型固定，所以在同一动作的历史里比较是稳的。
+function setIntensity(set) {
+  if (!set || typeof set !== "object") return 0;
+  if ("duration_min" in set || "distance_km" in set) {
+    return Number(set.duration_min || 0) + Number(set.distance_km || 0) * 6;
+  }
+  const reps = Number(set.reps || 0);
+  if (!reps) return 0;
+  const weight = Number(set.weight_kg || 0);
+  if (weight > 0) return weight * (1 + reps / 30);
+  // 助力动作：同为自重时，助力越大越轻松，用负数重量折算掉一部分次数。
+  if (weight < 0) return Math.max(0, reps + weight / 10);
+  return reps;
+}
+
+function bestSet(sets) {
+  return (sets || []).reduce((best, set) => (!best || setIntensity(set) > setIntensity(best) ? set : best), null);
+}
 
 function exerciseHistory(records, exerciseId, limit = 8) {
   const items = [];
@@ -364,6 +424,8 @@ const Workout = {
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
   addSet, removeSet,
   calculateStats, summary,
+  todayKey, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
+  setIntensity, bestSet,
   exerciseHistory, trackedExercises, formatSetText, formatSetCompact, formatSetList,
   cloneRecord, pruneSession, upsertSession, sortRecords,
 };
@@ -374,6 +436,8 @@ export {
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
   addSet, removeSet,
   calculateStats, summary,
+  todayKey, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
+  setIntensity, bestSet,
   exerciseHistory, trackedExercises, formatSetText, formatSetCompact, formatSetList,
   cloneRecord, pruneSession, upsertSession, sortRecords,
 };

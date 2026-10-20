@@ -37,6 +37,18 @@ function statsHtml(stats) {
     </div>`;
 }
 
+// 结束区的状态词：快捷选项，点一下就行；自由备注仍然留着自己写。
+// 用她自己写过的词（还阔以 / 练爽了 / 一般般），比标准情绪词更像人话。
+// 两样都不是必填，不写也能保存。
+const MOOD_OPTIONS = ["不错", "还阔以", "一般般", "练爽了", "起飞", "突破", "摸鱼", "腿软", "顶不住", "没睡好"];
+
+function moodChipsHtml(current = "") {
+  return `<div class="mood-chips" role="group" aria-label="今天的状态">${MOOD_OPTIONS.map(mood => {
+    const on = current === mood;
+    return `<button type="button" class="mood-chip${on ? " on" : ""}" data-mood="${escapeHtml(mood)}" aria-pressed="${on}">${escapeHtml(mood)}</button>`;
+  }).join("")}</div>`;
+}
+
 function quickExerciseHtml(selectedDay, exercises) {
   const added = new Set((exercises || []).map(item => item.exercise_id));
   const items = WorkoutCatalog.forDay(selectedDay).filter(item => !added.has(item.id)).slice(0, 5);
@@ -154,7 +166,8 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
         <div class="workout-fields">
           <div class="workout-field"><label for="workout-date">训练日期</label><input id="workout-date" type="date" value="${escapeHtml(session.date)}"></div>
           <div class="workout-field"><label for="workout-duration">训练时长（分钟）</label><input id="workout-duration" type="number" min="1" value="${duration > 0 ? escapeHtml(duration) : ""}" placeholder="手动填写"></div>
-          <div class="workout-field note"><label for="workout-note">备注</label><input id="workout-note" value="${escapeHtml(session.note)}" placeholder="今天的状态"></div>
+          <div class="workout-field mood"><span class="workout-field-label">今天的状态</span>${moodChipsHtml(session.mood || "")}</div>
+          <div class="workout-field note"><label for="workout-note">备注</label><textarea id="workout-note" rows="3" placeholder="今天的感觉，比如「深蹲突破了」「没睡好，随便练练」">${escapeHtml(session.note)}</textarea></div>
         </div>
       </section>
       <div class="workout-bottom-bar">
@@ -175,14 +188,10 @@ function trendFlowHtml(entries) {
 // 每次记录取最重的一组代表该次表现，按时间正序连成进步轨迹。
 function trendPoints(records, exerciseId, limit = 4) {
   return Workout.exerciseHistory(records, exerciseId, limit).map(item => {
-    const best = item.sets.reduce((top, set) => {
-      const weight = Number(set.weight_kg || 0);
-      const topWeight = Number(top?.weight_kg || 0);
-      if (!top || weight > topWeight) return set;
-      if (weight === topWeight && Number(set.reps || 0) > Number(top.reps || 0)) return set;
-      return top;
-    }, null);
-    return { date: item.date, text: Workout.formatSetCompact(best || item.sets[0], item.equipment) };
+    // 用最佳组（按估算强度）代表该次表现，而不是只取最重的一组：
+    // 90×2 与 70×8 的直接重量差很大，但强度接近，只按重量排会读成退步。
+    const best = Workout.bestSet(item.sets) || item.sets[0];
+    return { date: item.date, text: Workout.formatSetCompact(best, item.equipment) };
   }).reverse();
 }
 
@@ -197,6 +206,32 @@ function trackedHtml(records, hint = "点开看每个动作最近的重量变化
   return `<details class="workout-fold"><summary><span>动作进展</span><em>${escapeHtml(hint)}</em></summary>
       <div class="exercise-trends">${chips}</div>
     </details>`;
+}
+
+// 上次这一练：上次这个训练日练了什么、最后一组多少、隔了几天、本周第几次。
+// 没有记录时整块不渲染，不编造安排。
+function lastSessionHtml(selectedDay, records) {
+  const last = Workout.lastSessionForDay(records, selectedDay);
+  if (!last) return "";
+  const days = Workout.daysSince(last.date);
+  const weekCount = Workout.sessionsThisWeek(records);
+  const exercises = last.exercises || [];
+  let lastText = "";
+  for (let index = exercises.length - 1; index >= 0; index -= 1) {
+    const sets = Workout.recordedSets(exercises[index]);
+    if (!sets.length) continue;
+    lastText = `${exercises[index].name} ${Workout.formatSetCompact(sets[sets.length - 1], exercises[index].equipment)}`;
+    break;
+  }
+  const gap = days == null ? "" : `<span>${days === 0 ? "今天练过" : `隔了 ${days} 天`}</span>`;
+  return `<div class="workout-last" aria-label="上次这一练">
+      <span class="workout-last-day">上次${dayName(selectedDay)}</span>
+      <span>${escapeHtml(last.date)}</span>
+      ${gap}
+      <span>本周已练 ${weekCount} 次</span>
+      <span>${exercises.length} 个动作</span>
+      ${lastText ? `<b>${escapeHtml(lastText)}</b>` : ""}
+    </div>`;
 }
 
 function historyHtml(records) {
@@ -217,9 +252,9 @@ function historyHtml(records) {
       const cards = group.items.map(({ record, info }) => {
         const meta = info.legacy
           ? `<span>${escapeHtml(record.date || "日期未记录")}</span><span>${escapeHtml(record.current || 0)}/${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}</span>`
-          : `<span>${escapeHtml(info.date)}</span><span>${info.exerciseCount} 个动作</span><span>${info.setCount} 组</span><span>${info.duration || 0} 分钟</span>`;
+          : `<span>${escapeHtml(info.date)}</span><span>${info.exerciseCount} 个动作</span><span>${info.setCount} 组</span>${info.duration ? `<span>${escapeHtml(info.duration)} 分钟</span>` : ""}`;
         return `<article class="history-card">
-        <div class="history-card-copy"><h4>${escapeHtml(info.title)}</h4><div class="history-meta">${meta}</div></div>
+        <div class="history-card-copy"><h4>${escapeHtml(info.title)}${record.mood ? `<em class="history-mood">${escapeHtml(record.mood)}</em>` : ""}</h4><div class="history-meta">${meta}</div></div>
         <div class="history-actions">
           <button type="button" class="workout-btn compact" data-history-view="${escapeHtml(record.id)}">详情</button>
           <button type="button" class="workout-btn compact" data-history-edit="${escapeHtml(record.id)}">编辑</button>
@@ -237,7 +272,10 @@ function idleHtml(selectedDay, records) {
       <div class="workout-head-actions"><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划" aria-expanded="false">☰</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
       </div>
       <div class="workout-days">${dayButtons(selectedDay)}</div>
-      <div><button type="button" class="workout-btn primary" id="workout-start">开始${dayName(selectedDay)}</button></div>
+      ${lastSessionHtml(selectedDay, records)}
+      <div class="workout-start-row"><button type="button" class="workout-btn primary" id="workout-start">开始${dayName(selectedDay)}</button>
+        <div class="workout-backfill"><input id="workout-backfill-date" type="date" value="${escapeHtml(Workout.todayKey())}" aria-label="补记日期"><button type="button" class="workout-btn" id="workout-backfill">补记这一天</button></div>
+      </div>
       <section><div class="workout-panel-title">训练历史</div>${historyHtml(records)}</section>
       ${dialogShell()}
     </section>`;
@@ -259,7 +297,8 @@ function detailHtml(record) {
   const kicker = recordKicker(record);
   const kickerHtml = kicker && kicker !== String(record.title || "") ? `<span class="dialog-kicker">${escapeHtml(kicker)}</span>` : "";
   return `<div class="dialog-head"><div>${kickerHtml}<h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
-      <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${escapeHtml(record.duration_min || 0)} 分钟</dd></div><div><dt>组数</dt><dd>${info.setCount} 组</dd></div><div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div></dl>
+      <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${record.duration_min ? `${escapeHtml(record.duration_min)} 分钟` : "未填"}</dd></div><div><dt>组数</dt><dd>${info.setCount} 组</dd></div><div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div></dl>
+      ${record.mood ? `<p class="record-mood">${escapeHtml(record.mood)}</p>` : ""}
       <div class="record-exercises">${(record.exercises || []).map(exercise => {
         // 只展示真正有数值的组，旧数据里的空组不渲染成 0 kg × 0。
         const sets = (exercise.sets || []).filter(set => Workout.setHasRecord(set));
@@ -278,8 +317,8 @@ function exerciseProgressHtml(records, exerciseId) {
   const equipment = entries[0].equipment;
   return `${head}
       <div class="trend-hero">${trendFlowHtml(entries.map(item => {
-        const best = item.sets.reduce((top, set) => (Number(set.weight_kg || 0) >= Number(top?.weight_kg || 0) ? set : top), null);
-        return { date: item.date, text: Workout.formatSetCompact(best || item.sets[0], equipment) };
+        const best = Workout.bestSet(item.sets) || item.sets[0];
+        return { date: item.date, text: Workout.formatSetCompact(best, equipment) };
       }).reverse())}</div>
       <div class="trend-list">${entries.map(item => `<article class="trend-item"><header><span>${escapeHtml(item.date)}</span><b>${escapeHtml(Workout.formatSetList(item.sets, equipment))}</b></header><div class="trend-meta-row"><span>${item.setCount} 组</span><span>容量 ${Math.round(item.volume)} kg</span>${item.topWeight ? `<span>最重 ${escapeHtml(item.topWeight)} kg</span>` : ""}</div></article>`).join("")}</div>`;
 }
@@ -307,9 +346,25 @@ function buildCopyText(record) {
   return lines.join("\n");
 }
 
-function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = []) {
+// 常用度：按历史里这个动作出现过的训练次数算，只统计已完成记录。
+function frequencyMap(records) {
+  const counts = new Map();
+  Workout.trackedExercises(records).forEach(item => counts.set(item.exercise_id, item.sessionCount));
+  return counts;
+}
+
+// 常用的排前面；次数相同保持动作库原来的顺序，避免每次打开顺序都在变。
+function sortByFrequency(items, counts) {
+  return items
+    .map((item, index) => ({ item, index, count: counts.get(item.id) || 0 }))
+    .sort((left, right) => right.count - left.count || left.index - right.index)
+    .map(entry => entry.item);
+}
+
+function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [], records = []) {
   const selectedIds = new Set((selectedExercises || []).map(item => item.exercise_id));
-  const library = WorkoutCatalog.forDay(selectedDay);
+  const counts = frequencyMap(records);
+  const library = sortByFrequency(WorkoutCatalog.forDay(selectedDay), counts);
   // 自定义动作：动作库可能没收录，留一个自己命名的入口；用过的自定义动作从历史记录里回捞，点一下直接复用。
   const customs = (customExercises || []).filter(item => !selectedIds.has(item.id));
   const customBlock = `<div class="exercise-custom">
@@ -317,11 +372,12 @@ function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [
         <p class="hint" id="workout-custom-hint">动作库没有的动作，可以自己命名后记录（最多 20 字）。</p>
         ${customs.length ? `<div class="exercise-chips" aria-label="你用过的自定义动作">${customs.map(item => `<button type="button" class="exercise-chip" data-add-custom="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>`).join("")}</div>` : ""}
       </div>`;
-  return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+  return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3><p class="dialog-sub">按你练过的次数排，常用的在前面</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       ${customBlock}
       <div class="exercise-library dialog-library">${library.map(item => {
         const added = selectedIds.has(item.id);
-        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
+        const count = counts.get(item.id) || 0;
+        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}${count ? ` · 练过 ${count} 次` : ""}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
       }).join("")}</div>`;
 }
 
