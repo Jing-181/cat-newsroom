@@ -355,18 +355,15 @@ function frequencyMap(records) {
   return counts;
 }
 
-// 常用的排前面；次数相同保持动作库原来的顺序，避免每次打开顺序都在变。
-function sortByFrequency(items, counts) {
-  return items
-    .map((item, index) => ({ item, index, count: counts.get(item.id) || 0 }))
-    .sort((left, right) => right.count - left.count || left.index - right.index)
-    .map(entry => entry.item);
-}
-
 function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [], records = []) {
   const selectedIds = new Set((selectedExercises || []).map(item => item.exercise_id));
   const counts = frequencyMap(records);
-  const library = sortByFrequency(WorkoutCatalog.forDay(selectedDay), counts);
+  // 搜索已经能跨日找动作，列表就不再限制在当天训练日：当天动作排前面，其余跟在后面。
+  const isToday = item => item.availableOnAllDays || item.trainingDays.includes(selectedDay);
+  const library = WorkoutCatalog.exercises
+    .map((item, index) => ({ item, index, count: counts.get(item.id) || 0, today: isToday(item) ? 1 : 0 }))
+    .sort((left, right) => right.today - left.today || right.count - left.count || left.index - right.index)
+    .map(entry => entry.item);
   // 自定义动作：动作库可能没收录，留一个自己命名的入口；用过的自定义动作从历史记录里回捞，点一下直接复用。
   const customs = (customExercises || []).filter(item => !selectedIds.has(item.id));
   const customBlock = `<div class="exercise-custom">
@@ -374,14 +371,16 @@ function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [
         <p class="hint" id="workout-custom-hint">动作库没有的动作，可以自己命名后记录（最多 20 字）。</p>
         ${customs.length ? `<div class="exercise-chips" aria-label="你用过的自定义动作">${customs.map(item => `<button type="button" class="exercise-chip" data-add-custom="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>`).join("")}</div>` : ""}
       </div>`;
-  return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3><p class="dialog-sub">按你练过的次数排，常用的在前面</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+  return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3><p class="dialog-sub">当天动作在前，其余按练过的次数排，也可以直接搜</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <div class="exercise-search"><input id="workout-exercise-search" type="search" placeholder="搜动作名、部位或器械" aria-label="搜索动作" autocomplete="off"></div>
       ${customBlock}
       <div class="exercise-library dialog-library">${library.map(item => {
         const added = selectedIds.has(item.id);
         const count = counts.get(item.id) || 0;
         const haystack = `${item.name} ${item.bodyPart} ${item.equipment}`.toLowerCase();
-        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" data-search="${escapeHtml(haystack)}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}${count ? ` · 练过 ${count} 次` : ""}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
+        // 不属于当天训练日的动作标出它属于哪天，跨日直接选的时候心里有数。
+        const otherDays = isToday(item) ? "" : item.trainingDays.map(dayId => WorkoutCatalog.trainingDays.find(day => day.id === dayId)?.name || "").filter(Boolean).join("/");
+        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" data-search="${escapeHtml(haystack)}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}${count ? ` · 练过 ${count} 次` : ""}${otherDays ? ` · ${escapeHtml(otherDays)}` : ""}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
       }).join("")}</div>
       <p class="exercise-empty" hidden>这个训练日没有匹配的动作。<button type="button" id="workout-exercise-create" class="workout-btn compact">新建动作</button></p>`;
 }

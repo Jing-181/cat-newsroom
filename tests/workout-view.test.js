@@ -288,7 +288,9 @@ test("动作选择器按练过的次数排序，常用动作排在前面", () =>
   assert.ok(hotAt >= 0 && coldAt >= 0);
   assert.ok(hotAt < coldAt, "练过的动作应排在没练过的前面");
   assert.match(html, /练过 3 次/);
-  assert.match(html, /按你练过的次数排/);
+  assert.match(html, /当天动作在前/);
+  // 不再限制在当天训练日：腿日的动作也能在胸日列表里直接选到
+  assert.match(html, /data-add-exercise="barbell_squat"/);
   // 没有历史时保持动作库原序，不编造常用度
   const plain = view.exerciseLibraryHtml("chest", [], [], []);
   assert.ok(plain.indexOf(`data-add-exercise="${cold.id}"`) < plain.indexOf(`data-add-exercise="${frequent.id}"`));
