@@ -105,7 +105,7 @@ function setRowActive(exercise, set, exerciseIndex, setIndex, previousSets) {
   // 只放数值本身："上次"这个前提由卡片级那行给出，同一件事不在两处各写一遍，完整语义留在 title。
   const last = previousSets?.[setIndex];
   const lastCompact = last ? Workout.formatSetCompact(last, exercise.equipment) : "";
-  const lastHint = lastCompact ? `<span class="set-hint" title="上次这一组：${escapeHtml(lastCompact)}">${escapeHtml(lastCompact)}</span>` : "";
+  const lastHint = lastCompact ? `<button type="button" class="set-hint" data-fill-last="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="点一下用上次这一组的数字">${escapeHtml(lastCompact)}</button>` : "";
   // 头部只保留"第 N 组"这一条信息：当前组已经是高亮的，再写"本次要填的组"是重复噪音。
   return `<div class="set-row is-active">
       <div class="set-row-head"><strong>第 ${setIndex + 1} 组</strong>${lastHint}<button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${setIndex + 1} 组">×</button></div>
@@ -164,13 +164,15 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
       </div>
       ${trackedHtml(history)}
       <section class="workout-completion" aria-label="结束训练">
-        <h3 class="workout-completion-title">结束训练</h3>
-        <div class="workout-fields">
-          <div class="workout-field"><label for="workout-date">训练日期</label><input id="workout-date" type="date" value="${escapeHtml(session.date)}"></div>
-          <div class="workout-field"><label for="workout-duration">训练时长（分钟）</label><input id="workout-duration" type="number" min="1" value="${suggestedDuration > 0 ? escapeHtml(suggestedDuration) : ""}" placeholder="手动填写"></div>
-          <div class="workout-field mood"><span class="workout-field-label">今天的状态</span>${moodChipsHtml(session.mood || "")}</div>
-          <div class="workout-field note"><label for="workout-note">备注</label><textarea id="workout-note" rows="3" placeholder="今天的感觉，比如「深蹲突破了」「没睡好，随便练练」">${escapeHtml(session.note)}</textarea></div>
-        </div>
+        <details class="workout-completion-meta">
+          <summary>${escapeHtml(session.date)}${suggestedDuration > 0 ? ` · ${suggestedDuration} 分钟` : " · 时长未填"}<span class="workout-completion-edit">改</span></summary>
+          <div class="workout-fields">
+            <div class="workout-field"><label for="workout-date">训练日期</label><input id="workout-date" type="date" value="${escapeHtml(session.date)}"></div>
+            <div class="workout-field"><label for="workout-duration">训练时长（分钟）</label><input id="workout-duration" type="number" min="1" value="${suggestedDuration > 0 ? escapeHtml(suggestedDuration) : ""}" placeholder="手动填写"></div>
+          </div>
+        </details>
+        <div class="workout-field mood"><span class="workout-field-label">今天的状态</span>${moodChipsHtml(session.mood || "")}</div>
+        <div class="workout-field note"><label for="workout-note">备注</label><textarea id="workout-note" rows="3" placeholder="今天的感觉，比如「深蹲突破了」「没睡好，随便练练」">${escapeHtml(session.note)}</textarea></div>
       </section>
       <div class="workout-bottom-bar">
         <button type="button" class="workout-btn" id="workout-add-floating">+ 添加动作</button>
@@ -233,6 +235,7 @@ function lastSessionHtml(selectedDay, records) {
       <span>本周已练 ${weekCount} 次</span>
       <span>${exercises.length} 个动作</span>
       ${lastText ? `<b>${escapeHtml(lastText)}</b>` : ""}
+      <button type="button" class="workout-btn compact workout-last-repeat" data-repeat-last>照上次练 ›</button>
     </div>`;
 }
 
@@ -255,13 +258,9 @@ function historyHtml(records) {
         const meta = info.legacy
           ? `<span>${escapeHtml(record.date || "日期未记录")}</span><span>${escapeHtml(record.current || 0)}/${escapeHtml(record.target || 0)} ${escapeHtml(record.unit || "")}</span>`
           : `<span>${escapeHtml(info.date)}</span><span>${info.exerciseCount} 个动作</span><span>${info.setCount} 组</span>${info.duration ? `<span>${escapeHtml(info.duration)} 分钟</span>` : ""}`;
-        return `<article class="history-card">
+        return `<article class="history-card" data-history-view="${escapeHtml(record.id)}" role="button" tabindex="0" aria-label="查看${escapeHtml(info.title)}详情">
         <div class="history-card-copy"><h4>${escapeHtml(info.title)}${record.mood ? `<em class="history-mood">${escapeHtml(record.mood)}</em>` : ""}</h4><div class="history-meta">${meta}</div></div>
-        <div class="history-actions">
-          <button type="button" class="workout-btn compact" data-history-view="${escapeHtml(record.id)}">详情</button>
-          <button type="button" class="workout-btn compact" data-history-edit="${escapeHtml(record.id)}">编辑</button>
-          <button type="button" class="icon-action danger" data-history-delete="${escapeHtml(record.id)}" title="删除记录" aria-label="删除记录">×</button>
-        </div>
+        <button type="button" class="icon-action danger" data-history-delete="${escapeHtml(record.id)}" title="删除记录" aria-label="删除记录">×</button>
       </article>`;
       }).join("");
       return `<section class="history-group-block"><h5 class="history-month">${label}</h5><div class="history-group">${cards}</div></section>`;
@@ -298,7 +297,7 @@ function detailHtml(record) {
   // kicker 与标题相同时（如普通训练日标题就是"胸日"）不重复渲染，只留标题。
   const kicker = recordKicker(record);
   const kickerHtml = kicker && kicker !== String(record.title || "") ? `<span class="dialog-kicker">${escapeHtml(kicker)}</span>` : "";
-  return `<div class="dialog-head"><div>${kickerHtml}<h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+  return `<div class="dialog-head"><div>${kickerHtml}<h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="workout-btn compact" data-history-edit="${escapeHtml(record.id)}">编辑</button> <button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${record.duration_min ? `${escapeHtml(record.duration_min)} 分钟` : "未填"}</dd></div><div><dt>组数</dt><dd>${info.setCount} 组</dd></div><div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div></dl>
       ${record.mood ? `<p class="record-mood">${escapeHtml(record.mood)}</p>` : ""}
       <div class="record-exercises">${(record.exercises || []).map(exercise => {
@@ -366,11 +365,13 @@ function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [
     .map(entry => entry.item);
   // 自定义动作：动作库可能没收录，留一个自己命名的入口；用过的自定义动作从历史记录里回捞，点一下直接复用。
   const customs = (customExercises || []).filter(item => !selectedIds.has(item.id));
-  const customBlock = `<div class="exercise-custom">
-        <form id="workout-custom-form" autocomplete="off"><input id="workout-custom-name" name="name" maxlength="20" required placeholder="动作库没有？输入动作名称" aria-label="自定义动作名称"><button type="submit" class="workout-btn compact">添加</button></form>
-        <p class="hint" id="workout-custom-hint">动作库没有的动作，可以自己命名后记录（最多 20 字）。</p>
+  // 自定义动作默认收起：常规动作都在库里，输入区常驻只会占掉首屏的位置。
+  const customBlock = `<details class="exercise-custom">
+        <summary>动作库没有？自己加一个</summary>
+        <form id="workout-custom-form" autocomplete="off"><input id="workout-custom-name" name="name" maxlength="20" required placeholder="输入动作名称" aria-label="自定义动作名称"><button type="submit" class="workout-btn compact">添加</button></form>
+        <p class="hint" id="workout-custom-hint">最多 20 字，同名动作会连成同一条记录。</p>
         ${customs.length ? `<div class="exercise-chips" aria-label="你用过的自定义动作">${customs.map(item => `<button type="button" class="exercise-chip" data-add-custom="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>`).join("")}</div>` : ""}
-      </div>`;
+      </details>`;
   return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3><p class="dialog-sub">当天动作在前，其余按练过的次数排，也可以直接搜</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <div class="exercise-search"><input id="workout-exercise-search" type="search" placeholder="搜动作名、部位或器械" aria-label="搜索动作" autocomplete="off"></div>
       ${customBlock}

@@ -100,7 +100,7 @@ test("上次表现：卡片级只给日期与组数，每组明细贴到对应�
   const html = view.editorHtml(session, "chest", history);
   assert.match(html, /class="exercise-last"/);
   assert.match(html, /exercise-last-count">· 3 组</);
-  assert.match(html, /class="set-hint" title="上次这一组：20×10">20×10</);
+  assert.match(html, /class="set-hint"[^>]*data-fill-last="1"[^>]*>20×10</);
   // 整段明细不再重复出现在卡片级
   assert.doesNotMatch(html, /20×10 \/ 20×10 \/ 17.5×12/);
 });
@@ -137,8 +137,10 @@ test("训练详情展示动作组次且历史卡提供编辑入口", () => {
   const history = view.idleHtml("chest", [session]);
   assert.match(detail, /哑铃卧推/);
   assert.match(detail, /20 kg × 10/);
+  // 历史卡整张可点；编辑入口移到详情弹窗里
   assert.match(history, /data-history-view=/);
-  assert.match(history, /data-history-edit=/);
+  assert.doesNotMatch(history, /data-history-edit=/);
+  assert.match(detail, /data-history-edit=/);
 });
 
 test("训练历史按月份分组，无日期记录归入日期未记录", () => {

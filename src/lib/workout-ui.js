@@ -16,6 +16,21 @@ function readJson(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch (_) { return null; }
 }
 
+// 保存后的一句回声：按状态词说一句，不额外占操作。
+const MOOD_REPLY = {
+  "不错": "记下了。",
+  "还阔以": "记下了，稳稳的。",
+  "一般般": "记下了，一般也算数。",
+  "练爽了": "记下了，这练值。",
+  "起飞": "记下了，飞起来了。",
+  "突破": "记下了，今天算个日子。",
+  "摸鱼": "摸鱼也是练。",
+  "腿软": "记下了，腿软说明练到了。",
+  "顶不住": "能记完就不算白来。",
+  "没睡好": "没睡好还来了，记下了。",
+};
+const moodReply = mood => MOOD_REPLY[mood] || "记下了。";
+
 // 弹窗里的历史统计要拼 HTML，这里只转义五个会破坏结构的字符。
 function esc(value) {
   return String(value ?? "").replace(/[&<>"]/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;" }[ch]));
@@ -318,6 +333,21 @@ function mount(container, options) {
       refreshStats();
       refreshExerciseProgress(exerciseIndex);
     }));
+    // 灰色提示点一下：把上次这一组填进空着的字段，已填的不覆盖。
+    container.querySelectorAll("[data-fill-last]").forEach(button => button.addEventListener("click", () => {
+      const exerciseIndex = Number(button.dataset.exercise);
+      const setIndex = Number(button.dataset.set);
+      const exercise = session.exercises[exerciseIndex];
+      const set = exercise?.sets?.[setIndex];
+      if (!set) return;
+      const last = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[setIndex];
+      if (!last) return;
+      if (set.weight_kg != null && !Number(set.weight_kg)) set.weight_kg = last.weight_kg;
+      if (set.reps != null && !Number(set.reps)) set.reps = last.reps;
+      if (set.duration_min != null && !Number(set.duration_min)) set.duration_min = last.duration_min;
+      if (set.distance_km != null && !Number(set.distance_km)) set.distance_km = last.distance_km;
+      updateSession();
+    }));
     container.querySelector("#workout-date")?.addEventListener("input", event => {
       session.date = event.target.value;
       updateSession({ rerender:false });
@@ -363,13 +393,35 @@ function mount(container, options) {
           date: saved.date,
         });
       }
+      const finishedMood = session.mood;
       session = null;
       openSets = {};
       persistDraft();
       render();
+      if (Toast) Toast.show(moodReply(finishedMood));
       // 结束训练回到记录列表时回到顶部，让最新提交的记录可见
       window.scrollTo({ top: 0, behavior: shouldAnimate() ? "smooth" : "auto" });
     });
+  }
+
+  // 照上次练：把上次这个训练日的动作和组数整套带进来，组里留空，填的时候看灰色提示。
+  function startFromLastSession(last) {
+    session = Workout.createSession(selectedDay, new Date());
+    openSets = {};
+    const history = records.filter(record => Workout.isSession(record));
+    for (const exercise of last.exercises || []) {
+      const sets = Workout.recordedSets(exercise);
+      if (!sets.length) continue;
+      if (Workout.isCustomExerciseId(exercise.exercise_id)) Workout.addCustomExercise(session, exercise.name, history);
+      else Workout.addExercise(session, exercise.exercise_id, history);
+      const entry = session.exercises.find(item => item.exercise_id === exercise.exercise_id);
+      if (!entry) continue;
+      const index = session.exercises.indexOf(entry);
+      while (entry.sets.length < sets.length) Workout.addSet(session, index);
+    }
+    persistDraft();
+    render();
+    window.scrollTo({ top: 0, behavior: shouldAnimate() ? "smooth" : "auto" });
   }
 
   function startFromPlanDay(day, plan) {
@@ -441,6 +493,10 @@ function mount(container, options) {
       } else render();
     }));
     container.querySelector("#workout-start")?.addEventListener("click", () => { session = Workout.createSession(selectedDay); openSets = {}; persistDraft(); render(); });
+    container.querySelector("[data-repeat-last]")?.addEventListener("click", () => {
+      const last = Workout.lastSessionForDay(records, selectedDay);
+      if (last) startFromLastSession(last);
+    });
     // 补记：按选定日期开一条新训练。补的是哪一天就记哪一天，和当天记录没有区别。
     container.querySelector("#workout-backfill")?.addEventListener("click", () => {
       const date = container.querySelector("#workout-backfill-date")?.value;
@@ -451,8 +507,6 @@ function mount(container, options) {
       persistDraft();
       render();
     });
-    container.querySelectorAll("[data-history-view]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyView); if (record) openDialog(WorkoutView.detailHtml(record)); }));
-    container.querySelectorAll("[data-history-edit]").forEach(button => button.addEventListener("click", () => { const record = findRecord(button.dataset.historyEdit); if (record) editRecord(record); }));
     container.querySelectorAll("[data-history-delete]").forEach(button => button.addEventListener("click", async () => {
       const record = findRecord(button.dataset.historyDelete);
       if (!record || !(await AppDialog.confirm(`删除「${record.title || "这条训练"}」？`, { title:"删除训练记录", danger:true, okText:"删除" }))) return;
@@ -471,6 +525,35 @@ function mount(container, options) {
       ? WorkoutView.editorHtml(session, selectedDay, records, uiState)
       : WorkoutView.idleHtml(selectedDay, records);
     wire();
+  }
+
+  // 历史卡整张可点开详情；编辑放在详情弹窗里，删除按钮不触发详情。
+  if (!container.__historyCardBound) {
+    container.__historyCardBound = true;
+    container.addEventListener("click", event => {
+      if (event.target.closest("[data-history-delete]")) return;
+      const editButton = event.target.closest("[data-history-edit]");
+      if (editButton) {
+        const record = findRecord(editButton.dataset.historyEdit);
+        if (record) {
+          container.querySelector("#workout-dialog")?.close();
+          editRecord(record);
+        }
+        return;
+      }
+      const card = event.target.closest("[data-history-view]");
+      if (!card) return;
+      const record = findRecord(card.dataset.historyView);
+      if (record) openDialog(WorkoutView.detailHtml(record));
+    });
+    container.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const card = event.target.closest("[data-history-view]");
+      if (!card || event.target.closest("button")) return;
+      event.preventDefault();
+      const record = findRecord(card.dataset.historyView);
+      if (record) openDialog(WorkoutView.detailHtml(record));
+    });
   }
 
   // 计划日卡是打开弹窗后才渲染的，使用事件委托避免重复绑定。
