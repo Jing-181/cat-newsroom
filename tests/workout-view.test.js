@@ -256,8 +256,8 @@ test("空闲页给出上次这一练与补记入口", () => {
   assert.match(html, /上次胸日/);
   assert.match(html, /2026-10-13/);
   assert.match(html, /哑铃卧推 20×10/);
-  assert.match(html, /id="workout-backfill"/);
-  assert.match(html, /id="workout-backfill-date"/);
+  // 补记入口不单独提供：想补哪一天，开始训练后在结束区改日期
+  assert.doesNotMatch(html, /workout-backfill/);
   // 没有记录时整块不渲染，不编造安排
   assert.doesNotMatch(view.idleHtml("chest", []), /class="workout-last"/);
 });

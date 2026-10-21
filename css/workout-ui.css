@@ -209,11 +209,7 @@ button.set-hint:hover { color:var(--module-4); }
 @media (max-width: 420px) { .workout-last { gap:4px 10px; font-size:12.5px; } }
 .workout-last-day { font-weight:700; color:var(--text); }
 .workout-last b { color:var(--accent); font-weight:700; }
-/* 补记入口：与开始按钮同一行，日期选择器自带含义，不再用一个会被挤成竖排的标签 */
-.workout-start-row { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
-.workout-start-row > #workout-start { flex:1 1 240px; width:auto; }
-.workout-backfill { display:flex; align-items:center; gap:8px; }
-.workout-backfill input { width:144px; height:40px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 10px; color:var(--text); background:var(--surface-card); font:inherit; }
+/* 补记入口已移除：要补哪一天，直接开始训练后在结束区改日期即可 */
 /* 状态词在历史卡、详情与补记标记上的显示 */
 .history-mood { display:inline-block; margin-left:8px; padding:1px 8px; border-radius:var(--radius-pill); background:color-mix(in srgb,var(--module-3) 16%,transparent); color:var(--module-3); font-size:11px; font-weight:700; vertical-align:2px; }
 .record-mood { display:inline-block; margin:0 0 12px; padding:3px 10px; border-radius:var(--radius-pill); background:color-mix(in srgb,var(--module-3) 16%,transparent); color:var(--module-3); font-size:12px; font-weight:700; }

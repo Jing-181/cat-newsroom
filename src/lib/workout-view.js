@@ -274,9 +274,7 @@ function idleHtml(selectedDay, records) {
       </div>
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       ${lastSessionHtml(selectedDay, records)}
-      <div class="workout-start-row"><button type="button" class="workout-btn primary" id="workout-start">开始${dayName(selectedDay)}</button>
-        <div class="workout-backfill"><input id="workout-backfill-date" type="date" value="${escapeHtml(Workout.todayKey())}" aria-label="补记日期"><button type="button" class="workout-btn" id="workout-backfill">补记这一天</button></div>
-      </div>
+      <div><button type="button" class="workout-btn primary" id="workout-start">开始${dayName(selectedDay)}</button></div>
       <section><div class="workout-panel-title">训练历史</div>${historyHtml(records)}</section>
       ${dialogShell()}
     </section>`;

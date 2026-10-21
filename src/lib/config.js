@@ -24,7 +24,7 @@ export const CONFIG = {
   owner: "猫咪生活报",                  // 侧栏顶部标题
   slogan: "Cat Life Daily",
   // 应用版本：首页可显示，个人配置页可控制显示与否（发布新功能时手动 bump）
-  APP_VERSION: "2.8.0",
+  APP_VERSION: "2.8.1",
 
   // 每日一句（一周七天各一句，按星期轮换：周一→周日）
   quotes: [
