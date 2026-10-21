@@ -22,7 +22,7 @@ const REST_ADVICE = {
 };
 const LARGE_MUSCLE_KEYWORDS = ["胸", "背", "腿", "臀", "后链", "股四头", "腘绳肌", "肩", "全身"];
 // 只在草稿/编辑期存在、不写入历史的界面态字段。
-const TRANSIENT_KEYS = ["_editing_record_id", "_open_set"];
+const TRANSIENT_KEYS = ["_editing_record_id", "_open_set", "started_at"];
 
 const id = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const dateKey = date => {
@@ -96,7 +96,10 @@ function createSession(trainingDay = "chest", date = new Date()) {
     // 时长完全由用户填写，不做自动计时。
     duration_min: 0,
     // mood 是训练结束区的状态词（可选）。旧记录没有这个字段，读取时按空串处理。
-    exercises: [], note: "", mood: "", updated_at: new Date().toISOString(),
+    exercises: [], note: "", mood: "",
+    // started_at 只活在草稿里：用来在结束时给出一个可修改的时长建议，保存前会清掉。
+    started_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -144,7 +147,8 @@ function addExercise(session, exerciseId, history = []) {
     muscles: source.muscles || source.bodyPart,
     // planned_sets 记录"这个动作这次打算练几组"，用于判断最近一次是否练满计划组数。
     planned_sets: 1,
-    sets: [createSet(source, previous?.set)], note: "",
+    // 新动作留空，不把上次的数字直接当成已记录；上次数值由组行的灰色提示给出。
+    sets: [createSet(source)], note: "",
   });
   session.updated_at = new Date().toISOString();
   return session;
@@ -165,14 +169,13 @@ function addCustomExercise(session, name, history = []) {
   if (session.exercises.some(item => item.exercise_id === exerciseId)) return session;
   // 有氧恢复日的自定义动作按有氧形态记录（时长/距离），其余训练日按力量形态记录。
   const equipment = session.training_day === "cardio" ? "有氧" : "自定义";
-  const previous = previousPerformance(history, exerciseId);
   session.exercises.push({
     id: id("exercise"), exercise_id: exerciseId, name: trimmed, body_part: "自定义",
     equipment, angle: "", icon: trimmed.slice(0, 2),
     tips: "自定义动作：按自己的动作要点控制节奏，重量以动作质量为先。",
     muscles: "自定义动作",
     planned_sets: 1,
-    sets: [createSet({ equipment }, previous?.set)], note: "",
+    sets: [createSet({ equipment })], note: "",
   });
   session.updated_at = new Date().toISOString();
   return session;
@@ -223,6 +226,15 @@ function removeSet(session, exerciseIndex, setIndex) {
 
 function todayKey() {
   return dateKey(new Date());
+}
+
+// 草稿的预计训练时长：开始时间只在草稿里用，保存时清掉，不进同步。
+// 跨天的草稿不估算，避免把隔夜时间算进训练。
+function elapsedMinutes(session) {
+  const start = Date.parse(session?.started_at || "");
+  if (!Number.isFinite(start)) return 0;
+  if (new Date(start).toDateString() !== new Date().toDateString()) return 0;
+  return Math.max(0, Math.round((Date.now() - start) / 60000));
 }
 
 function daysSince(dateStr, today = todayKey()) {
@@ -424,7 +436,7 @@ const Workout = {
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
   addSet, removeSet,
   calculateStats, summary,
-  todayKey, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
+  todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,
   exerciseHistory, trackedExercises, formatSetText, formatSetCompact, formatSetList,
   cloneRecord, pruneSession, upsertSession, sortRecords,
@@ -436,7 +448,7 @@ export {
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
   addSet, removeSet,
   calculateStats, summary,
-  todayKey, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
+  todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,
   exerciseHistory, trackedExercises, formatSetText, formatSetCompact, formatSetList,
   cloneRecord, pruneSession, upsertSession, sortRecords,

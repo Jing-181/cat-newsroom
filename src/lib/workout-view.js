@@ -140,6 +140,8 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
   const stats = Workout.calculateStats(session);
   const editing = Boolean(session._editing_record_id);
   const duration = Number(session.duration_min || 0);
+  // 没填时长时用草稿的开始时间给一个可修改的预估值，不做自动计时。
+  const suggestedDuration = duration > 0 ? duration : Workout.elapsedMinutes(session);
   const previousMap = uiState.previous || {};
   const openSets = uiState.openSets || {};
   return `<section class="workout-app">
@@ -165,7 +167,7 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
         <h3 class="workout-completion-title">结束训练</h3>
         <div class="workout-fields">
           <div class="workout-field"><label for="workout-date">训练日期</label><input id="workout-date" type="date" value="${escapeHtml(session.date)}"></div>
-          <div class="workout-field"><label for="workout-duration">训练时长（分钟）</label><input id="workout-duration" type="number" min="1" value="${duration > 0 ? escapeHtml(duration) : ""}" placeholder="手动填写"></div>
+          <div class="workout-field"><label for="workout-duration">训练时长（分钟）</label><input id="workout-duration" type="number" min="1" value="${suggestedDuration > 0 ? escapeHtml(suggestedDuration) : ""}" placeholder="手动填写"></div>
           <div class="workout-field mood"><span class="workout-field-label">今天的状态</span>${moodChipsHtml(session.mood || "")}</div>
           <div class="workout-field note"><label for="workout-note">备注</label><textarea id="workout-note" rows="3" placeholder="今天的感觉，比如「深蹲突破了」「没睡好，随便练练」">${escapeHtml(session.note)}</textarea></div>
         </div>
@@ -373,12 +375,15 @@ function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [
         ${customs.length ? `<div class="exercise-chips" aria-label="你用过的自定义动作">${customs.map(item => `<button type="button" class="exercise-chip" data-add-custom="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>`).join("")}</div>` : ""}
       </div>`;
   return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3><p class="dialog-sub">按你练过的次数排，常用的在前面</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+      <div class="exercise-search"><input id="workout-exercise-search" type="search" placeholder="搜动作名、部位或器械" aria-label="搜索动作" autocomplete="off"></div>
       ${customBlock}
       <div class="exercise-library dialog-library">${library.map(item => {
         const added = selectedIds.has(item.id);
         const count = counts.get(item.id) || 0;
-        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}${count ? ` · 练过 ${count} 次` : ""}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
-      }).join("")}</div>`;
+        const haystack = `${item.name} ${item.bodyPart} ${item.equipment}`.toLowerCase();
+        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" data-search="${escapeHtml(haystack)}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}${count ? ` · 练过 ${count} 次` : ""}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
+      }).join("")}</div>
+      <p class="exercise-empty" hidden>这个训练日没有匹配的动作。<button type="button" id="workout-exercise-create" class="workout-btn compact">新建动作</button></p>`;
 }
 
 function legacyEditHtml(record) {

@@ -16,6 +16,11 @@ function readJson(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch (_) { return null; }
 }
 
+// 弹窗里的历史统计要拼 HTML，这里只转义五个会破坏结构的字符。
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"]/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;" }[ch]));
+}
+
 function shouldAnimate() {
   return !matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -29,6 +34,12 @@ function mount(container, options) {
   const records = options.records || [];
   Workout.sortRecords(records);
   let session = readJson(DRAFT_KEY);
+  let pendingDraft = null;
+  // 草稿不是今天开的不直接接管：先问一句，避免把今天的训练记到旧日期上。
+  if (session && session.date && session.date !== Workout.todayKey()) {
+    pendingDraft = session;
+    session = null;
+  }
   let selectedDay = localStorage.getItem(DAY_KEY) || "chest";
   // 用户手动展开的组：key 为动作实例 id，值为组索引；-1 表示整组收起。
   // 没点过时自动展开"第一个没录的组"。展开状态只由用户点击改变，不做自动收起。
@@ -115,10 +126,51 @@ function mount(container, options) {
   function openExerciseLibrary() {
     const html = () => WorkoutView.exerciseLibraryHtml(selectedDay, session.exercises, Workout.customExercises(records), records);
     const dialog = openDialog(html());
+    // 本地搜索：只过滤当前列表，不发请求；关键词在 refresh 后保留，连续加动作时不丢。
+    let keyword = "";
+    const applyFilter = () => {
+      const search = dialog.querySelector("#workout-exercise-search");
+      const empty = dialog.querySelector(".exercise-empty");
+      if (search) keyword = search.value;
+      const query = keyword.trim().toLowerCase();
+      let visible = 0;
+      dialog.querySelectorAll(".exercise-option").forEach(option => {
+        const hit = !query || (option.dataset.search || "").includes(query);
+        option.hidden = !hit;
+        if (hit) visible += 1;
+      });
+      if (empty) empty.hidden = visible > 0 || !query;
+      const create = dialog.querySelector("#workout-exercise-create");
+      if (create) create.textContent = query ? `用「${keyword.trim()}」新建` : "新建动作";
+    };
+    const bindSearch = () => {
+      const search = dialog.querySelector("#workout-exercise-search");
+      if (search) {
+        search.value = keyword;
+        search.addEventListener("input", applyFilter);
+      }
+      // 搜不到时直接用当前关键词建自定义动作，省得再把名字打一遍。
+      dialog.querySelector("#workout-exercise-create")?.addEventListener("click", () => {
+        const name = (dialog.querySelector("#workout-exercise-search")?.value || "").trim();
+        if (!name) return;
+        const before = session.exercises.length;
+        Workout.addCustomExercise(session, name, records);
+        if (session.exercises.length === before) {
+          const hint = dialog.querySelector("#workout-custom-hint");
+          if (hint) hint.textContent = "这个名字已经在本次训练里了，或者超过 20 字。";
+          return;
+        }
+        updateSession({ rerender: false });
+        keyword = "";
+        refresh();
+      });
+    };
     const refresh = () => {
       dialog.querySelector("#workout-dialog-content").innerHTML = html();
       dialog.querySelectorAll("[data-dialog-close]").forEach(close => close.addEventListener("click", () => dialog.close()));
+      bindSearch();
       wireOptions();
+      applyFilter();
     };
     const wireOptions = () => {
       dialog.querySelectorAll("[data-add-exercise]").forEach(button => button.addEventListener("click", () => {
@@ -150,6 +202,7 @@ function mount(container, options) {
         dialog.querySelector("#workout-custom-name")?.focus();
       });
     };
+    bindSearch();
     wireOptions();
     // 关闭选择器后再刷新编辑区，支持一次连续加入多个动作。
     dialog.addEventListener("close", render, { once:true });
@@ -205,8 +258,16 @@ function mount(container, options) {
     }));
     container.querySelectorAll("[data-exercise-info]").forEach(button => button.addEventListener("click", () => {
       const ex = session.exercises[Number(button.dataset.exerciseInfo)];
+      if (!ex) return;
       const tips = (ex.tips || "保持动作稳定，按自身能力调整重量和次数。").replace(/。/g, "。\n");
-      openDialog(`<div class="dialog-head"><div><span class="dialog-kicker">动作说明</span><h3>${ex.name}</h3></div><button type="button" class="icon-action" data-dialog-close>×</button></div><p class="dialog-muscles"><strong>锻炼部位</strong><br>${ex.muscles || ex.body_part || "全身"}</p><p class="dialog-tips"><strong>动作要点</strong><br>${tips}</p>`);
+      // 这个动作的历史数字直接放进说明里，不用再滚到底部展开动作进展。
+      const history = Workout.exerciseHistory(records, ex.exercise_id, 20);
+      const last = history[0];
+      const best = Workout.bestSet(history.flatMap(item => item.sets));
+      const stats = history.length
+        ? `<p class="dialog-stats"><span>共 ${history.length} 次</span><span>上次 ${esc(last.date)}</span>${best ? `<span>最好 ${esc(Workout.formatSetCompact(best, ex.equipment))}</span>` : ""}</p><button type="button" class="workout-btn compact" data-exercise-trend="${esc(ex.exercise_id)}">看进展</button>`
+        : `<p class="dialog-stats is-empty">还没有这个动作的记录。</p>`;
+      openDialog(`<div class="dialog-head"><div><span class="dialog-kicker">动作说明</span><h3>${esc(ex.name)}</h3></div><button type="button" class="icon-action" data-dialog-close>×</button></div>${stats}<p class="dialog-muscles"><strong>锻炼部位</strong><br>${esc(ex.muscles || ex.body_part || "全身")}</p><p class="dialog-tips"><strong>动作要点</strong><br>${esc(tips).replace(/\n/g, "<br>")}</p>`);
     }));
     // 删组：走数据层 removeSet 同步下调计划组数，并修正展开位置。
     container.querySelectorAll("[data-set-delete]").forEach(button => button.addEventListener("click", () => {
@@ -288,6 +349,9 @@ function mount(container, options) {
       const sameDay = Workout.sessionsOnDate(records, session.date)
         .filter(record => String(record.id) !== String(session._editing_record_id || ""));
       if (sameDay.length && !(await AppDialog.confirm(`${session.date} 已经有 ${sameDay.length} 条训练记录，仍要再存一条吗？`, { title:"同一天已有记录", okText:"仍然保存" }))) return;
+      // 时长以输入框为准；没碰过输入框时用草稿开始时间给的预估值兜底。
+      const durationValue = Number(container.querySelector("#workout-duration")?.value || 0);
+      session.duration_min = durationValue > 0 ? Math.round(durationValue) : 0;
       session.note = container.querySelector("#workout-note")?.value.trim() || "";
       const saved = Workout.upsertSession(records, session);
       options.onSave(saved);
@@ -469,6 +533,22 @@ function mount(container, options) {
   }
 
   render();
+  if (pendingDraft) {
+    AppDialog.confirm(`上次有一条没结束的${pendingDraft.title || "训练"}（${pendingDraft.date}），接着记还是开新的？`, {
+      title: "上次训练还没结束",
+      okText: "接着记",
+      cancelText: "开新的",
+    }).then(keep => {
+      if (keep) {
+        session = pendingDraft;
+        selectedDay = session.training_day || selectedDay;
+        render();
+      } else {
+        localStorage.removeItem(DRAFT_KEY);
+        render();
+      }
+    });
+  }
   return { render, getSession:() => session };
 }
 

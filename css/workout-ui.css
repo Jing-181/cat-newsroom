@@ -50,6 +50,12 @@ html, body { overflow-x:clip; }
 .quick-exercises button:hover { border-color:var(--module-4); color:var(--module-4); }
 .quick-exercises .more { color:var(--text-secondary); }
 .exercise-library { display:grid; gap:8px; max-height:620px; overflow:auto; transform-origin:top; }
+/* 本地搜索：按名称、部位、器械过滤，找不到时把自定义入口留在上方 */
+.exercise-search { margin:0 0 10px; }
+.exercise-search input { width:100%; height:40px; box-sizing:border-box; border:1px solid var(--border-input); border-radius:8px; padding:0 12px; color:var(--text); background:var(--surface-card); font:inherit; font-size:14px; }
+.exercise-search input:focus { outline:2px solid var(--module-4); outline-offset:1px; }
+.exercise-option[hidden] { display:none; }
+.exercise-empty { display:flex; flex-direction:column; align-items:center; gap:10px; margin:12px 0 0; padding:16px 14px; border:1px dashed var(--border-input); border-radius:var(--radius-tile); color:var(--text-secondary); font-size:13px; text-align:center; }
 .exercise-option { display:flex; align-items:center; gap:8px; width:100%; min-width:0; padding:12px; border:1px solid var(--border); border-radius:var(--radius-tile); color:var(--text); background:var(--surface-nested); cursor:pointer; font:inherit; text-align:left; }
 .exercise-option:hover { border-color:var(--module-4); }
 .exercise-option:focus-visible { outline:2px solid var(--module-4); outline-offset:2px; }
@@ -196,6 +202,10 @@ html, body { overflow-x:clip; }
 /* 状态词在历史卡、详情与补记标记上的显示 */
 .history-mood { display:inline-block; margin-left:8px; padding:1px 8px; border-radius:var(--radius-pill); background:color-mix(in srgb,var(--module-3) 16%,transparent); color:var(--module-3); font-size:11px; font-weight:700; vertical-align:2px; }
 .record-mood { display:inline-block; margin:0 0 12px; padding:3px 10px; border-radius:var(--radius-pill); background:color-mix(in srgb,var(--module-3) 16%,transparent); color:var(--module-3); font-size:12px; font-weight:700; }
+/* 动作说明里的历史统计：共几次、上次哪天、最好一组 */
+.dialog-stats { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-tile); background:var(--surface-nested); font-size:13px; color:var(--text-secondary); }
+.dialog-stats.is-empty { display:block; }
+.dialog-stats + .workout-btn { margin-bottom:14px; }
 .workout-history { display:flex; flex-direction:column; gap:16px; }
 .history-group-block { min-width:0; }
 .history-month { display:flex; align-items:center; gap:8px; margin:2px 2px 12px; font-size:12px; font-weight:700; letter-spacing:.06em; color:var(--text-tertiary); }

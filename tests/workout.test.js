@@ -42,14 +42,15 @@ test("自定义动作：id 由名称派生，同名动作在历史里连成同�
   workout.addCustomExercise(session, "器械内收");
   workout.addCustomExercise(session, "   ");
   assert.equal(session.exercises.length, 1);
-  // 下次再练同一个动作：id 一致，并预填上次那一组
+  // 下次再练同一个动作：id 一致；新动作留空，上次的数字只做提示、不算已记录
   entry.sets[0] = { weight_kg: 40, reps: 12 };
   session.status = "completed";
   const next = workout.createSession("legs", new Date(2026, 9, 10));
   workout.addCustomExercise(next, "器械内收", [session]);
   assert.equal(next.exercises[0].exercise_id, entry.exercise_id);
-  assert.equal(next.exercises[0].sets[0].weight_kg, 40);
-  assert.equal(next.exercises[0].sets[0].reps, 12);
+  assert.equal(next.exercises[0].sets[0].weight_kg, 0);
+  assert.equal(next.exercises[0].sets[0].reps, 0);
+  assert.equal(workout.previousPerformance([session], entry.exercise_id).set.weight_kg, 40);
 });
 
 test("有氧恢复日的自定义动作按有氧形态记录，其余训练日按力量形态记录", () => {
@@ -125,15 +126,30 @@ test("有氧组按时长或距离任一项判定有效", () => {
   assert.equal(workout.setHasRecord({ duration_min: 0, distance_km: 2.5 }), true);
 });
 
-test("新增动作会带入最近一组数据，并默认只创建一组", () => {
+test("草稿开始时间只用于估时长，不写进记录", () => {
+  const session = workout.createSession("chest", new Date());
+  assert.ok(session.started_at);
+  assert.ok(workout.elapsedMinutes(session) >= 0);
+  // 跨天的草稿不估算，避免把隔夜时间算进训练
+  const old = workout.createSession("chest", new Date());
+  old.started_at = new Date(Date.now() - 3 * 86400000).toISOString();
+  assert.equal(workout.elapsedMinutes(old), 0);
+  // 保存后不留在记录里
+  session.status = "completed";
+  const saved = workout.upsertSession([], session);
+  assert.equal("started_at" in saved, false);
+});
+
+test("新增动作留空只建一组，上次数据只做提示", () => {
   const history = [workout.createSession("chest", new Date(2026, 7, 20))];
   workout.addExercise(history[0], "dumbbell_bench_press");
   history[0].status = "completed";
   history[0].exercises[0].sets = [{ weight_kg: 24, reps: 8, rpe: 9 }];
   const session = workout.createSession("chest", new Date(2026, 7, 21));
   workout.addExercise(session, "dumbbell_bench_press", history);
-  // 重量与次数继承上次，RPE 是当次体感，不跟过来（否则新记录里会冒出自己没填过的数值）
-  assert.deepEqual(session.exercises[0].sets, [{ weight_kg: 24, reps: 8, rpe: "", note: "" }]);
+  // 新动作留空，不把上次的数字直接当成已记录；上次数值由组行的灰色提示给出
+  assert.deepEqual(session.exercises[0].sets, [{ weight_kg: 0, reps: 0, rpe: "", note: "" }]);
+  assert.equal(workout.previousPerformance(history, "dumbbell_bench_press").set.weight_kg, 24);
   assert.equal(session.exercises[0].planned_sets, 1);
   assert.equal(workout.previousPerformance(history, "dumbbell_bench_press").date, "2026-08-20");
 });

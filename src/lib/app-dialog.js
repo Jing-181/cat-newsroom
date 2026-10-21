@@ -21,7 +21,7 @@ function open(options = {}) {
     <h2 id="app-dialog-title">${esc(options.title || (confirmMode ? "请确认" : "提示"))}</h2>
     <div class="sub" id="app-dialog-message">${esc(options.message || "")}</div>
     <div class="modal-actions">
-      ${confirmMode ? '<button type="button" class="btn ghost" data-dialog-cancel>取消</button>' : ""}
+      ${confirmMode ? `<button type="button" class="btn ghost" data-dialog-cancel>${esc(options.cancelText || "取消")}</button>` : ""}
       <button type="button" class="btn ${options.danger ? "danger" : ""}" data-dialog-ok>${esc(options.okText || "知道了")}</button>
     </div>
   </div>`;

@@ -111,7 +111,7 @@ test("动作选择器支持整项点击并标记已添加动作", () => {
   workout.addExercise(session, "dumbbell_bench_press");
   const html = view.exerciseLibraryHtml("chest", session.exercises);
   assert.match(html, /class="exercise-option is-added"/);
-  assert.match(html, /data-add-exercise="dumbbell_bench_press" disabled/);
+  assert.match(html, /data-add-exercise="dumbbell_bench_press"[^>]*disabled/);
   assert.match(html, />已添加</);
 });
 
@@ -220,6 +220,27 @@ test("结束区提供状态词快捷选项与多行备注", () => {
   // 备注从单行输入改成能写多行的文本域，状态词与备注都非必填
   assert.match(html, /<textarea id="workout-note"/);
   assert.doesNotMatch(html, /<input id="workout-note"/);
+});
+
+test("动作选择器提供本地搜索，选项带名称、部位和器械关键词", () => {
+  const view = loadView();
+  const html = view.exerciseLibraryHtml("chest", [], [], []);
+  assert.match(html, /id="workout-exercise-search"/);
+  assert.match(html, /data-search="哑铃卧推 胸 哑铃"/);
+  assert.match(html, /class="exercise-empty" hidden/);
+  // 搜不到时直接用关键词新建自定义动作
+  assert.match(html, /id="workout-exercise-create"/);
+});
+
+test("动作库补齐常见动作，训练日归属正确", () => {
+  const ids = new Set(workout.catalog.exercises.map(item => item.id));
+  ["incline_dumbbell_fly", "smith_machine_bench_press", "t_bar_row", "lat_pulldown_reverse", "single_leg_press", "copenhagen_plank", "arnold_press", "cable_hammer_curl", "dead_bug", "farmer_carry", "battle_rope"].forEach(id => assert.ok(ids.has(id), id));
+  assert.ok(workout.catalog.exercises.length >= 100, `动作数 ${workout.catalog.exercises.length}`);
+  assert.ok(workout.catalog.forDay("chest").some(item => item.id === "incline_dumbbell_fly"));
+  assert.ok(workout.catalog.forDay("back").some(item => item.id === "t_bar_row"));
+  assert.ok(workout.catalog.forDay("legs").some(item => item.id === "single_leg_press"));
+  assert.ok(workout.catalog.forDay("arms").some(item => item.id === "cable_hammer_curl"));
+  assert.ok(workout.catalog.forDay("cardio").some(item => item.id === "battle_rope"));
 });
 
 test("空闲页给出上次这一练与补记入口", () => {
