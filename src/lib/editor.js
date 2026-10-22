@@ -7,6 +7,7 @@ import AppDialog from "./app-dialog.js";
 import RecordList from "./record-list.js";
 import RecordMedia from "./record-media.js";
 import Toast from "./toast.js";
+import Trace from "./trace.js";
 
 function mediaFieldHTML(key, d) {
   const layout = d.layout || "default";
@@ -189,6 +190,12 @@ export function openEditor(key, item) {
     d.image_preset = selectedImagePreset(overlay) || d.image_preset || RecordMedia.defaultPresetId(key, d.layout);
     if (!editing) { const records = getData()[key] = getData()[key] || []; RecordList.placeNewAtTop(records, d); records.unshift(d); }
     persist(key, d); close();
+    // 记一次保存：只记模块、新建/编辑、填了几个字段，不记标题备注等内容
+    Trace.track("record_saved", {
+      module: key,
+      mode: editing ? "edit" : "create",
+      field_count: (m.fields || []).length,
+    });
   };
 }
 

@@ -116,7 +116,8 @@ test("首页与洞察接入训练周复盘槽，共享层含编辑/复盘/番茄
   const insight = read("src/modules/insight/InsightView.vue");
   assert.match(home, /trainingReviewSlotHTML/);
   assert.match(insight, /trainingReviewSlotHTML/);
-  assert.match(home, /initTrainingReview\(root\.value\)/);
+  // 首页是摘要态（带 compact 与看全文动作），洞察页不传参数即完整态
+  assert.match(home, /initTrainingReview\(root\.value, \{ compact: true/);
   assert.match(insight, /initTrainingReview\(root\.value\)/);
   // 旧的 AI 生活报整条链路不得再被引用（文件已删，import 还在就会构建失败）
   assert.doesNotMatch(home, /weekly-report/);
@@ -153,6 +154,55 @@ test("训练周复盘槽位带 b12 全宽类，首页 bento 网格中不被压�
   const styles = read("src/desktop.css");
   assert.match(styles, /\.report-card \{ margin-top:16px; \}/); // 洞察页块级上下文保留间距
   assert.match(styles, /\.bento \.report-card \{ margin-top:0; \}/); // 首页 bento 内由 gap 控制间距
+});
+
+test("训练周复盘两处挂载形态分离：首页摘要（结论+指标前三行+看全文），洞察页完整", () => {
+  const reviewLib = read("src/lib/training-review.js");
+  // 摘要行数与含集开关都是常量 + 参数，不是模块级状态（否则两处槽位会互相覆盖）
+  assert.match(reviewLib, /const COMPACT_METRIC_ROWS = 3;/);
+  assert.match(reviewLib, /export function trainingReviewSlotHTML\(options = \{\}\)/);
+  assert.match(reviewLib, /function readyHTML\(report, list, compact\)/);
+  assert.match(reviewLib, /training-review-more/); // 看全文入口
+  const home = read("src/modules/home/HomeView.vue");
+  assert.match(home, /report: \(\) => trainingReviewSlotHTML\(\{ compact: true \}\)/);
+  assert.match(home, /initTrainingReview\(root\.value, \{ compact: true, onMore: \(\) => go\("insight"\) \}\)/);
+  // 洞察页不传 compact：仍是结论 + 全量指标 + 结构分析 + 下周提示 + 导出 + 往期
+  const insight = read("src/modules/insight/InsightView.vue");
+  assert.match(insight, /insertAdjacentHTML\("beforeend", trainingReviewSlotHTML\(\)\)/);
+  assert.match(insight, /initTrainingReview\(root\.value\);/);
+  // 往期选中的共享状态不许被首页摘要态吞掉：下拉只在完整态渲染，但 selectedWeek 仍是同一份
+  assert.match(reviewLib, /let selectedWeek = null;/);
+  assert.match(reviewLib, /slot\.querySelector\("#training-review-history"\)\?\.addEventListener/);
+});
+
+test("使用记录接入点：只新增调用，不碰数据键与同步层", () => {
+  const trace = read("src/lib/trace.js");
+  // 自己的键，与业务数据键分开
+  assert.match(trace, /cat-newsroom-trace-v1:/);
+  assert.match(trace, /cat-newsroom-trace-index-v1/);
+  assert.match(trace, /const KEEP_DAYS = 90;/);
+  assert.match(trace, /const MAX_EVENTS_PER_DAY = 8000;/);
+  // 三个落盘时机 + 合并定时器；不在输入路径上写
+  assert.match(trace, /visibilitychange/);
+  assert.match(trace, /pagehide/);
+  assert.match(trace, /FLUSH_DELAY = 10000/);
+
+  const workoutUi = read("src/lib/workout-ui.js");
+  for (const event of ["workout_session_begin", "workout_set_completed", "workout_finish_saved"]) {
+    assert.match(workoutUi, new RegExp(event));
+  }
+  // 训练页仍走同一套数据读写，不因埋点改成自己的存储
+  assert.doesNotMatch(workoutUi, /localStorage\.setItem\(\s*"cat-newsroom-data-v2"/);
+  assert.match(read("src/modules/workout/SportView.vue"), /workout_page_open/);
+  assert.match(read("src/lib/editor.js"), /record_saved/);
+  assert.match(read("src/modules/home/HomeView.vue"), /quick_add_click/);
+  assert.match(read("src/App.vue"), /app_open/);
+  assert.match(read("src/lib/training-review.js"), /report_more_click/);
+  // 设置页三项能力：开关 / 清空 / 导出
+  const settings = read("src/modules/settings/SettingsView.vue");
+  assert.match(settings, /Trace\.setEnabled/);
+  assert.match(settings, /Trace\.clear/);
+  assert.match(settings, /Trace\.exportPayload/);
 });
 
 test("个人配置页的示范数据清理：先扫描、确认后才真删、再重拉云端", () => {

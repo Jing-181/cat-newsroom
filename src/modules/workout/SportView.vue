@@ -4,6 +4,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG } from "../../lib/config.js";
 import { getData, persist, remove } from "../../lib/store.js";
 import WorkoutUI from "../../lib/workout-ui.js";
+import Trace from "../../lib/trace.js";
 
 const MODULE_KEY = "sport"; // 与主站 CONFIG.modules 的 sport 键一致
 const rootRef = ref(null);
@@ -15,6 +16,8 @@ function mountUI() {
   rootRef.value.innerHTML = "";
   const data = getData();
   if (!Array.isArray(data.sport)) data.sport = [];
+  // 进页记一次：进页 → 开练的流失就在这里分叉（不记内容，只看有没有草稿）
+  Trace.track("workout_page_open", { has_draft: !!WorkoutUI.hasDraft() });
   WorkoutUI.mount(rootRef.value, {
     records: data.sport,
     onSave: record => persist(MODULE_KEY, record),

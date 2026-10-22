@@ -7,6 +7,7 @@ import { getData, save, subscribe, saveMetaField } from "../../lib/store.js";
 import { initDailyCopy, generateDailyCopyBatch, getDailyBatchInfo } from "../../lib/daily-copy.js";
 import AppDialog from "../../lib/app-dialog.js";
 import Toast from "../../lib/toast.js";
+import Trace from "../../lib/trace.js";
 
 const root = ref(null);
 const order = ref([]);
@@ -14,6 +15,56 @@ const batchInfo = ref({ loading: true });
 const syncing = ref(false);
 const purging = ref(false);
 const versionVisible = ref(true);
+const traceEnabled = ref(Trace.isEnabled());
+const traceStats = ref(Trace.stats());
+
+// 使用记录：开关只停采集，不删已有数据；清空要二次确认，导出走 Blob 下载
+function refreshTraceStats() {
+  traceStats.value = Trace.stats();
+}
+
+// 体积文案：不足 1KB 不显示“约 0 KB”
+const traceSizeText = computed(() => {
+  const bytes = traceStats.value.bytes || 0;
+  if (!bytes) return "0 KB";
+  if (bytes < 1024) return "不足 1 KB";
+  return `约 ${Math.round(bytes / 1024)} KB`;
+});
+
+function toggleTrace() {
+  traceEnabled.value = Trace.setEnabled(!traceEnabled.value);
+  refreshTraceStats();
+  Toast.show(traceEnabled.value ? "开始记录使用情况" : "已停止记录，已有记录仍保留");
+}
+
+async function clearTrace() {
+  const info = traceStats.value;
+  const ok = await AppDialog.confirm(
+    `将删除全部使用记录（${info.days} 天、${info.events} 条），不可撤销。关闭开关不会删除数据，只有这个按钮会。`,
+    { title: "清空使用记录", danger: true, okText: "清空" },
+  );
+  if (!ok) return;
+  const removed = Trace.clear();
+  refreshTraceStats();
+  Toast.show(`已清空 ${removed} 天的记录`);
+}
+
+function exportTrace() {
+  try {
+    Trace.flush(); // 先把内存里没落盘的写进去，否则刚发生的事件会漏
+    const payload = Trace.exportPayload();
+    if (!payload.days.length) { Toast.show("还没有可导出的记录"); return; }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `cat-trace-${payload.exported_at.slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    refreshTraceStats();
+  } catch (_) {
+    Toast.show("导出失败，稍后再试");
+  }
+}
 
 // 首页版本显示开关（本地保存，默认显示）
 function toggleVersion() {
@@ -118,6 +169,8 @@ onMounted(() => {
   refreshBatch();
   loadOrder();
   versionVisible.value = getData().__homeVersionVisible !== false;
+  traceEnabled.value = Trace.isEnabled();
+  refreshTraceStats();
   unsub = subscribe(() => refreshBatch());
 });
 onBeforeUnmount(() => { if (unsub) unsub(); });
@@ -170,6 +223,24 @@ onBeforeUnmount(() => { if (unsub) unsub(); });
         </button>
       </div>
       <div class="set-note">关闭后首页不再显示版本号。</div>
+    </div>
+
+    <div class="sec-title">使用记录</div>
+    <div class="setting-card">
+      <div class="set-row">
+        <div class="set-tx">
+          <div class="set-name">记录使用情况</div>
+          <div class="set-desc">{{ traceStats.days }} 天 · {{ traceStats.events }} 条 · {{ traceSizeText }}</div>
+        </div>
+        <button type="button" class="switch" :class="{ on: traceEnabled }" role="switch" :aria-checked="traceEnabled" @click="toggleTrace">
+          <span class="switch-track"><i></i></span>
+        </button>
+      </div>
+      <div class="set-actions">
+        <button class="btn ghost" @click="exportTrace">导出记录</button>
+        <button class="btn ghost" @click="clearTrace">清空记录</button>
+      </div>
+      <div class="set-note">只记「点了哪个按钮、哪一步花了多久」，不记任何文字内容；数据只存这台设备，不上传、不出网，保留 90 天。关掉开关会立即停止记录，但不会删除已有数据。</div>
     </div>
 
     <div class="sec-title">数据维护</div>

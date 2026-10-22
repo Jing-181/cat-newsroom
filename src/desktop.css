@@ -696,6 +696,10 @@
   .report-history { display:flex; align-items:center; gap:8px; margin-top:14px; }
   .report-history label { color:var(--text-tertiary); font-size:12px; white-space:nowrap; }
   .report-history select { flex:1; min-width:0; height:34px; border:1px solid var(--border-input); border-radius:6px; padding:0 8px; color:var(--text); background:var(--surface-card); font-size:13px; }
+  /* 首页摘要态的「看全文」：一个轻量文字入口，不带边框，不和卡片里的数据争视觉 */
+  .report-card .report-more-row { margin-top:12px; display:flex; justify-content:flex-end; }
+  .report-card .report-more { border:0; background:transparent; color:var(--accent); font-size:13px; padding:4px 0; cursor:pointer; }
+  .report-card .report-more:hover { text-decoration:underline; }
 
   /* 登录弹窗 */
   .auth-modal { width:380px; }

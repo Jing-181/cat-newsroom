@@ -12,6 +12,7 @@ import Toast from "./lib/toast.js";
 import AppDialog from "./lib/app-dialog.js";
 import DataBackup from "./lib/data-backup.js";
 import DeviceMode from "./lib/device-mode.js";
+import Trace from "./lib/trace.js";
 import HomeView from "./modules/home/HomeView.vue";
 import InsightView from "./modules/insight/InsightView.vue";
 import TodoView from "./modules/todo/TodoView.vue";
@@ -76,6 +77,20 @@ async function onSyncIndicatorClick() {
 
 onMounted(() => {
   ensurePomodoroController();
+
+  // 开应用记一次：冷启动与切回用 sessionStorage 区分（只记形状，不记内容）
+  const launchedKey = "cat-newsroom-trace-launched";
+  let warm = false;
+  try {
+    warm = sessionStorage.getItem(launchedKey) === "1";
+    sessionStorage.setItem(launchedKey, "1");
+  } catch (_) { /* 隐私模式下拿不到 sessionStorage 就当冷启动 */ }
+  Trace.track("app_open", {
+    launch: warm ? "warm" : "cold",
+    platform: matchMedia("(max-width: 820px)").matches ? "mobile" : "desktop",
+    hour: new Date().getHours(),
+    dow: (new Date().getDay() + 6) % 7,
+  });
 
   // 头像：读本地已存头像
   const avatar = getData().__avatar;

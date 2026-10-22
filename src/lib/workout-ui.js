@@ -8,6 +8,8 @@ import WorkoutPlan from "./workout-plan.js";
 import WorkoutView from "./workout-view.js";
 import AppDialog from "./app-dialog.js";
 import Toast from "./toast.js";
+// 使用记录：同步调用、无 await、不落盘（由 trace 自己合并写），失败不抛
+import Trace from "./trace.js";
 
   const DRAFT_KEY = "cat-newsroom-workout-draft-v1";
 const DAY_KEY = "cat-newsroom-workout-day-v1";
@@ -44,6 +46,11 @@ function loadPlan() {
   return WorkoutPlan?.load?.() || readJson("cat-newsroom-weekly-workout-plan-v1");
 }
 
+// 草稿是否存在：只读本地草稿键，不碰记录数据，也不改 DRAFT_KEY 的语义
+function hasDraft() {
+  return !!readJson(DRAFT_KEY);
+}
+
 function mount(container, options) {
   if (!container || !Workout || !WorkoutCatalog || !WorkoutView) return null;
   const records = options.records || [];
@@ -59,6 +66,8 @@ function mount(container, options) {
   // 用户手动展开的组：key 为动作实例 id，值为组索引；-1 表示整组收起。
   // 没点过时自动展开"第一个没录的组"。展开状态只由用户点击改变，不做自动收起。
   let openSets = {};
+  // 已上报过「这组有记录」的组：只在第一次变成有记录时记一条，不跟着每次输入走
+  const reportedSets = new WeakSet();
 
   function persistDraft() {
     if (session) localStorage.setItem(DRAFT_KEY, JSON.stringify(session));
@@ -77,6 +86,19 @@ function mount(container, options) {
       const target = container.querySelector(`[data-workout-stat="${key}"]`);
       if (target) target.textContent = value;
     });
+  }
+
+  // 某一组从「空」变成「有记录」的那一刻记一次，用于算组间歇与首组时间。
+  // 不挂新监听、不读 DOM，就在已有 handler 末尾调一下。
+  function noteSetCompleted(exerciseIndex, setIndex, via) {
+    try {
+      const exercise = session?.exercises?.[exerciseIndex];
+      const set = exercise?.sets?.[setIndex];
+      if (!set || reportedSets.has(set)) return;
+      if (!Workout.setHasRecord(set)) return;
+      reportedSets.add(set);
+      Trace.track("workout_set_completed", { ex_index: exerciseIndex, set_index: setIndex, via });
+    } catch (_) { /* 埋点永不打断录入 */ }
   }
 
   // 只更新某动作的"已录 N/M 组"进度文本，避免整个重渲染。
@@ -178,6 +200,7 @@ function mount(container, options) {
         updateSession({ rerender: false });
         keyword = "";
         refresh();
+        Trace.track("workout_exercise_add", { source: "custom", index: session.exercises.length - 1 });
       });
     };
     const refresh = () => {
@@ -190,12 +213,14 @@ function mount(container, options) {
     const wireOptions = () => {
       dialog.querySelectorAll("[data-add-exercise]").forEach(button => button.addEventListener("click", () => {
         Workout.addExercise(session, button.dataset.addExercise, records);
+        Trace.track("workout_exercise_add", { source: "library", index: session.exercises.length - 1 });
         updateSession({ rerender:false });
         refresh();
       }));
       // 用过或自定义过的动作：点一下加回本次训练（id 由名称派生，历史轨迹不变）。
       dialog.querySelectorAll("[data-add-custom]").forEach(button => button.addEventListener("click", () => {
         Workout.addCustomExercise(session, button.dataset.addCustom, records);
+        Trace.track("workout_exercise_add", { source: "library", index: session.exercises.length - 1 });
         updateSession({ rerender:false });
         refresh();
       }));
@@ -213,6 +238,7 @@ function mount(container, options) {
         }
         updateSession({ rerender:false });
         refresh();
+        Trace.track("workout_exercise_add", { source: "custom", index: session.exercises.length - 1 });
         // 连续加多个自定义动作时不用再点一次输入框。
         dialog.querySelector("#workout-custom-name")?.focus();
       });
@@ -238,6 +264,7 @@ function mount(container, options) {
     container.querySelector("[data-open-library]")?.addEventListener("click", openExerciseLibrary);
     container.querySelectorAll("[data-quick-add]").forEach(button => button.addEventListener("click", () => {
       Workout.addExercise(session, button.dataset.quickAdd, records);
+      Trace.track("workout_exercise_add", { source: "quick", index: session.exercises.length - 1 });
       updateSession();
     }));
     container.querySelectorAll("[data-exercise-delete]").forEach(button => button.addEventListener("click", () => {
@@ -253,6 +280,7 @@ function mount(container, options) {
       if (!exercise) return;
       Workout.addSet(session, exerciseIndex);
       openSets[exercise.id] = exercise.sets.length - 1;
+      Trace.track("workout_set_add", { ex_index: exerciseIndex, set_index: exercise.sets.length - 1 });
       updateSession();
     }));
     // 唯一改变展开状态的入口：点某一组就展开它，同时收起本动作的其它组与别的动作。
@@ -291,6 +319,7 @@ function mount(container, options) {
       const exercise = session.exercises[exerciseIndex];
       if (!exercise) return;
       Workout.removeSet(session, exerciseIndex, setIndex);
+      Trace.track("workout_set_delete", { ex_index: exerciseIndex, set_index: setIndex });
       if (openSets[exercise.id] != null) {
         if (openSets[exercise.id] === setIndex) openSets[exercise.id] = Math.min(setIndex, Math.max(0, exercise.sets.length - 1));
         else if (openSets[exercise.id] > setIndex) openSets[exercise.id] -= 1;
@@ -314,6 +343,7 @@ function mount(container, options) {
       updateSession({ rerender:false });
       refreshStats();
       refreshExerciseProgress(exerciseIndex);
+      noteSetCompleted(exerciseIndex, setIndex, "typed");
     }));
     container.querySelectorAll("[data-set-adjust]").forEach(button => button.addEventListener("click", () => {
       const exerciseIndex = Number(button.dataset.exercise);
@@ -332,6 +362,7 @@ function mount(container, options) {
       updateSession({ rerender:false });
       refreshStats();
       refreshExerciseProgress(exerciseIndex);
+      noteSetCompleted(exerciseIndex, setIndex, "adjust");
     }));
     // 灰色提示点一下：把上次这一组填进空着的字段，已填的不覆盖。
     container.querySelectorAll("[data-fill-last]").forEach(button => button.addEventListener("click", () => {
@@ -347,6 +378,7 @@ function mount(container, options) {
       if (set.duration_min != null && !Number(set.duration_min)) set.duration_min = last.duration_min;
       if (set.distance_km != null && !Number(set.distance_km)) set.distance_km = last.distance_km;
       updateSession();
+      noteSetCompleted(exerciseIndex, setIndex, "fill_last");
     }));
     container.querySelector("#workout-date")?.addEventListener("input", event => {
       session.date = event.target.value;
@@ -373,7 +405,8 @@ function mount(container, options) {
     container.querySelector("#workout-finish")?.addEventListener("click", async () => {
       if (!session.date) return AppDialog.alert("请选择训练日期。", { title:"还差一步" });
       // 没有任何一组留下数值时不构成训练记录，提示后仍允许保存（可能是纯备注）。
-      const hasRecord = Workout.calculateStats(session).setCount > 0;
+      const stats = Workout.calculateStats(session);
+      const hasRecord = stats.setCount > 0;
       if (!hasRecord && !(await AppDialog.confirm("还没有记录任何一组，仍要保存吗？", { title:"训练尚未开始", okText:"仍然保存" }))) return;
       // 同一天已有记录时先问一句：补记与重复保存都走这里，不硬拦，由用户决定。
       const sameDay = Workout.sessionsOnDate(records, session.date)
@@ -385,6 +418,14 @@ function mount(container, options) {
       session.note = container.querySelector("#workout-note")?.value.trim() || "";
       const saved = Workout.upsertSession(records, session);
       options.onSave(saved);
+      Trace.track("workout_finish_saved", {
+        set_count: stats.setCount,
+        ex_count: stats.exerciseCount,
+        duration_min: session.duration_min || 0,
+        duration_source: durationValue > 0 ? "input" : "zero",
+        mood_selected: !!session.mood,
+        same_day_extra: sameDay.length > 0,
+      });
       if (session._plan_generated_at && session._plan_day_index != null) {
         WorkoutPlan?.saveProgress?.({
           plan_generated_at: session._plan_generated_at,
@@ -408,6 +449,7 @@ function mount(container, options) {
   function startFromLastSession(last) {
     session = Workout.createSession(selectedDay, new Date());
     openSets = {};
+    Trace.track("workout_session_begin", { source: "repeat_last", day: selectedDay });
     const history = records.filter(record => Workout.isSession(record));
     for (const exercise of last.exercises || []) {
       const sets = Workout.recordedSets(exercise);
@@ -428,6 +470,7 @@ function mount(container, options) {
     session = Workout.createSession(day.training_day, new Date());
     session.title = day.title;
     openSets = {};
+    Trace.track("workout_session_begin", { source: "plan", day: day.training_day });
     const history = records.filter(record => Workout.isSession(record));
     for (const item of day.exercises || []) {
       Workout.addExercise(session, item.exercise_id, history);
@@ -492,7 +535,7 @@ function mount(container, options) {
         updateSession();
       } else render();
     }));
-    container.querySelector("#workout-start")?.addEventListener("click", () => { session = Workout.createSession(selectedDay); openSets = {}; persistDraft(); render(); });
+    container.querySelector("#workout-start")?.addEventListener("click", () => { session = Workout.createSession(selectedDay); openSets = {}; persistDraft(); Trace.track("workout_session_begin", { source: "blank", day: selectedDay }); render(); });
     container.querySelector("[data-repeat-last]")?.addEventListener("click", () => {
       const last = Workout.lastSessionForDay(records, selectedDay);
       if (last) startFromLastSession(last);
@@ -505,6 +548,7 @@ function mount(container, options) {
       session = Workout.createSession(selectedDay, new Date(`${date}T00:00:00`));
       openSets = {};
       persistDraft();
+      Trace.track("workout_session_begin", { source: "backfill", day: selectedDay });
       render();
     });
     container.querySelectorAll("[data-history-delete]").forEach(button => button.addEventListener("click", async () => {
@@ -625,9 +669,11 @@ function mount(container, options) {
       if (keep) {
         session = pendingDraft;
         selectedDay = session.training_day || selectedDay;
+        Trace.track("workout_session_begin", { source: "draft_resume", day: selectedDay, draft_resume: true });
         render();
       } else {
         localStorage.removeItem(DRAFT_KEY);
+        Trace.track("workout_draft_discarded", {});
         render();
       }
     });
@@ -636,9 +682,9 @@ function mount(container, options) {
 }
 
 const WorkoutUI = {
-  DRAFT_KEY, DAY_KEY, mount
+  DRAFT_KEY, DAY_KEY, mount, hasDraft
 };
 export default WorkoutUI;
 export {
-  DRAFT_KEY, DAY_KEY, mount
+  DRAFT_KEY, DAY_KEY, mount, hasDraft
 };

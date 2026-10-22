@@ -13,6 +13,7 @@ import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, groupOf } from "../../lib/
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
 import Workout from "../../lib/workout.js";
 import WorkoutPlan from "../../lib/workout-plan.js";
+import Trace from "../../lib/trace.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
@@ -210,7 +211,8 @@ const RENDER_MAP = {
   daily: () => `<div class="tile b12 daily-card" id="daily-copy-slot">${dailyCopySlotHTML()}</div>`,
   habit: habitTileHTML, todo: todoTileHTML,
   pomo: pomoTileHTML, trend: trendTileHTML, spend: spendTileHTML, books: booksTileHTML, goals: goalsTileHTML,
-  report: trainingReviewSlotHTML,
+  // 首页只渲染摘要态（结论 + 指标前三行 + 看全文），完整复盘留在洞察页
+  report: () => trainingReviewSlotHTML({ compact: true }),
 };
 
 function render() {
@@ -236,7 +238,7 @@ function render() {
   }
   root.value.innerHTML = html;
   wireHome();
-  initTrainingReview(root.value);
+  initTrainingReview(root.value, { compact: true, onMore: () => go("insight") });
   initDailyCopy(root.value);
   startClock();
 }
@@ -284,7 +286,7 @@ function updateHabitCell(cell, item, day) {
 function wireHome() {
   const scope = root.value;
   scope.querySelectorAll("[data-open]").forEach(el => el.onclick = () => go(el.dataset.open));
-  scope.querySelectorAll("[data-quick]").forEach(el => el.onclick = () => { go(el.dataset.quick); if (el.dataset.quick !== "sport") openEditor(el.dataset.quick, null); });
+  scope.querySelectorAll("[data-quick]").forEach(el => el.onclick = () => { Trace.track("quick_add_click", { module: el.dataset.quick }); go(el.dataset.quick); if (el.dataset.quick !== "sport") openEditor(el.dataset.quick, null); });
   const find = el => (data()[el.dataset.mkey] || []).find(i => i.id == el.dataset.id);
   // 就地打卡 / 完成
   scope.querySelectorAll(".js-pin-chk").forEach(el => el.onclick = e => {
