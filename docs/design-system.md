@@ -38,7 +38,7 @@
 - 圆角只用四个 token，不再写一次性字面量：`--radius-control`（10px，输入、步进、图标底板）、`--radius-tile`（12px，按钮、标签、小卡、记录卡）、`--radius-card`（12px，模块卡与瓷砖，与 tile 同值，暂不分化）、`--radius-sheet`（20px，通栏、抽屉与弹窗）、`--radius-pill`（999px，胶囊）。小于 22px 的方框（勾选框、邮票格）允许 4–8px 的小圆角。
 - 全站默认 `corner-shape: squircle`，圆角按超椭圆渲染；不支持该属性的浏览器自动回退为普通圆角。需要保持正圆的元素（圆点、圆形标记、圆形关闭按钮）显式设回 `round`。
 - 阴影：普通卡片 `--shadow-card`；hover 用 `--shadow-hover`；弹窗、浮层和 Toast 用 `--shadow-overlay`。
-- 动效：统一用 `--dur-fast`（.15s）/ `--dur-base`（.22s）与 `--ease-out`；hover 只用 fast，`prefers-reduced-motion: reduce` 时全局关闭。
+- 动效：统一用 `--dur-fast`（.15s）/ `--dur-base`（.22s）与 `--ease-out`；hover 只用 fast，`prefers-reduced-motion: reduce` 时全局关闭。这两组 token 只负责界面反馈（hover、focus、弹窗、列表入场）。有角色的动作（训练页小人这类会自己演一段的图形）不走 CSS，走 `src/lib/motion/`，规则见 `docs/motion-system.md`。
 - 字重：正文 400/500，标签与标题 700，只有超大数字和报刊刊头用 800。不再新增 750 这类非标准字重。
 
 ## 组件与状态
@@ -67,3 +67,5 @@
 ## 回归入口
 
 打开 `docs/design-demo.html` 检查颜色、字体、按钮、表单、卡片、弹窗、状态和移动布局。它使用与两个 workbench 相同的共享 CSS，并使用固定样例数据，不读写个人记录。
+
+动作动画是另一条线，入口是 dev server 下的 `/preview/motion.html`（`?still=1` 静帧、`?dark=1` 深墨底），规则见 `docs/motion-system.md`。

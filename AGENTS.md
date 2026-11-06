@@ -14,16 +14,23 @@
 
 ```bash
 npm install
-npm run dev:start   # 启动 dev server（默认 5176）：nohup 后台跑，日志 .dev-server.log，关掉终端不会被杀
-npm run dev:status  # 看是否在跑 + 日志末尾
+npm run dev:start   # 启动 dev server（默认 5176，绑 0.0.0.0）：nohup 后台跑，日志 .dev-server.log，关掉终端不会被杀
+                    # 启动时会打印本机地址和局域网地址（同 WiFi 的手机直接开）
+npm run dev:local   # 同上，但只绑 127.0.0.1，局域网访问不了
+npm run dev:restart # 重启（改完脚本或换 host 时用）
+npm run dev:status  # 看是否在跑 + 本机/局域网地址 + 日志末尾
 npm run dev:stop    # 停掉（PID 存在 .dev-server.pid）
-npm run dev:vue     # 前台跑（调试用），终端一关就结束
+npm run dev:vue     # 前台跑（调试用，同样绑 0.0.0.0），终端一关就结束
 npm test            # node --test tests/*.test.js
 npm run check       # 语法检查（supabase-sync.js）+ 全部测试
 npm run build       # 产出 dist/（含 prebuild 拷贝步骤）
 ```
 
 端口被占或想换端口：`sh scripts/dev-server.sh start 5180`。脚本用的是 `--strictPort`，端口被占会直接报错，不会偷偷换端口。
+第三参数是 host：`sh scripts/dev-server.sh start 5176 127.0.0.1` 只给本机。
+
+局域网地址由脚本自己探（默认路由所在网卡优先，再兜底 en0–en3，跳过 169.254 自分配），不用手查 IP。
+Vite 6 的 host 校验允许 IP 字面量，所以手机用 `http://192.168.x.x:5176/` 能直接开；用机器名（`xxx.local`）访问会被拦，不用试。
 
 改视觉必须看 `docs/design-demo.html` 和 `docs/design-system.md`。
 
@@ -33,7 +40,7 @@ npm run build       # 产出 dist/（含 prebuild 拷贝步骤）
 | --- | --- | --- |
 | 统一入口 | `index.html` → `src/` | Vue 3 + Vite，root 指向 `src` |
 | 视图 | `src/modules/<key>/<Name>View.vue` | 10 个视图；6 个是薄包装，复用 `src/components/ModuleView.vue` 的通用引擎 |
-| 领域库 | `src/lib/*.js` | 全部业务领域模块：config / store / record-view / training-review / editor / icons / utils，以及从 `js/` 迁过来的弹窗、设备模式、备份、toast、记录列表与配图、番茄钟界面、训练家族（catalog / workout / plan / view / ui）。数据读写统一走 `store.js`（`getData` / `persist` / `remove` / `saveMetaField`），视图不再自己碰数据键 |
+| 领域库 | `src/lib/*.js` | 全部业务领域模块：config / store / record-view / training-review / editor / icons / utils，以及从 `js/` 迁过来的弹窗、设备模式、备份、toast、记录列表与配图、番茄钟界面、训练家族（catalog / workout / plan / view / ui）。数据读写统一走 `store.js`（`getData` / `persist` / `remove` / `saveMetaField`），视图不再自己碰数据键。动作动画在 `src/lib/motion/`（core / clips / player / svg-skin），规则见 `docs/motion-system.md` |
 | 共享运行时 | `js/*.js` | 只剩三个同步层经典脚本（`sync-core` / `api-client` / `sync-hooks`），挂到 `window`，由 `src/main.js` 副作用导入。其余模块已全部迁到 `src/lib/` 的 ESM 且**不再挂全局垫片**：消费者一律直接 `import`，与经典脚本之间只剩 `window.CONFIG` / `window.data` / `window.store` / `window.updateAuthUI` / `window.DemoData` 这几个明确契约，见 `docs/refactor-plan-2026-10.md` |
 | 共享样式 | `css/*.css`（theme / components / workout-ui / app-dialog / record-media） | 全局 token 与组件 |
 | 桌面布局样式 | `src/desktop.css`、`src/responsive.css` | 由 `src/styles.css` @import |
@@ -91,10 +98,18 @@ token 在 `css/theme.css`：颜色（`--page-bg` `--surface-*` `--text*` `--acce
 - hover **只**增强边框或底色，不做位移抬升（`translateY`）；active 才允许轻微位移。
 - 层级靠字号与字重区分，正文 14px，标题 700，超大数字/刊头才用 800。
 
+动效分两层，不要混：
+
+- **界面反馈**（hover、focus、弹窗淡入、列表入场）走 CSS transition，只用 `--dur-fast` / `--dur-base` / `--ease-out`。
+- **有角色的动作**（训练小人这类会自己演一段的线条图形）走 `src/lib/motion/`，规则见 `docs/motion-system.md`。不要在组件里自己起 rAF，也不要把动作节奏写成 CSS keyframes。
+
 ## 文档索引
 
 - `docs/任务表.md` — 当前排期与执行约束（最该先看）
+- `docs/design-system.md` — 视觉规范正本（颜色 / 字体 / 圆角 / 阴影 / 动效 token）
+- `docs/motion-system.md` — 动作动画系统（分层、姿势契约、加动作与换项目的步骤）；实物入口 `/preview/motion.html`
 - `docs/设计系统` → `docs/design-system.md`
+- `docs/design-review-prompts.md` — 设计审查提示词手册（八条，各配一个本仓库的真实示例）
 - `docs/design-review-2026-10.md` — 审美与代码细节审查
 - `docs/refactor-plan-2026-10.md` — 业务代码整理方案（现状 / 目标结构 / 四阶段 / 不碰清单）
 - `docs/开发经验.md`、`docs/development-guidelines.md` — 约定与历史

@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>猫咪生活报 · 三方向 × 三页面</title>
+<style>
+  /* ============================================================
+     画廊外壳：中性灰，刻意不带项目现有的暖色报纸调，
+     避免把原型误读成"现有设计的小改版"。
+     ============================================================ */
+  :root{
+    --shell-bg:#f1f1f3;
+    --shell-ink:#17171a;
+    --shell-mute:#71717a;
+    --shell-line:#dcdce1;
+    --screen-w:360px;
+    --screen-h:780px;
+    --font-ui:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  figure,figcaption{margin:0}
+  body{
+    background:var(--shell-bg);color:var(--shell-ink);font-family:var(--font-ui);
+    -webkit-font-smoothing:antialiased;padding:40px 24px 72px;
+  }
+
+  .page-head{max-width:1200px;margin:0 auto 34px}
+  .page-head h1{font-size:19px;font-weight:600;letter-spacing:-.01em;margin:0 0 8px}
+  .page-head p{margin:0;font-size:12.5px;line-height:1.8;color:var(--shell-mute);max-width:64ch}
+  .page-head .disclaimer{
+    margin-top:12px;font-size:11.5px;color:#8a8a93;
+    border-left:2px solid var(--shell-line);padding-left:10px;
+  }
+
+  /* 窄屏：一次只看一个方向 */
+  .switcher{
+    display:none;gap:6px;margin:0 auto 26px;max-width:1200px;
+    position:sticky;top:0;z-index:20;
+    padding:12px 0;background:linear-gradient(var(--shell-bg) 78%,rgba(241,241,243,0));
+    overflow-x:auto;scrollbar-width:none;
+  }
+  .switcher::-webkit-scrollbar{display:none}
+  .sw-btn{
+    flex:0 0 auto;appearance:none;border:1px solid var(--shell-line);background:#fff;
+    color:#55555e;font:inherit;font-size:11.5px;letter-spacing:.02em;
+    padding:10px 16px;border-radius:999px;cursor:pointer;min-height:40px;
+    transition:background .16s ease,color .16s ease,border-color .16s ease;
+  }
+  .sw-btn[aria-pressed="true"]{background:var(--shell-ink);color:#fff;border-color:var(--shell-ink)}
+
+  /* 一行 = 一个方向，三列 = 三个页面 */
+  .dir{max-width:1200px;margin:0 auto 60px}
+  .dir-head{
+    display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+    padding-bottom:13px;border-bottom:1px solid var(--shell-line);margin-bottom:26px;
+  }
+  .dir-head b{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+  .dir-head span{font-size:11.5px;line-height:1.75;color:var(--shell-mute)}
+  .screens{display:flex;gap:28px;align-items:flex-start}
+  .tile{display:flex;flex-direction:column;gap:10px;flex:0 0 auto}
+  .tile-cap{
+    font-size:9.5px;letter-spacing:.22em;color:#9a9aa2;text-align:center;
+  }
+
+  /* 手机壳：统一外壳，只承载屏幕 */
+  .phone{
+    width:calc(var(--screen-w) + 16px);
+    height:calc(var(--screen-h) + 16px);
+    padding:8px;background:#15151a;border-radius:34px;
+    box-shadow:0 20px 44px -16px rgba(0,0,0,.42),0 2px 6px rgba(0,0,0,.16);
+    flex:0 0 auto;
+  }
+  .screen{
+    width:var(--screen-w);height:var(--screen-h);
+    border-radius:26px;overflow:hidden;
+    display:flex;flex-direction:column;position:relative;
+  }
+  .scroll{
+    flex:1 1 auto;overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  }
+  .scroll::-webkit-scrollbar{display:none}
+  .tabbar{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+  .nav-item{
+    appearance:none;background:none;border:0;font:inherit;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;padding:0;
+  }
+  .nav-item svg{width:18px;height:18px;display:block}
+  .nav-item span{font-size:9.5px;letter-spacing:.04em;line-height:1}
+  .cat-svg{display:block}
+  .fx-defs{position:absolute;width:0;height:0;overflow:hidden}
+
+  /* ============================================================
+     A · 瑞士编辑排版
+     白底 / 强网格 / 字号落差 / 单一蓝强调 / 细线 / 几乎无容器
+     ============================================================ */
+  .dir-a{--a-bg:#ffffff;--a-ink:#0e0e10;--a-mute:#6e6e76;--a-line:#e4e4e8;--a-accent:#1344e0}
+  .a-screen{
+    background:var(--a-bg);color:var(--a-ink);
+    font-family:"Helvetica Neue",Helvetica,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  .a-head{padding:20px 22px 0;position:relative}
+  .a-head::before{
+    content:"";position:absolute;inset:0 22px auto;height:150px;
+    background:repeating-linear-gradient(90deg,transparent 0 79px,var(--a-line) 79px 80px);
+    opacity:.55;pointer-events:none;
+  }
+  .a-mast{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;position:relative}
+  .a-today{
+    font-size:10.5px;letter-spacing:.34em;color:var(--a-mute);
+    display:flex;align-items:center;gap:7px;padding-top:6px;
+  }
+  .a-today::before{content:"";width:6px;height:6px;background:var(--a-accent);display:block}
+  .a-cat{width:56px;height:56px;color:var(--a-ink);margin-top:-4px}
+  .a-cat .ear-in{fill:var(--a-accent);stroke:none;opacity:.9}
+  .a-brand{font-size:36px;line-height:1.08;font-weight:700;letter-spacing:-.03em;margin:14px 0 0;position:relative}
+  .a-tagline{margin:8px 0 0;font-size:11.5px;letter-spacing:.16em;color:var(--a-mute);position:relative}
+  .a-hr{height:1px;background:var(--a-ink);margin:16px 0 0;position:relative}
+
+  .a-body{padding:0 22px}
+  .a-sec{display:grid;grid-template-columns:56px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid var(--a-line)}
+  .a-sec:last-of-type{border-bottom:0}
+  .a-label{margin:0;font-size:10px;font-weight:600;letter-spacing:.2em;color:var(--a-mute);padding-top:3px}
+  .a-status{margin:0;font-size:14px;line-height:1.55;letter-spacing:-.005em}
+  .a-btn{
+    margin-top:12px;appearance:none;border:0;cursor:pointer;
+    background:var(--a-accent);color:#fff;font:inherit;
+    font-size:12.5px;font-weight:600;letter-spacing:.06em;
+    padding:11px 18px;border-radius:2px;transition:opacity .15s ease;
+  }
+  .a-btn:hover{opacity:.86}
+  .a-input{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--a-ink);padding-bottom:8px}
+  .a-input input{flex:1;border:0;background:none;font:inherit;font-size:13px;color:var(--a-ink);padding:4px 0;outline:none;min-width:0}
+  .a-input input::placeholder{color:var(--a-mute);letter-spacing:.01em}
+  .a-add{
+    appearance:none;border:0;background:none;font:inherit;cursor:pointer;
+    font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--a-accent);padding:4px 0 4px 6px;
+  }
+  .a-todo{list-style:none;margin:12px 0 0;padding:0}
+  .a-todo li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--a-line);font-size:13px;line-height:1.4}
+  .a-todo li:first-child{border-top:0}
+  .a-check{width:12px;height:12px;border:1px solid #bcbcc4;flex:0 0 auto;transition:border-color .15s ease}
+  .a-todo li:hover .a-check{border-color:var(--a-accent)}
+  .a-habits{margin:0}
+  .a-habit{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--a-line)}
+  .a-habit:first-child{border-top:0;padding-top:0}
+  .a-habit .n{font-size:13.5px;letter-spacing:-.005em}
+  .a-habit .s{font-size:10px;letter-spacing:.14em;color:var(--a-mute)}
+  .a-quote{margin:0;padding-left:12px;border-left:2px solid var(--a-accent);font-size:15px;line-height:1.85;letter-spacing:-.005em}
+  .a-src{margin:10px 0 0;font-size:10.5px;letter-spacing:.12em;color:var(--a-mute)}
+  .a-more{
+    display:inline-block;margin-top:10px;font-size:11.5px;letter-spacing:.08em;
+    color:var(--a-accent);text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:1px;
+  }
+  .a-tabbar{height:58px;border-top:1px solid var(--a-line);background:var(--a-bg);color:var(--a-mute)}
+  .a-screen .nav-item{color:var(--a-mute);position:relative;transition:color .15s ease}
+  .a-screen .nav-item svg{stroke-width:1.5}
+  .a-screen .nav-item.is-on{color:var(--a-ink)}
+  .a-screen .nav-item.is-on::before{
+    content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:16px;height:2px;background:var(--a-accent);
+  }
+
+  /* ---- A · 训练页与待办页共用 ---- */
+  .a-ph{padding:20px 22px 0;position:relative}
+  .a-idx{font-size:10px;letter-spacing:.2em;color:var(--a-mute);padding-top:6px}
+  .a-h1{font-size:38px;line-height:1;font-weight:700;letter-spacing:-.035em;margin:22px 0 0}
+  .a-sub{margin:9px 0 0;font-size:11px;letter-spacing:.16em;color:var(--a-mute)}
+  .a-rule{height:2px;background:var(--a-ink);margin:16px 0 0}
+
+  .a-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:18px;border-bottom:1px solid var(--a-ink);padding-bottom:14px}
+  .a-stat{padding-left:12px;border-left:1px solid var(--a-line)}
+  .a-stat:first-child{padding-left:0;border-left:0}
+  .a-stat b{display:block;font-size:27px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+  .a-stat b i{font-style:normal;font-size:13px;font-weight:400;color:var(--a-mute);letter-spacing:0}
+  .a-stat span{display:block;margin-top:7px;font-size:9.5px;letter-spacing:.2em;color:var(--a-mute)}
+
+  .a-ex{padding:16px 0 14px;border-bottom:1px solid var(--a-line)}
+  .a-ex:last-of-type{border-bottom:0}
+  .a-ex-h{display:flex;align-items:baseline;gap:9px}
+  .a-ex-n{font-size:9.5px;letter-spacing:.18em;color:var(--a-mute);font-variant-numeric:tabular-nums}
+  .a-ex-t{margin:0;font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .a-ex-en{margin-left:auto;font-size:9px;letter-spacing:.18em;color:var(--a-mute)}
+  .a-sets{margin-top:6px}
+  .a-set{
+    display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:10px;
+    padding:7px 0;border-top:1px solid var(--a-line);font-size:13px;
+  }
+  .a-set .k{font-size:9.5px;color:var(--a-mute);font-variant-numeric:tabular-nums}
+  .a-set .v{font-variant-numeric:tabular-nums;letter-spacing:-.005em}
+  .a-set .v i{font-style:normal;font-size:10px;color:var(--a-mute);margin:0 1px}
+  .a-set .s{font-size:9.5px;letter-spacing:.14em;color:var(--a-mute)}
+  .a-set.is-done .s{color:var(--a-accent)}
+  .a-addset{
+    appearance:none;border:0;background:none;cursor:pointer;font:inherit;
+    margin-top:9px;font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--a-accent);padding:2px 0;
+  }
+  .a-cta{
+    width:100%;margin:22px 0 18px;appearance:none;cursor:pointer;font:inherit;
+    background:none;color:var(--a-ink);border:1px solid var(--a-ink);border-radius:2px;
+    font-size:12.5px;font-weight:600;letter-spacing:.12em;padding:13px 0;
+    transition:background .15s ease,color .15s ease;
+  }
+  .a-cta:hover{background:var(--a-ink);color:#fff}
+
+  /* ---- 训练页密度：动作多，同一屏要装下三个动作与结束按钮 ---- */
+  .a-dense .a-ph{padding-top:16px}
+  .a-dense .a-h1{font-size:34px;margin-top:18px}
+  .a-dense .a-stats{margin-top:14px;padding-bottom:12px}
+  .a-dense .a-ex{padding:13px 0 11px}
+  .a-dense .a-sets{margin-top:4px}
+  .a-dense .a-set{padding:6px 0}
+  .a-dense .a-cta{margin:16px 0 14px}
+
+  .a-grp{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin:20px 0 0;padding-bottom:7px;border-bottom:1px solid var(--a-ink);
+    font-size:10px;font-weight:600;letter-spacing:.22em;
+  }
+  .a-grp span{font-size:10px;font-weight:400;color:var(--a-mute);letter-spacing:.1em}
+  .a-row{
+    display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:11px;
+    padding:11px 0;border-bottom:1px solid var(--a-line);font-size:13.5px;line-height:1.4;
+  }
+  .a-row .t{letter-spacing:-.005em}
+  .a-row .m{font-size:10px;letter-spacing:.1em;color:var(--a-mute);font-variant-numeric:tabular-nums}
+  .a-row.is-done .t{color:var(--a-mute);text-decoration:line-through;text-decoration-thickness:1px}
+  .a-row.is-done .a-check{border-color:var(--a-accent);background:var(--a-accent)}
+  .a-doneh{margin:24px 0 0;font-size:10px;letter-spacing:.22em;color:var(--a-mute);font-weight:600}
+
+  /* ============================================================
+     E · 纸张拼贴
+     手撕卡纸、胶带、底纸错位、低饱和米白/赭石/灰蓝。
+     抖动用「固定错位」代替：套色不准是静态的，不引入循环抖动。
+     ============================================================ */
+  .dir-e{
+    --e-paper:#f5eeda;--e-paper-2:#efe6d0;
+    --e-ochre:#b4703c;--e-slate:#6d7f8c;
+    --e-ink:#2f2a22;--e-mute:#8a7f68;--e-line:rgba(47,42,34,.16);
+    --e-serif:Georgia,"Songti SC","STSong",serif;
+    --e-sans:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  .e-screen{
+    background:radial-gradient(130% 70% at 50% 0%,#eee4cd 0%,#e0d5bc 55%,#d5c9af 100%);
+    color:var(--e-ink);font-family:var(--e-sans);
+  }
+  .e-scroll-inner{padding:15px 13px 0}
+  .e-card{
+    position:relative;isolation:isolate;
+    margin:0 0 14px;padding:14px 15px 16px;
+    transform:rotate(var(--e-rot,0deg));
+  }
+  .e-card::before{
+    content:"";position:absolute;inset:5px -5px -6px 6px;z-index:-2;
+    background:var(--e-under,var(--e-ochre));opacity:.17;filter:url(#tornSoft);
+  }
+  .e-card::after{
+    content:"";position:absolute;inset:-5px;z-index:-1;
+    /* 纸面只用低频斑止，不用高频纹理：高频经位移滤镜会变成瓦楞 */
+    background:
+      radial-gradient(120% 90% at 18% 0%,rgba(255,255,255,.5) 0%,rgba(255,255,255,0) 58%),
+      radial-gradient(90% 70% at 92% 100%,rgba(150,124,88,.09) 0%,rgba(150,124,88,0) 62%),
+      var(--e-paper);
+    filter:url(#torn);
+    box-shadow:2px 3px 0 rgba(120,96,64,.13),0 10px 20px -13px rgba(70,52,30,.55);
+  }
+  .e-card:nth-of-type(even){--e-rot:.32deg}
+  .e-card:nth-of-type(odd){--e-rot:-.22deg}
+  .e-tape{
+    position:absolute;width:60px;height:19px;z-index:3;pointer-events:none;
+    background:rgba(228,208,158,.74);box-shadow:0 1px 3px rgba(90,70,40,.18);
+    clip-path:polygon(2% 0,98% 5%,100% 95%,1% 100%);
+  }
+
+  .e-head{padding-top:17px}
+  .e-mast{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;position:relative;z-index:1}
+  .e-today{font-size:10px;font-weight:700;letter-spacing:.3em;color:var(--e-mute);padding-top:8px}
+  .e-cat{
+    width:56px;height:56px;padding:5px;flex:0 0 auto;
+    background:#fbf6e6;color:var(--e-ink);transform:rotate(5deg);
+    box-shadow:2px 3px 0 rgba(120,96,64,.15);
+  }
+  .e-brand{
+    margin:10px 0 0;font-family:var(--e-serif);font-size:31px;line-height:1.06;
+    font-weight:700;letter-spacing:-.02em;position:relative;z-index:1;
+  }
+  .e-brand em{font-style:normal;position:relative;z-index:1}
+  .e-brand em::before{
+    content:"";position:absolute;inset:3px -5px -1px;z-index:-1;
+    background:rgba(180,112,60,.3);filter:url(#tornSoft);
+  }
+  .e-tagline{margin:9px 0 0;font-size:11px;font-weight:600;letter-spacing:.18em;color:var(--e-mute);position:relative;z-index:1}
+
+  .e-title{
+    display:flex;align-items:center;gap:7px;margin:0 0 9px;
+    font-size:10.5px;font-weight:800;letter-spacing:.24em;color:var(--e-mute);
+  }
+  .e-title::before{content:"";width:14px;height:2px;background:var(--e-ochre);display:block}
+  .e-status{margin:0;font-family:var(--e-serif);font-size:15px;line-height:1.5}
+  .e-btn{
+    position:relative;isolation:isolate;margin-top:12px;
+    appearance:none;border:0;background:none;cursor:pointer;
+    font-family:var(--e-sans);font-size:12.5px;font-weight:700;letter-spacing:.14em;
+    color:#fdf8ea;padding:11px 19px;
+  }
+  .e-btn::before{content:"";position:absolute;inset:-3px;z-index:-1;background:var(--e-ochre);filter:url(#tornSoft)}
+  .e-input{display:flex;align-items:center;gap:9px;border-bottom:1px dashed var(--e-line);padding-bottom:7px}
+  .e-input input{
+    flex:1;min-width:0;border:0;background:none;outline:none;
+    font-family:var(--e-sans);font-size:13.5px;color:var(--e-ink);padding:3px 0;
+  }
+  .e-input input::placeholder{color:var(--e-mute)}
+  .e-add{
+    appearance:none;border:0;background:none;cursor:pointer;padding:2px 0 2px 4px;
+    font-family:var(--e-sans);font-size:11.5px;font-weight:800;letter-spacing:.14em;color:var(--e-ochre);
+  }
+  .e-todo{list-style:none;margin:9px 0 0;padding:0}
+  .e-todo li{
+    display:flex;align-items:center;gap:9px;padding:6px 0;
+    font-size:13.5px;line-height:1.4;border-top:1px dotted var(--e-line);
+  }
+  .e-todo li:first-child{border-top:0}
+  .e-todo li.is-done .t{
+    color:var(--e-mute);text-decoration:line-through;
+    text-decoration-color:rgba(180,112,60,.65);text-decoration-thickness:1px;
+  }
+  .e-check{
+    width:12px;height:12px;flex:0 0 auto;transform:rotate(-2deg);
+    border:1.5px solid rgba(47,42,34,.42);background:#fbf6e6;
+  }
+  .e-todo li.is-done .e-check{background:var(--e-ochre);border-color:var(--e-ochre)}
+  .e-habits{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .e-chip{
+    position:relative;isolation:isolate;appearance:none;border:0;background:none;
+    cursor:pointer;padding:10px 8px;text-align:left;color:var(--e-ink);
+    display:flex;flex-direction:column;gap:5px;font-family:var(--e-sans);
+    transform:rotate(var(--c-rot,0deg));
+  }
+  .e-chip::before{
+    content:"";position:absolute;inset:-3px;z-index:-1;
+    background:var(--c-bg,var(--e-paper-2));filter:url(#tornSoft);
+    box-shadow:1px 2px 0 rgba(120,96,64,.13);
+  }
+  .e-chip:nth-child(1){--c-rot:-1deg;--c-bg:#efe6d0}
+  .e-chip:nth-child(2){--c-rot:1.2deg;--c-bg:#dde3e3}
+  .e-chip:nth-child(3){--c-rot:-.6deg;--c-bg:#ead9c4}
+  .e-chip .n{font-size:12.5px;font-weight:700;line-height:1.2}
+  .e-chip .s{font-size:9.5px;letter-spacing:.08em;color:var(--e-mute)}
+  .e-quote{
+    margin:0;padding-left:13px;border-left:2px solid rgba(180,112,60,.55);
+    font-family:var(--e-serif);font-size:15px;line-height:1.75;
+  }
+  .e-src{margin:9px 0 0;font-size:10.5px;letter-spacing:.12em;color:var(--e-mute)}
+  .e-more{
+    display:inline-block;margin-top:9px;font-size:11.5px;letter-spacing:.08em;
+    color:var(--e-ochre);text-decoration:none;border-bottom:1px dashed currentColor;padding-bottom:1px;
+  }
+  .e-tabbar{
+    height:60px;color:var(--e-mute);
+    background:rgba(245,238,218,.94);border-top:1px dashed var(--e-line);
+  }
+  .e-screen .nav-item{position:relative;color:var(--e-mute)}
+  .e-screen .nav-item svg{stroke-width:1.7}
+  .e-screen .nav-item span{font-weight:600}
+  .e-screen .nav-item.is-on{color:var(--e-ink)}
+  .e-screen .nav-item.is-on::before{
+    content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:15px;height:3px;background:var(--e-ochre);filter:url(#tornSoft);
+  }
+
+  /* ---- E · 训练页 ---- */
+  .e-exh{display:flex;align-items:baseline;gap:9px;margin-bottom:4px}
+  .e-exn{font-size:9.5px;font-weight:800;letter-spacing:.18em;color:var(--e-mute)}
+  .e-ext{margin:0;font-family:var(--e-serif);font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .e-exen{margin-left:auto;font-size:9px;letter-spacing:.16em;color:var(--e-mute)}
+  .e-sets{margin-top:4px}
+  .e-set{
+    display:grid;grid-template-columns:18px 1fr auto;align-items:center;gap:9px;
+    padding:6px 0;border-top:1px dotted var(--e-line);font-size:13.5px;
+  }
+  .e-set .i{font-size:10px;color:var(--e-mute);font-variant-numeric:tabular-nums}
+  .e-set .v{font-family:var(--e-serif);letter-spacing:-.005em}
+  .e-set .v i{font-style:normal;font-size:10.5px;color:var(--e-mute)}
+  .e-set .s{font-size:9.5px;letter-spacing:.12em;color:var(--e-mute)}
+  .e-set.is-done .s{color:var(--e-ochre)}
+  .e-addset{
+    appearance:none;border:0;background:none;cursor:pointer;
+    margin-top:8px;padding:2px 0;font-family:var(--e-sans);
+    font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--e-ochre);
+  }
+  .e-cta{display:block;width:fit-content;margin:4px auto 22px;padding:11px 26px;transform:rotate(-.8deg)}
+
+  /* ---- E · 待办页 ---- */
+  .e-grp{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.24em;color:var(--e-mute);
+  }
+  .e-grp span{font-size:10px;font-weight:600;letter-spacing:.1em}
+  .e-note{
+    position:relative;isolation:isolate;display:inline-block;
+    margin:2px 0 18px;padding:7px 12px;font-size:10.5px;font-weight:700;
+    letter-spacing:.14em;color:var(--e-mute);transform:rotate(-1.4deg);
+  }
+  .e-note::before{
+    content:"";position:absolute;inset:-2px;z-index:-1;
+    background:#e2d9c2;filter:url(#tornSoft);
+  }
+
+  /* ============================================================
+     F · 纸雕层叠
+     整张纸切开叠高：层间靠高度差分层，不靠边框。
+     顶面露两张纸边，训练状态与组行是挖空的槽。
+     ============================================================ */
+  .dir-f{
+    --f-sheet:#f0e8d5;--f-sheet-2:#e8e0ca;--f-sheet-3:#e0d7bf;
+    --f-ink:#332e26;--f-mute:#847a63;--f-accent:#a9693f;
+    --f-serif:Georgia,"Songti SC","STSong",serif;
+    --f-sans:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  .f-screen{
+    background:linear-gradient(180deg,#c2b697 0%,#b6aa8b 58%,#a99d7e 100%);
+    color:var(--f-ink);font-family:var(--f-sans);
+  }
+  .f-stack{position:relative;margin:26px 10px 0}
+  .f-edge{position:absolute;height:34px;display:block;border-radius:20px 20px 0 0}
+  .f-edge.e2{top:-16px;left:6px;right:6px;background:#a79a7b}
+  .f-edge.e1{top:-9px;left:3px;right:3px;background:#c5b99b}
+  .f-ream{
+    position:relative;padding:16px 13px 18px;
+    border-radius:20px 20px 0 0;background:var(--f-sheet);
+    box-shadow:0 20px 30px -18px rgba(60,48,30,.55);
+  }
+  .f-head{position:relative}
+  .f-eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.3em;color:var(--f-mute)}
+  .f-brand{margin:9px 0 0;font-family:var(--f-serif);font-size:30px;line-height:1.08;font-weight:700;letter-spacing:-.02em}
+  .f-tagline{margin:8px 0 0;font-size:10.5px;font-weight:600;letter-spacing:.18em;color:var(--f-mute)}
+  .f-cut{
+    position:absolute;top:-26px;right:4px;width:74px;height:74px;color:#fdf8ea;
+    filter:drop-shadow(0 5px 7px rgba(48,38,22,.42));
+  }
+  .f-card{
+    position:relative;border-radius:12px;padding:13px 14px 15px;background:var(--f-sheet);
+    /* 纸雕的阴影是近而硬的，不是大团模糊；亮边只在上边与左边 */
+    box-shadow:
+      inset 1px 0 0 rgba(255,255,255,.7),
+      inset 0 1px 0 rgba(255,255,255,.92),
+      inset 0 -1px 0 rgba(120,100,70,.14),
+      0 6px 8px -4px rgba(74,58,38,.45),
+      0 1px 2px rgba(74,58,38,.24);
+  }
+  .f-card.is-low{
+    background:var(--f-sheet-2);
+    box-shadow:
+      inset 1px 0 0 rgba(255,255,255,.55),
+      inset 0 1px 0 rgba(255,255,255,.75),
+      inset 0 -1px 0 rgba(120,100,70,.16),
+      0 4px 5px -3px rgba(74,58,38,.4);
+  }
+  .f-lab{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:4px 11px 4px 8px;border-radius:999px;background:var(--f-sheet-3);
+    box-shadow:inset 0 2px 3px rgba(80,64,42,.26),inset 0 -1px 0 rgba(255,255,255,.55);
+    font-size:10px;font-weight:700;letter-spacing:.16em;color:#6e6350;
+  }
+  .f-lab i{width:5px;height:5px;border-radius:50%;background:var(--f-accent);display:block}
+  .f-status{margin:11px 0 0;font-size:14.5px;line-height:1.5;letter-spacing:-.005em}
+  .f-hole{
+    display:block;margin-top:11px;padding:12px 12px 13px;border-radius:8px;background:#c8ba9d;
+    box-shadow:inset 0 3px 6px rgba(70,55,35,.34),inset 0 -1px 0 rgba(255,255,255,.28);
+  }
+  .f-hole .f-status{margin:0;color:#584f3f}
+  .f-btn{
+    margin-top:12px;appearance:none;cursor:pointer;font-family:var(--f-sans);
+    font-size:12.5px;font-weight:700;letter-spacing:.1em;
+    color:#fdf8ea;background:var(--f-accent);border:0;border-radius:8px;padding:11px 19px;
+    box-shadow:0 6px 12px -8px rgba(90,55,28,.9),inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  .f-input{display:flex;align-items:center;gap:8px;margin-top:11px}
+  .f-input input{
+    flex:1;min-width:0;font-family:var(--f-sans);font-size:13px;color:var(--f-ink);
+    background:var(--f-sheet-3);border:0;border-radius:8px;padding:10px 12px;outline:none;
+    box-shadow:inset 0 2px 3px rgba(80,64,42,.22),inset 0 -1px 0 rgba(255,255,255,.5);
+  }
+  .f-input input::placeholder{color:#9a8f78}
+  .f-add{
+    appearance:none;cursor:pointer;font-family:var(--f-sans);font-size:12.5px;font-weight:700;
+    letter-spacing:.08em;color:var(--f-ink);background:var(--f-sheet);border:0;
+    border-radius:8px;padding:10px 14px;
+    box-shadow:0 3px 6px -4px rgba(70,55,35,.6),inset 0 1px 0 rgba(255,255,255,.9);
+  }
+  .f-todo{list-style:none;margin:10px 0 0;padding:0}
+  .f-todo li{
+    display:flex;align-items:center;gap:10px;padding:7px 0;
+    font-size:13px;line-height:1.4;box-shadow:inset 0 -1px 0 rgba(120,100,70,.13);
+  }
+  .f-todo li:last-child{box-shadow:none}
+  .f-check{
+    width:14px;height:14px;flex:0 0 auto;border-radius:4px;background:var(--f-sheet-3);
+    box-shadow:inset 0 2px 2px rgba(80,64,42,.28),inset 0 -1px 0 rgba(255,255,255,.5);
+  }
+  .f-habits{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:11px}
+  .f-habit{
+    appearance:none;cursor:pointer;font-family:var(--f-sans);color:var(--f-ink);
+    display:flex;flex-direction:column;gap:5px;text-align:left;
+    padding:11px 9px;border:0;border-radius:10px;background:var(--f-sheet);
+    box-shadow:0 5px 10px -8px rgba(70,55,35,.65),inset 0 1px 0 rgba(255,255,255,.9);
+  }
+  .f-habit:nth-child(2){transform:translateY(3px);background:var(--f-sheet-2)}
+  .f-habit .n{font-size:12.5px;font-weight:700;line-height:1.2}
+  .f-habit .s{font-size:9.5px;letter-spacing:.06em;color:var(--f-mute)}
+  .f-quote{margin:0;font-family:var(--f-serif);font-size:14.5px;line-height:1.72}
+  .f-src{margin:8px 0 0;font-size:10px;letter-spacing:.12em;color:var(--f-mute)}
+  .f-more{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--f-accent);text-decoration:none}
+  .f-more::after{content:" →"}
+  .f-tabbar{height:60px;color:#6f6552;background:rgba(198,186,158,.96);border-top:1px solid rgba(90,74,48,.2)}
+  .f-screen .nav-item{position:relative;color:#776d5a}
+  .f-screen .nav-item svg{stroke-width:1.9}
+  .f-screen .nav-item.is-on{color:#2f2a22}
+  .f-screen .nav-item.is-on::before{
+    content:"";position:absolute;top:3px;left:50%;transform:translateX(-50%);
+    width:16px;height:2px;border-radius:2px;background:var(--f-accent);
+  }
+
+  /* ---- F · 训练页：组行是挖空的槽 ---- */
+  .f-slot{
+    display:block;margin-top:10px;padding:4px 11px;border-radius:8px;background:#c8ba9d;
+    box-shadow:inset 0 3px 6px rgba(70,55,35,.32),inset 0 -1px 0 rgba(255,255,255,.26);
+  }
+  .f-set{
+    display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:9px;
+    padding:7px 0;font-size:13px;color:#584f3f;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .f-set:first-child{box-shadow:none}
+  .f-set .i{font-size:9.5px;color:#8a7d64;font-variant-numeric:tabular-nums}
+  .f-set .v{font-variant-numeric:tabular-nums}
+  .f-set .v i{font-style:normal;font-size:10px;color:#8a7d64}
+  .f-set .s{font-size:9px;letter-spacing:.12em;color:#8a7d64}
+  .f-set.is-done .s{color:var(--f-accent);font-weight:700}
+  .f-addset{
+    appearance:none;border:0;background:none;cursor:pointer;
+    margin-top:10px;padding:4px 0;font-family:var(--f-sans);
+    font-size:10.5px;font-weight:700;letter-spacing:.1em;color:var(--f-accent);
+  }
+  .f-cta{display:block;width:fit-content;margin:4px auto 22px;padding:11px 26px}
+
+  /* ---- F · 待办页：完成项下沉一层 ---- */
+  .f-row{
+    display:flex;align-items:center;gap:10px;padding:8px 0;
+    font-size:13px;line-height:1.4;
+  }
+  .f-row.is-done{opacity:.58}
+  .f-row.is-done .t{text-decoration:line-through;text-decoration-color:rgba(169,105,63,.7);text-decoration-thickness:1px}
+  .f-row.is-done .f-check{background:#cbbfa5;box-shadow:inset 0 2px 3px rgba(80,64,42,.4)}
+  .f-grp{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin:0 0 2px;font-size:10px;font-weight:700;letter-spacing:.2em;color:#6e6350;
+  }
+  .f-grp span{font-size:9px;font-weight:600;letter-spacing:.1em;color:var(--f-mute)}
+
+  /* ---- 训练页密度：三个动作加结束按钮要在一屏内 ---- */
+  .f-dense .f-brand{font-size:26px;margin-top:7px}
+  .f-dense .f-tagline{margin-top:6px}
+  .f-dense .f-card{padding:11px 13px 12px}
+  .f-dense .f-lab{padding:3px 10px 3px 7px}
+  .f-dense .f-slot{margin-top:8px;padding:3px 11px}
+  .f-dense .f-set{padding:5px 0}
+  .f-dense .f-addset{margin-top:5px}
+
+  /* ============================================================
+     响应式：窄屏一次只看一个方向
+     ============================================================ */
+  @media (max-width:1180px){
+    body{padding:24px 18px 56px}
+    .switcher{display:flex}
+    .dir{display:none;margin-bottom:0}
+    .dir.is-active{display:block}
+    .screens{flex-direction:column;align-items:center;gap:38px}
+  }
+  @media (max-width:430px){
+    :root{--screen-w:320px;--screen-h:694px}
+    body{padding:16px 0 40px}
+    .page-head{padding:0 18px}
+    .switcher{padding:10px 14px}
+    .dir-head{padding:0 18px 13px}
+    .phone{border-radius:30px}
+    .screen{border-radius:22px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important}
+  }
+</style>
+<body>
+
+<header class="page-head">
+  <h1>猫咪生活报 · 三方向 × 三页面</h1>
+  <p>A / E / F 三个方向各出三个页面：今日、训练、待办。同一方向内三个页面共用一套词汇，不同方向之间只换语言。用来看一个方向能不能活过首页之外的页面。</p>
+  <p class="disclaimer">页面内全部为示例文案，仅用于判断风格与气质，未连接业务数据，不产生任何读写。宽屏一行一个方向，窄屏用上方分段切换。</p>
+</header>
+
+<nav class="switcher" aria-label="方向切换">
+  <button class="sw-btn" data-target="a" aria-pressed="true">A · 瑞士编辑</button>
+  <button class="sw-btn" data-target="e" aria-pressed="false">E · 纸张拼贴</button>
+  <button class="sw-btn" data-target="f" aria-pressed="false">F · 纸雕层叠</button>
+</nav>
+
+<svg class="fx-defs" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="torn" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.026 0.042" numOctaves="4" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="9" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="tornSoft" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04 0.06" numOctaves="3" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- ==================== A · 瑞士编辑排版 ==================== -->
+<section class="dir dir-a is-active" data-dir="a">
+  <div class="dir-head">
+    <b>A · 瑞士编辑排版</b>
+    <span>白纸、细线、字号落差。强调色只落在方点、按钮和两处下划线，没有一张卡片。三个页面都靠网格和字级搭结构。</span>
+  </div>
+  <div class="screens">
+
+    <!-- A · 今日 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen a-screen">
+        <div class="scroll">
+          <header class="a-head">
+            <div class="a-mast">
+              <div class="a-today">今日</div>
+              <svg class="cat-svg a-cat" viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 26 L23 8 L35 18 L37 18 L49 8 L52 26"/><rect x="8" y="22" width="56" height="42" rx="19"/>
+                <path class="ear-in" d="M25 24 L26.6 13.5 L33.4 18.6 Z"/><path class="ear-in" d="M47 24 L45.4 13.5 L38.6 18.6 Z"/>
+                <path d="M27 38 L27 42"/><path d="M45 38 L45 42"/>
+                <path d="M36 47 L33.5 44.5 L38.5 44.5 Z" fill="currentColor" stroke="none"/>
+                <path d="M13 41 L19 42"/><path d="M13 47 L19 46"/><path d="M59 41 L53 42"/><path d="M59 47 L53 46"/>
+              </svg>
+            </div>
+            <h1 class="a-brand">猫咪生活报</h1>
+            <p class="a-tagline">一个人的生活报</p>
+            <div class="a-hr"></div>
+          </header>
+          <div class="a-body">
+            <section class="a-sec">
+              <h2 class="a-label">训练</h2>
+              <div><p class="a-status">今天还没有开始</p><button class="a-btn" type="button">开始训练</button></div>
+            </section>
+            <section class="a-sec">
+              <h2 class="a-label">待办</h2>
+              <div>
+                <div class="a-input"><input type="text" placeholder="记一件要做的事…" aria-label="快速添加待办"><button class="a-add" type="button">加</button></div>
+                <ul class="a-todo"><li><i class="a-check"></i>补上昨天的记录</li><li><i class="a-check"></i>给猫添水</li><li><i class="a-check"></i>散步二十分钟</li></ul>
+              </div>
+            </section>
+            <section class="a-sec">
+              <h2 class="a-label">习惯</h2>
+              <div class="a-habits">
+                <div class="a-habit"><span class="n">运动</span><span class="s">未打卡</span></div>
+                <div class="a-habit"><span class="n">阅读</span><span class="s">未打卡</span></div>
+                <div class="a-habit"><span class="n">猫咪照料</span><span class="s">未打卡</span></div>
+              </div>
+            </section>
+            <section class="a-sec">
+              <h2 class="a-label">阅读片段</h2>
+              <div>
+                <blockquote class="a-quote">读到一半停下来，句子会自己在脑子里继续走。</blockquote>
+                <p class="a-src">《书名待填》</p><a class="a-more" href="#">继续读</a>
+              </div>
+            </section>
+          </div>
+          <div style="height:14px"></div>
+        </div>
+        <nav class="tabbar a-tabbar" aria-label="主导航">
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">今日</figcaption>
+    </figure>
+
+    <!-- A · 训练 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen a-screen a-dense">
+        <div class="scroll">
+          <header class="a-ph">
+            <div class="a-mast"><span class="a-today">TUE · 11.03</span><span class="a-idx">NO.12</span></div>
+            <h1 class="a-h1">胸</h1>
+            <p class="a-sub">第 12 次 · 上斜为主</p>
+            <div class="a-rule"></div>
+          </header>
+          <div class="a-body">
+            <div class="a-stats">
+              <div class="a-stat"><b>6<i>/12</i></b><span>组数</span></div>
+              <div class="a-stat"><b>42</b><span>分钟</span></div>
+              <div class="a-stat"><b>1840</b><span>容量 kg</span></div>
+            </div>
+            <section class="a-ex">
+              <div class="a-ex-h"><span class="a-ex-n">01</span><h2 class="a-ex-t">卧推</h2><span class="a-ex-en">BENCH</span></div>
+              <div class="a-sets">
+                <div class="a-set is-done"><span class="k">1</span><span class="v">60 <i>kg</i> × 8</span><span class="s">已录</span></div>
+                <div class="a-set is-done"><span class="k">2</span><span class="v">60 <i>kg</i> × 8</span><span class="s">已录</span></div>
+                <div class="a-set is-done"><span class="k">3</span><span class="v">62.5 <i>kg</i> × 6</span><span class="s">已录</span></div>
+              </div>
+              <button class="a-addset" type="button">+ 加一组</button>
+            </section>
+            <section class="a-ex">
+              <div class="a-ex-h"><span class="a-ex-n">02</span><h2 class="a-ex-t">上斜哑铃推</h2><span class="a-ex-en">INCLINE</span></div>
+              <div class="a-sets">
+                <div class="a-set is-done"><span class="k">1</span><span class="v">22.5 <i>kg</i> × 10</span><span class="s">已录</span></div>
+                <div class="a-set is-done"><span class="k">2</span><span class="v">22.5 <i>kg</i> × 10</span><span class="s">已录</span></div>
+                <div class="a-set"><span class="k">3</span><span class="v">— <i>kg</i> × —</span><span class="s">待录</span></div>
+              </div>
+              <button class="a-addset" type="button">+ 加一组</button>
+            </section>
+            <section class="a-ex">
+              <div class="a-ex-h"><span class="a-ex-n">03</span><h2 class="a-ex-t">绳索夹胸</h2><span class="a-ex-en">CABLE</span></div>
+              <div class="a-sets">
+                <div class="a-set"><span class="k">1</span><span class="v">— <i>kg</i> × —</span><span class="s">待录</span></div>
+              </div>
+              <button class="a-addset" type="button">+ 加一组</button>
+            </section>
+            <button class="a-cta" type="button">结束训练</button>
+          </div>
+        </div>
+        <nav class="tabbar a-tabbar" aria-label="主导航">
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">训练</figcaption>
+    </figure>
+
+    <!-- A · 待办 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen a-screen">
+        <div class="scroll">
+          <header class="a-ph">
+            <div class="a-mast"><span class="a-today">TUE · 11.03</span><span class="a-idx">7 未完成</span></div>
+            <h1 class="a-h1">待办</h1>
+            <div class="a-input" style="margin-top:16px"><input type="text" placeholder="新的一条…" aria-label="快速添加待办"><button class="a-add" type="button">加</button></div>
+            <div class="a-rule" style="margin-top:15px"></div>
+          </header>
+          <div class="a-body">
+            <p class="a-grp">今天<span>3</span></p>
+            <div class="a-row"><i class="a-check"></i><span class="t">给猫添水</span><span class="m">08:30</span></div>
+            <div class="a-row"><i class="a-check"></i><span class="t">补上昨天的训练记录</span><span class="m">昨天</span></div>
+            <div class="a-row"><i class="a-check"></i><span class="t">回邮件给器材店</span><span class="m">18:00</span></div>
+            <p class="a-grp">本周<span>4</span></p>
+            <div class="a-row"><i class="a-check"></i><span class="t">把周报的数据口径重算一遍</span><span class="m">周三</span></div>
+            <div class="a-row"><i class="a-check"></i><span class="t">预约肩部复盘</span><span class="m">周四</span></div>
+            <div class="a-row"><i class="a-check"></i><span class="t">买猫砂和猫抓板</span><span class="m">周六</span></div>
+            <div class="a-row"><i class="a-check"></i><span class="t">把上个月的账对一遍</span><span class="m">周末</span></div>
+            <p class="a-doneh">已完成 3</p>
+            <div class="a-row is-done"><i class="a-check"></i><span class="t">晨跑 4 公里</span><span class="m">07:10</span></div>
+            <div class="a-row is-done"><i class="a-check"></i><span class="t">拉伸十分钟</span><span class="m">07:40</span></div>
+            <div class="a-row is-done"><i class="a-check"></i><span class="t">记了昨天的体重</span><span class="m">昨天</span></div>
+          </div>
+          <div style="height:18px"></div>
+        </div>
+        <nav class="tabbar a-tabbar" aria-label="主导航">
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">待办</figcaption>
+    </figure>
+
+  </div>
+</section>
+<!-- ==================== E · 纸张拼贴 ==================== -->
+<section class="dir dir-e" data-dir="e">
+  <div class="dir-head">
+    <b>E · 纸张拼贴</b>
+    <span>手撕卡纸、胶带、底纸错位、旋转不超过 0.4 度。真纸被手指压下去是不会回弹的，所以这里的按压是“压实”，不是“按弹”。</span>
+  </div>
+  <div class="screens">
+
+    <!-- E · 今日 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen e-screen">
+        <div class="scroll"><div class="e-scroll-inner">
+          <header class="e-card e-head">
+            <div class="e-mast">
+              <span class="e-today">今日</span>
+              <svg class="cat-svg e-cat" viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 26 L23 8 L35 18 L37 18 L49 8 L52 26"/><rect x="8" y="22" width="56" height="42" rx="19"/>
+                <path d="M27 38 L27 42"/><path d="M45 38 L45 42"/>
+                <path d="M36 47 L33.5 44.5 L38.5 44.5 Z" fill="currentColor" stroke="none"/>
+                <path d="M13 41 L19 42"/><path d="M13 47 L19 46"/><path d="M59 41 L53 42"/><path d="M59 47 L53 46"/>
+              </svg>
+            </div>
+            <h1 class="e-brand"><em>猫咪</em>生活报</h1>
+            <p class="e-tagline">一个人的生活报</p>
+            <span class="e-tape" style="top:-9px;left:30px;transform:rotate(-6deg)"></span>
+            <span class="e-tape" style="bottom:-10px;right:36px;transform:rotate(4deg)"></span>
+          </header>
+          <section class="e-card" style="--e-under:#6d7f8c">
+            <h2 class="e-title">训练</h2>
+            <p class="e-status">今天还没有开始</p>
+            <button class="e-btn" type="button">开始训练</button>
+          </section>
+          <section class="e-card">
+            <h2 class="e-title">待办</h2>
+            <div class="e-input"><input type="text" placeholder="记一件要做的事…" aria-label="快速添加待办"><button class="e-add" type="button">加</button></div>
+            <ul class="e-todo">
+              <li data-toggle><i class="e-check"></i><span class="t">补上昨天的记录</span></li>
+              <li data-toggle><i class="e-check"></i><span class="t">给猫添水</span></li>
+              <li data-toggle><i class="e-check"></i><span class="t">散步二十分钟</span></li>
+            </ul>
+          </section>
+          <section class="e-card" style="--e-under:#b4703c">
+            <h2 class="e-title">习惯</h2>
+            <div class="e-habits">
+              <button class="e-chip" type="button" data-toggle><span class="n">运动</span><span class="s">未打卡</span></button>
+              <button class="e-chip" type="button" data-toggle><span class="n">阅读</span><span class="s">未打卡</span></button>
+              <button class="e-chip" type="button" data-toggle><span class="n">猫咪照料</span><span class="s">未打卡</span></button>
+            </div>
+          </section>
+          <section class="e-card">
+            <h2 class="e-title">阅读片段</h2>
+            <blockquote class="e-quote">读到一半停下来，句子会自己在脑子里继续走。</blockquote>
+            <p class="e-src">《书名待填》</p><a class="e-more" href="#">继续读</a>
+          </section>
+        </div></div>
+        <nav class="tabbar e-tabbar" aria-label="主导航">
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">今日</figcaption>
+    </figure>
+
+    <!-- E · 训练 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen e-screen">
+        <div class="scroll"><div class="e-scroll-inner">
+          <header class="e-card e-head">
+            <span class="e-today">训练 · TUE 11.03</span>
+            <h1 class="e-brand"><em>胸</em></h1>
+            <p class="e-tagline">第 12 次 · 上斜为主</p>
+            <span class="e-tape" style="top:-9px;right:32px;transform:rotate(5deg)"></span>
+          </header>
+          <section class="e-card" style="--e-under:#6d7f8c">
+            <div class="e-exh"><span class="e-exn">01</span><h2 class="e-ext">卧推</h2><span class="e-exen">BENCH</span></div>
+            <div class="e-sets">
+              <div class="e-set is-done"><span class="i">1</span><span class="v">60 <i>kg</i> × 8</span><span class="s">已录</span></div>
+              <div class="e-set is-done"><span class="i">2</span><span class="v">60 <i>kg</i> × 8</span><span class="s">已录</span></div>
+              <div class="e-set is-done"><span class="i">3</span><span class="v">62.5 <i>kg</i> × 6</span><span class="s">已录</span></div>
+            </div>
+            <button class="e-addset" type="button">+ 加一组</button>
+          </section>
+          <section class="e-card">
+            <div class="e-exh"><span class="e-exn">02</span><h2 class="e-ext">上斜哑铃推</h2><span class="e-exen">INCLINE</span></div>
+            <div class="e-sets">
+              <div class="e-set is-done"><span class="i">1</span><span class="v">22.5 <i>kg</i> × 10</span><span class="s">已录</span></div>
+              <div class="e-set is-done"><span class="i">2</span><span class="v">22.5 <i>kg</i> × 10</span><span class="s">已录</span></div>
+              <div class="e-set"><span class="i">3</span><span class="v">— <i>kg</i> × —</span><span class="s">待录</span></div>
+            </div>
+            <button class="e-addset" type="button">+ 加一组</button>
+          </section>
+          <section class="e-card" style="--e-under:#b4703c">
+            <div class="e-exh"><span class="e-exn">03</span><h2 class="e-ext">绳索夹胸</h2><span class="e-exen">CABLE</span></div>
+            <div class="e-sets">
+              <div class="e-set"><span class="i">1</span><span class="v">— <i>kg</i> × —</span><span class="s">待录</span></div>
+            </div>
+            <button class="e-addset" type="button">+ 加一组</button>
+          </section>
+          <button class="e-btn e-cta" type="button">结束训练</button>
+        </div></div>
+        <nav class="tabbar e-tabbar" aria-label="主导航">
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">训练</figcaption>
+    </figure>
+
+    <!-- E · 待办 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen e-screen">
+        <div class="scroll"><div class="e-scroll-inner">
+          <header class="e-card e-head">
+            <span class="e-today">待办 · TUE 11.03</span>
+            <h1 class="e-brand">七件</h1>
+            <p class="e-tagline">今天三件，本周四件</p>
+            <span class="e-tape" style="top:-9px;right:38px;transform:rotate(4deg)"></span>
+          </header>
+          <section class="e-card">
+            <div class="e-input"><input type="text" placeholder="新的一条…" aria-label="快速添加待办"><button class="e-add" type="button">加</button></div>
+            <h2 class="e-title" style="margin-top:15px">今天<span style="margin-left:auto;letter-spacing:.1em">3</span></h2>
+            <ul class="e-todo">
+              <li data-toggle><i class="e-check"></i><span class="t">给猫添水</span></li>
+              <li data-toggle><i class="e-check"></i><span class="t">补上昨天的训练记录</span></li>
+              <li data-toggle><i class="e-check"></i><span class="t">回邮件给器材店</span></li>
+            </ul>
+          </section>
+          <section class="e-card" style="--e-under:#6d7f8c">
+            <h2 class="e-title">本周<span style="margin-left:auto;letter-spacing:.1em">4</span></h2>
+            <ul class="e-todo">
+              <li data-toggle><i class="e-check"></i><span class="t">把周报的数据口径重算一遍</span></li>
+              <li data-toggle><i class="e-check"></i><span class="t">预约肩部复盘</span></li>
+              <li data-toggle><i class="e-check"></i><span class="t">买猫砂和猫抓板</span></li>
+              <li data-toggle><i class="e-check"></i><span class="t">把上个月的账对一遍</span></li>
+            </ul>
+          </section>
+          <section class="e-card" style="--e-under:#6d7f8c">
+            <h2 class="e-title">已完成<span style="margin-left:auto;letter-spacing:.1em">3</span></h2>
+            <ul class="e-todo">
+              <li class="is-done" data-toggle><i class="e-check"></i><span class="t">晨跑 4 公里</span></li>
+              <li class="is-done" data-toggle><i class="e-check"></i><span class="t">拉伸十分钟</span></li>
+              <li class="is-done" data-toggle><i class="e-check"></i><span class="t">记了昨天的体重</span></li>
+            </ul>
+          </section>
+        </div></div>
+        <nav class="tabbar e-tabbar" aria-label="主导航">
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">待办</figcaption>
+    </figure>
+
+  </div>
+</section>
+<!-- ==================== F · 纸雕层叠 ==================== -->
+<section class="dir dir-f" data-dir="f">
+  <div class="dir-head">
+    <b>F · 纸雕层叠</b>
+    <span>整张纸切开叠高，靠高度差分层，没有边框。按压读作“压进下一层”：阴影收紧、亮边变暗，完成项直接下沉。</span>
+  </div>
+  <div class="screens">
+
+    <!-- F · 今日 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen f-screen">
+        <div class="scroll"><div class="f-stack">
+          <span class="f-edge e2"></span><span class="f-edge e1"></span>
+          <div class="f-ream">
+            <svg class="f-cut" viewBox="0 0 72 72" aria-hidden="true">
+              <mask id="fCatHoles"><rect width="72" height="72" fill="#fff"/>
+                <circle cx="28" cy="39" r="2.8" fill="#000"/><circle cx="44" cy="39" r="2.8" fill="#000"/>
+                <path d="M36 45.5 L39.2 48.5 L36 51.5 L32.8 48.5 Z" fill="#000"/></mask>
+              <path mask="url(#fCatHoles)" fill="currentColor" d="M14 31 C14 24 18 22 23 22 L24 7 L36 17 L48 7 L49 22 C54 22 58 24 58 31 L58 46 C58 58 49 65 36 65 C23 65 14 58 14 46 Z"/>
+            </svg>
+            <header class="f-head">
+              <p class="f-eyebrow">今日 · 十一月三日</p>
+              <h1 class="f-brand">猫咪生活报</h1>
+              <p class="f-tagline">一个人的生活报</p>
+            </header>
+            <section class="f-card" style="margin-top:16px">
+              <span class="f-lab"><i></i>训练</span>
+              <span class="f-hole"><p class="f-status">今天还没有开始</p></span>
+              <button class="f-btn" type="button">开始训练</button>
+            </section>
+            <section class="f-card" style="margin-top:11px">
+              <span class="f-lab"><i></i>待办</span>
+              <div class="f-input"><input type="text" placeholder="记一件要做的事…" aria-label="快速添加待办"><button class="f-add" type="button">加</button></div>
+              <div class="f-todo" style="box-shadow:none;padding:0">
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">补上昨天的记录</span></div>
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">给猫添水</span></div>
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">散步二十分钟</span></div>
+              </div>
+            </section>
+            <section class="f-card is-low" style="margin-top:11px">
+              <span class="f-lab"><i></i>习惯</span>
+              <div class="f-habits">
+                <button class="f-habit" type="button" data-toggle><span class="n">运动</span><span class="s">未打卡</span></button>
+                <button class="f-habit" type="button" data-toggle><span class="n">阅读</span><span class="s">未打卡</span></button>
+                <button class="f-habit" type="button" data-toggle><span class="n">猫咪照料</span><span class="s">未打卡</span></button>
+              </div>
+            </section>
+            <section class="f-card is-low" style="margin-top:11px">
+              <span class="f-lab"><i></i>阅读片段</span>
+              <blockquote class="f-quote" style="margin-top:11px">读到一半停下来，句子会自己在脑子里继续走。</blockquote>
+              <p class="f-src">《书名待填》</p><a class="f-more" href="#">继续读</a>
+            </section>
+          </div>
+        </div></div>
+        <nav class="tabbar f-tabbar" aria-label="主导航">
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">今日</figcaption>
+    </figure>
+
+    <!-- F · 训练 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen f-screen">
+        <div class="scroll"><div class="f-stack">
+          <span class="f-edge e2"></span><span class="f-edge e1"></span>
+          <div class="f-ream f-dense">
+            <header class="f-head">
+              <p class="f-eyebrow">训练 · 十一月三日</p>
+              <h1 class="f-brand">胸</h1>
+              <p class="f-tagline">第 12 次 · 上斜为主</p>
+            </header>
+            <section class="f-card" style="margin-top:16px">
+              <span class="f-lab"><i></i>01 卧推</span>
+              <span class="f-slot">
+                <span class="f-set is-done"><span class="i">1</span><span class="v">60 <i>kg</i> × 8</span><span class="s">已录</span></span>
+                <span class="f-set is-done"><span class="i">2</span><span class="v">60 <i>kg</i> × 8</span><span class="s">已录</span></span>
+                <span class="f-set is-done"><span class="i">3</span><span class="v">62.5 <i>kg</i> × 6</span><span class="s">已录</span></span>
+              </span>
+              <button class="f-addset" type="button">+ 加一组</button>
+            </section>
+            <section class="f-card" style="margin-top:11px">
+              <span class="f-lab"><i></i>02 上斜哑铃推</span>
+              <span class="f-slot">
+                <span class="f-set is-done"><span class="i">1</span><span class="v">22.5 <i>kg</i> × 10</span><span class="s">已录</span></span>
+                <span class="f-set is-done"><span class="i">2</span><span class="v">22.5 <i>kg</i> × 10</span><span class="s">已录</span></span>
+                <span class="f-set"><span class="i">3</span><span class="v">— <i>kg</i> × —</span><span class="s">待录</span></span>
+              </span>
+              <button class="f-addset" type="button">+ 加一组</button>
+            </section>
+            <section class="f-card is-low" style="margin-top:11px">
+              <span class="f-lab"><i></i>03 绳索夹胸</span>
+              <span class="f-slot">
+                <span class="f-set"><span class="i">1</span><span class="v">— <i>kg</i> × —</span><span class="s">待录</span></span>
+              </span>
+              <button class="f-addset" type="button">+ 加一组</button>
+            </section>
+            <button class="f-btn f-cta" type="button">结束训练</button>
+          </div>
+        </div></div>
+        <nav class="tabbar f-tabbar" aria-label="主导航">
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">训练</figcaption>
+    </figure>
+
+    <!-- F · 待办 -->
+    <figure class="tile">
+      <div class="phone"><div class="screen f-screen">
+        <div class="scroll"><div class="f-stack">
+          <span class="f-edge e2"></span><span class="f-edge e1"></span>
+          <div class="f-ream">
+            <header class="f-head">
+              <p class="f-eyebrow">待办 · 十一月三日</p>
+              <h1 class="f-brand">待办</h1>
+              <p class="f-tagline">七件未完成 · 今天三件</p>
+            </header>
+            <section class="f-card" style="margin-top:16px">
+              <div class="f-grp">今天<span>3</span></div>
+              <div class="f-input" style="margin-top:9px"><input type="text" placeholder="新的一条…" aria-label="快速添加待办"><button class="f-add" type="button">加</button></div>
+              <div style="margin-top:10px">
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">给猫添水</span></div>
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">补上昨天的训练记录</span></div>
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">回邮件给器材店</span></div>
+              </div>
+            </section>
+            <section class="f-card is-low" style="margin-top:11px">
+              <div class="f-grp">本周<span>4</span></div>
+              <div style="margin-top:9px">
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">把周报的数据口径重算一遍</span></div>
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">预约肩部复盘</span></div>
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">买猫砂和猫抓板</span></div>
+                <div class="f-row" data-toggle><i class="f-check"></i><span class="t">把上个月的账对一遍</span></div>
+              </div>
+            </section>
+            <section class="f-card is-low" style="margin-top:11px">
+              <div class="f-grp">已完成<span>3</span></div>
+              <div style="margin-top:9px">
+                <div class="f-row is-done" data-toggle><i class="f-check"></i><span class="t">晨跑 4 公里</span></div>
+                <div class="f-row is-done" data-toggle><i class="f-check"></i><span class="t">拉伸十分钟</span></div>
+                <div class="f-row is-done" data-toggle><i class="f-check"></i><span class="t">记了昨天的体重</span></div>
+              </div>
+            </section>
+          </div>
+        </div></div>
+        <nav class="tabbar f-tabbar" aria-label="主导航">
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.6 12 4l8 6.6V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg><span>今日</span></button>
+          <button class="nav-item is-on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="15" rx="2.5"/><path d="M8 12l2.6 2.6L16.2 9"/></svg><span>待办</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 6.5v11M17 6.5v11M7 12h10"/></svg><span>训练</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.6c2.5-1 5-1 8 .6 3-1.6 5.5-1.6 8-.6v12.8c-2.5-1-5-1-8 .6-3-1.6-5.5-1.6-8-.6z"/><path d="M12 6.2v12.8"/></svg><span>阅读</span></button>
+          <button class="nav-item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.6 19.6c1.2-3 3.6-4.6 6.4-4.6s5.2 1.6 6.4 4.6"/></svg><span>我的</span></button>
+        </nav>
+      </div></div>
+      <figcaption class="tile-cap">待办</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ==================== 交互反馈 ==================== -->
+<style>
+  /*
+    三个方向的按压 / 勾选各自一套手感，不共用一套曲线：
+    A 是排版型的界面，按压只有 1px 位移与底色变化，不带回弹；
+    E 是纸，按住就是纸被压实，指头抬起后回到原位；
+    F 是层，按住是落进下一层，阴影跟着收紧。
+    所有动效都只在操作时发生，不常驻、不循环。
+  */
+
+  /* ---- A ---- */
+  .dir-a .a-todo li{cursor:pointer;transition:background .12s ease}
+  .dir-a .a-todo li:active{background:#f4f4f6}
+  .dir-a .a-todo li.is-done{color:var(--a-mute);text-decoration:line-through;text-decoration-thickness:1px}
+  .dir-a .a-row{cursor:pointer;transition:background .12s ease}
+  .dir-a .a-row:active{background:#f4f4f6}
+  .dir-a .a-check{transition:background .12s ease,border-color .12s ease}
+  .dir-a .a-todo li.is-done .a-check,
+  .dir-a .a-row.is-done .a-check{background:var(--a-accent);border-color:var(--a-accent)}
+  .dir-a .is-pop .a-check{animation:popA .22s cubic-bezier(.2,.9,.3,1)}
+  @keyframes popA{0%{transform:scale(1)}35%{transform:scale(.82)}100%{transform:scale(1)}}
+  .dir-a .a-btn,.dir-a .a-cta,.dir-a .a-addset{transition:transform .1s ease,opacity .15s ease,background .15s ease,color .15s ease}
+  .dir-a .a-btn:active,.dir-a .a-cta:active{transform:translateY(1px)}
+  .dir-a .a-addset:active{transform:translateY(1px)}
+  .dir-a .a-add:active{opacity:.55}
+  .dir-a .nav-item:active{opacity:.5}
+
+  /* ---- E ---- */
+  .dir-e .e-todo li{cursor:pointer;transition:transform .16s cubic-bezier(.25,1.15,.4,1)}
+  .dir-e .e-todo li:active{transform:translateY(2px)}
+  .dir-e .e-check{transition:background .16s ease,border-color .16s ease}
+  .dir-e .is-pop .e-check{animation:stampE .26s cubic-bezier(.2,1.2,.3,1)}
+  @keyframes stampE{
+    0%{transform:scale(1.7) rotate(-9deg);opacity:.2}
+    60%{transform:scale(.94) rotate(-2deg);opacity:1}
+    100%{transform:scale(1) rotate(-2deg)}
+  }
+  .dir-e .e-chip{transition:transform .16s cubic-bezier(.25,1.15,.4,1)}
+  .dir-e .e-chip:active{transform:rotate(var(--c-rot,0deg)) translateY(2px)}
+  .dir-e .e-chip.is-done .s{color:var(--e-ochre)}
+  .dir-e .e-btn{transition:transform .16s cubic-bezier(.25,1.15,.4,1)}
+  .dir-e .e-btn:active{transform:translateY(2px)}
+  .dir-e .e-add,.dir-e .e-addset,.dir-e .e-more{transition:opacity .16s ease}
+  .dir-e .e-add:active,.dir-e .e-addset:active{opacity:.55}
+  .dir-e .nav-item:active{opacity:.55}
+
+  /* ---- F ---- */
+  .dir-f .f-row{cursor:pointer;transition:opacity .18s ease,transform .18s ease}
+  .dir-f .f-row:active{transform:translateY(2px);opacity:.82}
+  .dir-f .f-btn{transition:transform .14s ease,box-shadow .14s ease}
+  .dir-f .f-btn:active{
+    transform:translateY(2px);
+    box-shadow:0 1px 2px -1px rgba(90,55,28,.8),inset 0 1px 0 rgba(255,255,255,.15);
+  }
+  .dir-f .f-habit{transition:transform .18s ease,box-shadow .18s ease}
+  .dir-f .f-habit:active{
+    transform:translateY(5px);
+    box-shadow:0 1px 2px -1px rgba(70,55,35,.5),inset 0 1px 0 rgba(255,255,255,.8);
+  }
+  .dir-f .f-habit.is-done .s{color:var(--f-accent);font-weight:700}
+  .dir-f .f-check{transition:background .18s ease,box-shadow .18s ease}
+  .dir-f .is-pop .f-check{animation:sinkF .24s ease-out}
+  @keyframes sinkF{0%{box-shadow:inset 0 2px 2px rgba(80,64,42,.28)}45%{box-shadow:inset 0 3px 5px rgba(80,64,42,.5)}100%{box-shadow:inset 0 2px 3px rgba(80,64,42,.34)}}
+  .dir-f .f-input{transition:transform .14s ease}
+  .dir-f .f-add:active{transform:translateY(1px)}
+  .dir-f .nav-item:active{opacity:.55}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+
+<script>
+  (function () {
+    var dirs = Array.prototype.slice.call(document.querySelectorAll('.dir'));
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('.sw-btn'));
+
+    function setDir(key) {
+      dirs.forEach(function (d) { d.classList.toggle('is-active', d.dataset.dir === key); });
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.target === key)); });
+    }
+    buttons.forEach(function (b) {
+      b.addEventListener('click', function () {
+        setDir(b.dataset.target);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    // 待办与习惯的可点击行：切换完成态，并重放一次勾选动效。
+    // 只改类名与文案，不动任何真实数据。
+    document.addEventListener('click', function (event) {
+      var toggle = event.target.closest && event.target.closest('[data-toggle]');
+      if (toggle) {
+        var isDone = toggle.classList.toggle('is-done');
+        toggle.classList.remove('is-pop');
+        void toggle.offsetWidth;      // 强制重排，让同一个动效能连续重放
+        toggle.classList.add('is-pop');
+        setTimeout(function () { toggle.classList.remove('is-pop'); }, 300);
+        var state = toggle.querySelector('.s');
+        if (state && /未打卡|已打卡/.test(state.textContent)) {
+          state.textContent = isDone ? '已打卡' : '未打卡';
+        }
+      }
+
+      var nav = event.target.closest && event.target.closest('.nav-item');
+      if (nav) {
+        var bar = nav.closest('.tabbar');
+        if (bar) {
+          Array.prototype.forEach.call(bar.querySelectorAll('.nav-item'), function (n) {
+            n.classList.remove('is-on');
+          });
+          nav.classList.add('is-on');
+        }
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
