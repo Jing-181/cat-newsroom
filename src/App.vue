@@ -1,6 +1,6 @@
 <script setup>
 // 应用外壳：侧栏（品牌/导航/同步区/备份/设备切换）+ 主视区（按导航切换模块组件）
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import { CONFIG } from "./lib/config.js";
 import { icon } from "./lib/icons.js";
 import { dateStr } from "./lib/utils.js";
@@ -12,6 +12,7 @@ import Toast from "./lib/toast.js";
 import AppDialog from "./lib/app-dialog.js";
 import DataBackup from "./lib/data-backup.js";
 import DeviceMode from "./lib/device-mode.js";
+import { mountLeafShade } from "./lib/leaf-shade.js";
 import Trace from "./lib/trace.js";
 import HomeView from "./modules/home/HomeView.vue";
 import InsightView from "./modules/insight/InsightView.vue";
@@ -34,12 +35,36 @@ const saved = DeviceMode.restoreView();
 const view = ref(VIEWS[saved] ? saved : "home");
 const current = computed(() => VIEWS[view.value] || HomeView);
 
+// 切模块：优先用 View Transitions 做真正的交叉淡出。
+// 以前是“旧视图立刻拆掉 + 新视图从 opacity 0 淡入”，中间总有一帧是空的，
+// 从深墨色的训练页切到别的页面时特别明显（一黑一白）。
+// 交叉淡出只需要浏览器把前后两帧叠在一起，不用两个视图同时挂在 DOM 里。
+const canViewTransition = () =>
+  typeof document !== "undefined" &&
+  typeof document.startViewTransition === "function" &&
+  !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
 function go(key) {
   if (!VIEWS[key]) return;
-  view.value = key;
-  drawerOpen.value = false; // 移动端选完模块后收起抽屉
-  DeviceMode.saveView(key);
-  window.scrollTo({ top: 0 });
+  const swap = () => {
+    view.value = key;
+    drawerOpen.value = false; // 移动端选完模块后收起抽屉
+    // 运动页的全屏开关只管那一页，切走时要撤回，不然别的页面也没导航栏
+    document.documentElement.classList.remove("workout-fullscreen");
+    DeviceMode.saveView(key);
+  };
+  if (!canViewTransition()) {
+    swap();
+    window.scrollTo({ top: 0 });
+    return;
+  }
+  // 回调要等 Vue 把新 DOM 写进去，否则截到的是旧一帧
+  const transition = document.startViewTransition(async () => {
+    swap();
+    await nextTick();
+  });
+  // 滚动放到动画之后：中途跳位置会把交叉淡出弄成一次跳动
+  transition.finished.finally(() => window.scrollTo({ top: 0 }));
 }
 
 function onNavigate(key) { go(key); }
@@ -77,6 +102,8 @@ async function onSyncIndicatorClick() {
 
 onMounted(() => {
   ensurePomodoroController();
+  // 树影层：挂在 .layout 最底下（由 mountLeafShade 自己 prepend），只负责一层气氛，不接任何交互
+  mountLeafShade({ parent: document.querySelector(".layout") || document.body });
 
   // 开应用记一次：冷启动与切回用 sessionStorage 区分（只记形状，不记内容）
   const launchedKey = "cat-newsroom-trace-launched";
@@ -236,6 +263,7 @@ async function onAvatarChange(e) {
     <!-- 移动底栏（≤820px 显示） -->
     <nav class="m-tabs">
       <button type="button" :class="{ active: view === 'home' }" @click="go('home')"><span v-html="icon('home', 19)"></span>首页</button>
+      <button type="button" :class="{ active: view === 'sport' }" @click="go('sport')"><span v-html="icon('activity', 19)"></span>运动</button>
       <button type="button" :class="{ active: view === 'insight' }" @click="go('insight')"><span v-html="icon('chart', 19)"></span>洞察</button>
       <button type="button" @click="toggleDrawer(true)"><span v-html="icon('grid', 19)"></span>更多</button>
     </nav>

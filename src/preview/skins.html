@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>动作皮肤对照 · Skin Comparison</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); font-family: var(--font); background: var(--page-bg); }
+    .shell { width: min(calc(100% - 32px), 1180px); margin: 0 auto; padding: 28px 0 56px; }
+    .mast { display: flex; align-items: flex-end; gap: 16px; padding: 14px 0 12px; border-bottom: 3px double var(--border-input); }
+    .mast h1 { margin: 0; font-size: clamp(24px, 4vw, 36px); font-weight: 400; line-height: 1; }
+    .mast p { margin: 0; color: var(--text-secondary); font: 12.5px/1.5 var(--font-sans); }
+    .kicker { color: var(--accent); font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; }
+
+    .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0 8px; font: 12px var(--font-sans); color: var(--text-secondary); }
+    .bar button { padding: 7px 13px; border: 1px solid var(--border-input); border-radius: var(--radius-pill); background: var(--surface-card); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+    .bar button.on { border-color: #2e2316; background: #2e2316; color: #f4ecda; }
+    .bar .note { margin-left: auto; color: var(--text-tertiary); }
+    .bar .bar-sep { margin-left: 4px; color: var(--text-tertiary); }
+    .bar button[data-size].on { border-color: var(--accent); color: var(--accent); background: var(--accent-muted); }
+    /* 尺寸档是画法的一部分，不是排版：同一动作在不同尺寸下本来就应该画得不一样。 */
+    .board.compact .cell { min-height: 150px; }
+
+    /* 每一行是一个动作，每一列是一种画法。同一行里的姿势完全一致，才好对比。 */
+    .board { margin-top: 14px; border-top: 1px solid var(--border); }
+    .row { display: grid; grid-template-columns: 96px repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--border); align-items: stretch; }
+    .row-head { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+    .row-head h2 { margin: 0; font-size: 16px; font-weight: 400; letter-spacing: .02em; }
+    .row-head code { color: var(--text-tertiary); font: 10.5px var(--font-sans); }
+
+    .cell { position: relative; display: grid; place-items: center; min-height: 190px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); overflow: hidden; }
+    .cell.missing { border-style: dashed; }
+    .cell.missing::after { content: "尚未接入"; color: var(--text-tertiary); font: 11.5px var(--font-sans); }
+    .cell .tag { position: absolute; top: 7px; left: 9px; color: var(--text-tertiary); font: 10px var(--font-sans); letter-spacing: .06em; }
+    .cell .badge { position: absolute; top: 6px; right: 8px; padding: 2px 7px; border-radius: 999px; background: rgba(184,72,46,.14); color: var(--danger); font: 10px var(--font-sans); letter-spacing: .04em; }
+    .cell.degraded { border-style: dashed; border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+    .cell svg, .cell canvas { display: block; }
+
+    /* 深墨底：小人真正出场的地方 */
+    .board.dark .cell {
+      border-color: var(--ink-line);
+      background: radial-gradient(120% 80% at 82% 6%, rgba(196,113,40,.24), transparent 58%),
+                  linear-gradient(168deg, #4a3a28, #33281b 58%, #241b11);
+      color: rgba(240,232,213,.62);
+    }
+    .board.dark .cell .tag { color: rgba(240,232,213,.35); }
+    .board.dark .cell.missing::after { color: rgba(240,232,213,.35); }
+
+    .stage { width: 100%; height: 100%; display: grid; place-items: center; }
+    .stage svg { height: 160px; width: auto; overflow: visible; }
+    .board.dark .stage svg { height: 132px; }
+    /* ?size=96 时把格子里的图压到真实出场尺寸，用来判断小尺寸下还认不认得出。 */
+    .board.actual .stage svg { height: var(--figure-px, 96px); }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; color: var(--text-tertiary); font: 11.5px/1.6 var(--font-sans); }
+    .legend b { color: var(--text-secondary); font-weight: 600; }
+
+    footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-tertiary); font: 11.5px/1.7 var(--font-sans); }
+  </style>
+</head>
+<body>
+<main class="shell">
+  <div class="mast">
+    <div>
+      <div class="kicker">Skin comparison</div>
+      <h1>同一份动作，三种画法</h1>
+    </div>
+    <p>关节数据完全相同，只有画法不同。<br>横向对比，不要分别看。</p>
+  </div>
+
+  <div class="bar">
+    <button type="button" id="play">播放</button>
+    <button type="button" id="dark">深墨底</button>
+    <span class="bar-sep">尺寸</span>
+    <button type="button" data-size="96">96 实际</button>
+    <button type="button" data-size="148">148</button>
+    <button type="button" data-size="240">240</button>
+    <button type="button" data-size="0">占满</button>
+    <span class="note">同一行三个格子用的是同一帧，姿势应该完全一致</span>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="legend">
+    <span><b>line</b> 线条稿</span>
+    <span><b>volume</b> 体积线（光头黄那种）</span>
+    <span><b>three</b> 3D 玩偶</span>
+  </div>
+
+  <footer>
+    皮肤契约见 <code>src/lib/motion/skins/CONTRACT.md</code>。加一种画法只要在自己的目录里实现
+    <code>createSkin</code>，这一页会自动接上；目录还没实现的会显示「尚未接入」。
+  </footer>
+</main>
+
+<script type="module">
+  import { CLIPS } from "/lib/motion/clips.js";
+  import { prepareClip, sampleClip, solvePose, PROPORTIONS } from "/lib/motion/core.js";
+
+  // 三个动作横着比。行是动作，列是画法。
+  // 注意：按剪辑自己的 id 查，不要按 CLIPS 对象的键——键是 benchPress/pullUp，
+  // id 是 bench/pull-up，两者不一致（第一版就是按错键查，整页空白）。
+  const CLIP_IDS = ["squat", "pull-up", "bench"];
+  const BY_ID = new Map(Object.values(CLIPS).map(c => [c.id, c]));
+  const SKINS = [
+    { key: "line", label: "线条稿", load: () => import("/lib/motion/skins/line/line-skin.js") },
+    { key: "volume", label: "体积线", load: () => import("/lib/motion/skins/volume/volume-skin.js") },
+    { key: "three", label: "3D", load: () => import("/lib/motion/skins/three/three-skin.js") },
+  ];
+
+  const board = document.querySelector("#board");
+  const params = new URLSearchParams(location.search);
+  const state = { playing: true, dark: params.get("dark") === "1" };
+  // ?size=96 用真实出场尺寸渲染，?size=180 看大图。不传就用审阅回退尺寸。
+  const sizeParam = Number(params.get("size"));
+  const forcedSize = Number.isFinite(sizeParam) && sizeParam > 0 ? sizeParam : null;
+  const mounts = [];
+
+  async function build() {
+    // 先把能加载的皮肤找出来，缺的就留空位，不整页报错。
+    const available = [];
+    for (const skin of SKINS) {
+      try {
+        const mod = await skin.load();
+        if (typeof mod.createSkin === "function") available.push({ ...skin, create: mod.createSkin });
+      } catch {
+        // 这个皮肤还没做，跳过。
+      }
+    }
+
+    for (const id of CLIP_IDS) {
+      const clip = BY_ID.get(id);
+      if (!clip) continue;
+
+      // 行先建好，但先不进 DOM：建行时 skin 可能是异步工厂，
+      // 一行还没接完就先显示，会让三格的姿势错开（它们必须同帧）。
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const head = document.createElement("div");
+      head.className = "row-head";
+      head.innerHTML = `<h2>${clip.label}</h2><code>${clip.id}</code>`;
+      row.append(head);
+
+      for (const skin of SKINS) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        const impl = available.find(s => s.key === skin.key);
+        if (!impl) {
+          cell.classList.add("missing");
+          row.append(cell);
+          continue;
+        }
+
+        cell.innerHTML = `<span class="tag">${impl.label}</span><div class="stage"><svg></svg></div>`;
+        row.append(cell);
+
+        const svg = cell.querySelector("svg");
+        svg.setAttribute("viewBox", clip.viewBox);
+        try {
+          // 皮肤工厂允许返回 Promise（占位皮肤就是这么回退到线条稿的）。
+          const instance = await impl.create(svg, { proportions: PROPORTIONS });
+          // 皮肤可能自己降级（3D 在 WebGL 不可用时退回线条稿）。
+          // 不标出来会被误读成「3D 就长这样」，所以必须写在格子上。
+          if (instance && instance.fallback) {
+            cell.classList.add("degraded");
+            cell.dataset.degraded = instance.fallbackReason || "";
+            cell.title = `已降级为线条稿：${instance.fallbackReason || "未知原因"}`;
+            const badge = document.createElement("span");
+            badge.className = "badge";
+            badge.textContent = "已降级";
+            cell.append(badge);
+          }
+          mounts.push({ clip, skin: instance, prepared: prepareClip(clip) });
+        } catch (error) {
+          // 皮肤坏了不能让整页空白。把错误写进格子，一眼看出是哪个皮肤、哪个动作。
+          cell.classList.add("missing");
+          cell.dataset.error = String(error && error.message || error);
+          cell.title = String(error && error.stack || error);
+          cell.innerHTML = `<span class="tag">${impl.label}</span>`;
+        }
+      }
+
+      board.append(row);
+    }
+
+    paint(0);
+  }
+
+  // 所有格子共用一条时间轴：同一行三个格子永远是同一帧，对比才成立。
+  let start = performance.now();
+  let frame = 0;
+
+  function paint(seconds) {
+    for (const m of mounts) {
+      const pose = solvePose(sampleClip(m.prepared, seconds), PROPORTIONS);
+      m.skin.paint(pose);
+      m.skin.paintProp?.(m.clip.prop, pose);
+    }
+  }
+
+  function loop(now) {
+    if (state.playing) paint((now - start) / 1000);
+    frame = requestAnimationFrame(loop);
+  }
+
+  const playBtn = document.querySelector("#play");
+  const darkBtn = document.querySelector("#dark");
+
+  playBtn.addEventListener("click", () => {
+    state.playing = !state.playing;
+    if (state.playing) start = performance.now() - 0; // 从当前时间接着走
+    playBtn.classList.toggle("on", state.playing);
+    playBtn.textContent = state.playing ? "暂停" : "播放";
+  });
+  playBtn.classList.add("on");
+  playBtn.textContent = "暂停";
+
+  darkBtn.addEventListener("click", () => {
+    const on = board.classList.toggle("dark");
+    darkBtn.classList.toggle("on", on);
+  });
+
+  // ?dark=1 直接进深墨底，跟 motion.html 的约定一致，截图和审阅时不用手点。
+  if (state.dark) {
+    board.classList.add("dark");
+    darkBtn.classList.add("on");
+  }
+
+  if (forcedSize) {
+    board.classList.add("actual");
+    board.style.setProperty("--figure-px", `${forcedSize}px`);
+  }
+
+  // 尺寸钮：切换图的实际渲染尺寸，让皮肤重新量一次并选档。
+  // 皮肤在 resize() 里量高度，所以改完尺寸要再调一次 resize 才能生效。
+  const sizeButtons = [...document.querySelectorAll("[data-size]")];
+
+  function applySize(px, button = null) {
+    for (const btn of sizeButtons) btn.classList.toggle("on", btn === button);
+    board.classList.remove("compact");
+    if (px) {
+      board.classList.add("actual");
+      board.style.setProperty("--figure-px", `${px}px`);
+      if (px <= 128) board.classList.add("compact");
+    } else {
+      board.classList.remove("actual");
+      board.style.removeProperty("--figure-px");
+    }
+    // 改完尺寸必须让每个实例重新量一遍，否则它还以为自己在旧尺寸上。
+    requestAnimationFrame(() => {
+      for (const m of mounts) m.skin.resize?.(m.clip.viewBox);
+    });
+  }
+
+  for (const btn of sizeButtons) {
+    btn.addEventListener("click", () => applySize(Number(btn.dataset.size), btn));
+  }
+
+  if (forcedSize) {
+    const match = sizeButtons.find(b => Number(b.dataset.size) === forcedSize);
+    if (match) match.classList.add("on");
+    if (forcedSize <= 128) board.classList.add("compact");
+  }
+
+  build().then(() => {
+    frame = requestAnimationFrame(loop);
+  }).catch(error => {
+    // 连动作循环都没起来的时候，至少得让人看到原因，而不是一片空白。
+    const note = document.createElement("div");
+    note.className = "legend";
+    note.style.color = "var(--danger)";
+    note.textContent = `对照页构建失败：${error && error.message || error}`;
+    board.append(note);
+  });
+</script>
+</body>
+</html>

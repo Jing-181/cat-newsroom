@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D 玩偶皮肤 · 自检页</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 40px;
+    background: radial-gradient(120% 80% at 82% 6%, rgba(196,113,40,.24), transparent 58%),
+                linear-gradient(168deg, #4a3a28, #33281b 58%, #241b11);
+    color: #f0e8d5; font: 13px/1.6 "PingFang SC", system-ui, sans-serif; min-height: 100vh;
+  }
+  body.light { background: #f7f2e8; color: #2e2316; }
+  h1 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: .04em; }
+  p.note { margin: 0 0 14px; opacity: .6; font-size: 12px; line-height: 1.9; }
+  p.note code { opacity: .8; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; font-size: 12px; }
+  .bar button {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid currentColor;
+    background: transparent; color: inherit; font: inherit; cursor: pointer; opacity: .7;
+  }
+  .bar button:hover { opacity: 1; }
+  .bar label { opacity: .7; display: flex; gap: 6px; align-items: center; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .card { text-align: center; }
+  .stage {
+    width: 190px; height: 214px; display: grid; place-items: center;
+    border: 1px dashed rgba(240,232,213,.16); border-radius: 10px;
+  }
+  body.light .stage { border-color: rgba(46,35,22,.2); }
+  .stage svg { width: 100%; height: 100%; display: block; }
+  .cap { margin-top: 6px; font-size: 11.5px; opacity: .55; }
+  pre {
+    margin: 18px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 11.5px; line-height: 1.8;
+    background: rgba(0,0,0,.22); color: inherit; overflow: auto; white-space: pre-wrap;
+  }
+  body.light pre { background: rgba(0,0,0,.06); }
+</style>
+</head>
+<body>
+<h1>3D 玩偶皮肤 · 自检页</h1>
+<p class="note">
+  <code>?at=0.4</code> 定格相位 · <code>?light=1</code> 浅底 · <code>?skin=line</code> 换线条稿对比 ·
+  <code>?fallback=1</code> 模拟 WebGL 不可用 · <code>?probe=1</code> 跑性能与上下文自检
+</p>
+
+<div class="bar">
+  <button id="play">暂停</button>
+  <button id="still">定格</button>
+  <button id="light">浅底</button>
+  <label>相位 <input id="phase" type="range" min="0" max="1" step="0.005" value="0.33" style="width:150px"></label>
+</div>
+
+<div class="row" id="row"></div>
+<pre id="stats">—</pre>
+
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  if (params.get("light") === "1") document.body.classList.add("light");
+
+  // 模拟 WebGL 完全不可用：两个 getContext 入口都堵死，看退化成什么。
+  if (params.get("fallback") === "1") {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (kind, ...rest) {
+      return /webgl/i.test(kind) ? null : original.call(this, kind, ...rest);
+    };
+  }
+
+  const { CLIPS } = await import("/lib/motion/clips.js");
+  const { prepareClip, sampleClip, solvePose, PROPORTIONS } = await import("/lib/motion/core.js");
+  const skinKey = params.get("skin") === "line" ? "line" : "three";
+  const { createSkin } = await import(
+    skinKey === "line"
+      ? "/lib/motion/skins/line/line-skin.js"
+      : "/lib/motion/skins/three/three-skin.js"
+  );
+  const glModule = skinKey === "three" ? await import("/lib/motion/skins/three/three-gl.js") : null;
+  const contexts = () => (glModule ? glModule.liveContexts() : 0);
+
+  const IDS = ["squat", "pull-up", "bench"];
+  const BY_ID = new Map(Object.values(CLIPS).map(c => [c.id, c]));
+  const row = document.querySelector("#row");
+  const statsEl = document.querySelector("#stats");
+  const mounts = [];
+
+  function mount(container, clip) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<div class="stage"><svg></svg></div><div class="cap">${clip.label} · ${clip.id}</div>`;
+    container.append(card);
+    const svg = card.querySelector("svg");
+    svg.setAttribute("viewBox", clip.viewBox);
+    const skin = createSkin(svg, { proportions: PROPORTIONS });
+    skin.resize(clip.viewBox);
+    return { clip, skin, prepared: prepareClip(clip) };
+  }
+
+  for (const id of IDS) {
+    const clip = BY_ID.get(id);
+    if (clip) mounts.push(mount(row, clip));
+  }
+
+  const state = { playing: params.get("at") === null, phase: Number(params.get("at") ?? 0.33) };
+  const phaseInput = document.querySelector("#phase");
+  phaseInput.value = String(state.phase);
+
+  // 所有实例共用一条时间轴：同一屏永远画同一帧，比较才成立。
+  function paint(phase) {
+    for (const m of mounts) {
+      const pose = solvePose(sampleClip(m.prepared, m.prepared.duration * phase), PROPORTIONS);
+      m.skin.paint(pose);
+      m.skin.paintProp?.(m.clip.prop, pose);
+    }
+  }
+
+  function statLine(label) {
+    const first = mounts[0]?.skin.stats?.();
+    const drawn = first ? `每帧 draw ${first.draws} × ${mounts.length} · 顶点 ${first.verts}` : "线条稿（无 WebGL）";
+    return `${label} · 实例 ${mounts.length} · ${drawn} · 画布 ${first?.pixels?.join("×") ?? "—"} · WebGL 上下文 ${contexts()}`;
+  }
+
+  paint(state.phase);
+  statsEl.textContent = statLine(`定格 ${state.phase.toFixed(2)}`);
+
+  // ── 自检：一帧的耗时、上下文的增删 ─────────────────────────────
+  async function probe() {
+    const lines = [];
+    // paint 只写缓冲，真正的 GL 绘制排在微任务里（这样 paint 和 paintProp 能合成一帧）。
+    // 所以要分两个数报：写缓冲的 CPU 成本，和一次完整绘制的成本。
+    const syncMs = () => {
+      const start = performance.now();
+      for (let i = 0; i < 60; i++) paint(i / 60);
+      return (performance.now() - start) / 60;
+    };
+    const fullMs = async () => {
+      const start = performance.now();
+      for (let i = 0; i < 60; i++) {
+        paint(i / 60);
+        await null;                              // 让微任务里的绘制真的跑掉
+      }
+      return (performance.now() - start) / 60;
+    };
+    syncMs();
+    await fullMs();                              // 预热
+    lines.push(`3 实例：写缓冲 ${syncMs().toFixed(3)} ms/帧 · 写缓冲 + 绘制 ${(await fullMs()).toFixed(2)} ms/帧`);
+    lines.push(`上下文：${contexts()}（3 个实例共用 1 个）`);
+
+    const extraRow = document.createElement("div");
+    extraRow.className = "row";
+    document.body.append(extraRow);
+    const extra = [];
+    for (let i = 0; i < 6; i++) {
+      const clip = BY_ID.get(IDS[i % IDS.length]);
+      const m = mount(extraRow, clip);
+      m.skin.paint(solvePose(sampleClip(m.prepared, 0.3), PROPORTIONS));
+      extra.push(m);
+    }
+    await Promise.resolve();
+    lines.push(`9 个实例时的上下文：${contexts()}`);
+
+    for (const m of extra) m.skin.destroy();
+    extraRow.remove();
+    lines.push(`销毁 6 个后：${contexts()}（还有 ${mounts.length} 个实例在跑）`);
+
+    const mounted = document.querySelectorAll(".stage svg > *").length;
+    for (const m of mounts) m.skin.destroy();
+    lines.push(`全部销毁后：${contexts()} · 销毁前 svg 子节点 ${mounted} 个${mounted ? "（画布已挂载）" : "（空白）"}`);
+    statsEl.textContent = lines.join("\n");
+  }
+
+  if (params.get("probe") === "1") {
+    state.playing = false;
+    await probe();
+  }
+
+  // ── 播放 ───────────────────────────────────────────────────────
+  const playBtn = document.querySelector("#play");
+  let origin = performance.now();
+  const setPlaying = playing => {
+    state.playing = playing;
+    playBtn.textContent = playing ? "暂停" : "播放";
+  };
+  setPlaying(state.playing);
+
+  playBtn.onclick = () => {
+    setPlaying(!state.playing);
+    origin = performance.now() - state.phase * 4000;
+  };
+  document.querySelector("#still").onclick = () => {
+    setPlaying(false);
+    paint(state.phase);
+    statsEl.textContent = statLine(`定格 ${state.phase.toFixed(2)}`);
+  };
+  document.querySelector("#light").onclick = () => document.body.classList.add("light");
+  phaseInput.oninput = () => {
+    setPlaying(false);
+    state.phase = Number(phaseInput.value);
+    paint(state.phase);
+    statsEl.textContent = statLine(`定格 ${state.phase.toFixed(2)}`);
+  };
+
+  let frames = 0;
+  let mark = performance.now();
+  function loop(now) {
+    if (state.playing) {
+      paint(((now - origin) / 4000) % 1);
+      frames++;
+    }
+    if (now - mark > 600) {
+      if (state.playing) statsEl.textContent = statLine(`fps ${(frames / ((now - mark) / 1000)).toFixed(0)}`);
+      frames = 0;
+      mark = now;
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // 给无头截图与自动化用的把手。
+  window.__motion = {
+    paint,
+    setPhase(phase) { setPlaying(false); state.phase = phase; phaseInput.value = String(phase); paint(phase); },
+    stats: () => mounts.map(m => m.skin.stats?.()),
+    contexts,
+  };
+  window.__ready = true;
+</script>
+</body>
+</html>

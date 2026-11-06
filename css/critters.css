@@ -1,0 +1,62 @@
+/* 角落小动物的动作：只有呼吸、摇尾、爪印依次落地这类小幅度动作。
+   全部用 transform / opacity，不触发布局；系统开了「减少动态效果」时一律静止。 */
+
+.critter-cat .cat-body,
+.critter-cat .cat-tail,
+.critter-paws .paw {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.critter-cat .cat-body { animation: critter-breathe 5.2s ease-in-out infinite; }
+.critter-cat .cat-tail { animation: critter-tail 7.4s ease-in-out infinite; transform-origin: right center; }
+.critter-cat .cat-eye { animation: critter-blink 6.8s steps(1, end) infinite; }
+
+@keyframes critter-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.012, 1.045); }
+}
+
+@keyframes critter-tail {
+  0%, 100% { transform: rotate(-4deg); }
+  55% { transform: rotate(6deg); }
+}
+
+/* 打盹的猫不睁眼，但眼睛那条弧会极轻微地动一下，像在做梦 */
+@keyframes critter-blink {
+  0%, 96%, 100% { opacity: .75; }
+  97% { opacity: .25; }
+}
+
+/* 爪印：三枚依次落下，之后整组停在原地，不再循环撒谎说"还有新东西" */
+.critter-paws .paw { opacity: 0; animation: critter-step .5s var(--ease-out) both; }
+.critter-paws .paw-1 { animation-delay: .05s; }
+.critter-paws .paw-2 { animation-delay: .22s; }
+.critter-paws .paw-3 { animation-delay: .39s; }
+
+@keyframes critter-step {
+  from { opacity: 0; transform: translateY(-6px) scale(.86); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .critter-cat .cat-body,
+  .critter-cat .cat-tail,
+  .critter-cat .cat-eye,
+  .critter-paws .paw { animation: none; opacity: 1; transform: none; }
+}
+
+/* 摆放。小动物的位置由使用它的地方决定，这里只给两个已知落点。 */
+.clock-critter { width:104px; color:var(--ink-text); opacity:.34; pointer-events:none; }
+/* .clock-card > * 把每个子元素都抬成 relative + z-index:1，这里得把它按回绝对定位并压回底层，
+   否则猫会被当成一段普通内容排进卡片底部 */
+.clock-card > .clock-critter { position:absolute; right:10px; bottom:2px; z-index:0; }
+.clock-critter .critter-cat { display:block; width:100%; height:auto; }
+
+.session-empty .empty-paws { display:block; width:104px; margin:0 auto 10px; color:var(--text-tertiary); opacity:.7; }
+.session-empty .critter-paws { display:block; width:100%; height:auto; }
+
+@media (max-width:820px) {
+  .clock-critter { width:86px; }
+  .clock-card > .clock-critter { right:4px; bottom:2px; opacity:.3; }
+}

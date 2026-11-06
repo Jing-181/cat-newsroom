@@ -21,6 +21,12 @@ test("动作库 id 与名称唯一、字段齐全，BADGE 短名不留死键", (
   assert.deepEqual(badgeIds.filter(badgeId => !ids.includes(badgeId)), []);
 });
 
+test("训练日顺序：胸、背、腿、肩、手臂、全身、有氧", () => {
+  // 腿挪到肩和手臂之前：常用的胸背腿有氧四个日连在一起排在最前。
+  assert.deepEqual(workout.catalog.trainingDays.map(day => day.id), ["chest", "back", "legs", "shoulders", "arms", "full_body", "cardio"]);
+  assert.deepEqual(workout.catalog.trainingDays.map(day => day.name), ["胸日", "背日", "腿日", "肩日", "手臂日", "全身日", "有氧恢复"]);
+});
+
 test("腿日补齐内收与外展，有氧日补齐常用项目", () => {
   const legs = workout.catalog.forDay("legs").map(item => item.name);
   ["坐姿腿内收", "坐姿腿外展", "侧弓步", "单腿罗马尼亚硬拉", "北欧腿弯举", "坐姿提踵"].forEach(name => assert.ok(legs.includes(name), name));
@@ -315,4 +321,61 @@ test("同日记录查询用于补记提示", () => {
   const records = [make("chest", "2026-10-02"), make("back", "2026-10-02"), make("legs", "2026-10-03")];
   assert.equal(workout.sessionsOnDate(records, "2026-10-02").length, 2);
   assert.equal(workout.sessionsOnDate(records, "2026-10-04").length, 0);
+});
+
+// ---- 动作进展摘要：只给一个差量 ----
+// 折叠块里那句结论决定了这块有没有人打开，所以这里测的是「说人话」的部分：
+// 同重量加了次数就说 +1 次，同次数加了重量就说 +2.5 kg，两样都动才退回百分比。
+
+function sessionWith(exerciseId, date, weights, repsList) {
+  const session = workout.createSession("legs", new Date(`${date}T00:00:00`));
+  workout.addExercise(session, exerciseId);
+  session.status = "completed";
+  session.date = date;
+  session.exercises[0].sets = weights.map((weight, index) => ({ weight_kg: weight, reps: repsList[index] }));
+  return session;
+}
+
+test("动作进展：同重量加次数读成 +1 次，同次数加重量读成 +2.5 kg", () => {
+  const moreReps = workout.progressDigests([sessionWith("barbell_squat", "2026-10-01", [60, 60, 60], [8, 8, 7]), sessionWith("barbell_squat", "2026-10-08", [60, 60, 60], [9, 8, 8])]);
+  assert.equal(moreReps[0].state, "up");
+  assert.equal(workout.deltaText(moreReps[0]), "+1 次");
+  assert.equal(moreReps[0].isPR, true);
+
+  const moreWeight = workout.progressDigests([sessionWith("barbell_squat", "2026-10-01", [60, 60, 60], [8, 8, 8]), sessionWith("barbell_squat", "2026-10-08", [62.5, 62.5, 62.5], [8, 8, 8])]);
+  assert.equal(moreWeight[0].state, "up");
+  assert.equal(workout.deltaText(moreWeight[0]), "+2.5 kg");
+});
+
+test("动作进展：原地不动说持平，第一次练说首次，掉重量说负差", () => {
+  const same = workout.progressDigests([sessionWith("barbell_squat", "2026-10-01", [60, 60, 60], [8, 8, 8]), sessionWith("barbell_squat", "2026-10-08", [60, 60, 60], [8, 8, 8])]);
+  assert.equal(same[0].state, "flat");
+  assert.equal(workout.deltaText(same[0]), "持平");
+  // 持平不算破纪录：纪录要真的超过此前
+  assert.equal(same[0].isPR, false);
+
+  const first = workout.progressDigests([sessionWith("barbell_squat", "2026-10-01", [60, 60, 60], [8, 8, 8])]);
+  assert.equal(first[0].state, "new");
+  assert.equal(workout.deltaText(first[0]), "首次");
+
+  const lighter = workout.progressDigests([sessionWith("barbell_squat", "2026-10-01", [60, 60, 60], [8, 8, 8]), sessionWith("barbell_squat", "2026-10-08", [55, 55, 55], [8, 8, 8])]);
+  assert.equal(lighter[0].state, "down");
+  assert.equal(workout.deltaText(lighter[0]), "-5 kg");
+});
+
+test("动作进展：按变化大小排序，破纪录排最前；给了 exerciseIds 就只统计这几个动作", () => {
+  const records = [
+    sessionWith("barbell_squat", "2026-10-01", [60, 60, 60], [8, 8, 8]),
+    sessionWith("barbell_squat", "2026-10-08", [60, 60, 60], [8, 8, 8]),
+    sessionWith("bulgarian_split_squat", "2026-10-01", [20, 20, 20], [10, 10, 10]),
+    sessionWith("bulgarian_split_squat", "2026-10-08", [26, 26, 26], [10, 10, 10]),
+  ];
+  const all = workout.progressDigests(records);
+  assert.deepEqual(all.map(item => item.exercise_id), ["bulgarian_split_squat", "barbell_squat"]);
+  assert.equal(all[0].isPR, true);
+
+  const onlySquat = workout.progressDigests(records, { exerciseIds: ["barbell_squat"] });
+  assert.deepEqual(onlySquat.map(item => item.exercise_id), ["barbell_squat"]);
+  // 折叠行那一句：有破纪录先说纪录数，只举最强的一个，不把一行塞满
+  assert.match(workout.progressHeadline(all), /^1 项新纪录 · 保加利亚分腿蹲 \+6 kg$/);
 });

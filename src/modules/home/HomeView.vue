@@ -12,6 +12,7 @@ import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
 import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, groupOf } from "../../lib/home-layout.js";
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
 import Workout from "../../lib/workout.js";
+import { sleepingCat } from "../../lib/critters.js";
 import WorkoutPlan from "../../lib/workout-plan.js";
 import Trace from "../../lib/trace.js";
 
@@ -202,7 +203,8 @@ function clockCardHTML() {
   return `<div class="clock-card b4">
     <div><div class="hi">${hi}，${esc(CONFIG.owner)}</div><div class="sub">${esc(q)}</div></div>
     <div><div class="clk" id="clk">${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}</div>
-      <div class="cmeta"><span>${dateStr()}</span><span class="dot"></span><span>第 ${weekNum()} 周</span></div></div></div>`;
+      <div class="cmeta"><span>${dateStr()}</span><span class="dot"></span><span>第 ${weekNum()} 周</span></div></div>
+    <div class="clock-critter" aria-hidden="true">${sleepingCat}</div></div>`;
 }
 
 // key → 渲染函数（与 home-layout.js 的 HOME_CARDS 对应）

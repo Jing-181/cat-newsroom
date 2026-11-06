@@ -22,10 +22,16 @@ test("训练组使用屏内卡片布局：已录组收起、当前组展开", ()
   workout.addExercise(session, "dumbbell_bench_press");
   session.exercises[0].sets[0] = { weight_kg: 20, reps: 10 };
   workout.addSet(session, 0);
+  // addSet 会继承上一组数值，这里显式清空，才构成「第 2 组待填」的场景。
+  // 全部组都有记录的动作走收小态，另见「已完成动作」那条测试。
+  session.exercises[0].sets[1] = { weight_kg: 0, reps: 0, rpe: "", note: "" };
   const html = view.editorHtml(session, "chest");
   // 有数值的第 1 组收起成一行，第 2 组（待填）展开。
   assert.equal((html.match(/class="set-row is-collapsed"/g) || []).length, 1);
   assert.equal((html.match(/class="set-row is-active"/g) || []).length, 1);
+  // 未完成动作不受收小影响：没有 is-done-compact，也没有折叠标记
+  assert.doesNotMatch(html, /is-done-compact/);
+  assert.doesNotMatch(html, /exercise-fold-mark/);
   // 推进按钮已删除：展开状态只由点击决定，输入不再触发自动收组。
   assert.doesNotMatch(html, /data-set-next|data-set-collapse|收起本组|记录并进入下一组/);
   assert.match(html, /class="set-line"/);
@@ -36,6 +42,56 @@ test("训练组使用屏内卡片布局：已录组收起、当前组展开", ()
   assert.match(html, /class="set-fields"/);
   // 自动计时与休息倒计时已经移除，相关标记不应再出现。
   assert.doesNotMatch(html, /data-workout-timer|data-workout-clock|data-rest-bar|data-rest-start|data-workout-auto-hint|field-hint/);
+});
+
+test("已完成动作整卡收小：保留数值可点开，未完成动作完全不变", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 8, 20));
+  workout.addExercise(session, "dumbbell_bench_press");
+  workout.addExercise(session, "machine_chest_press");
+  // 第一个动作三组全填满（已完成），第二个只填一组（未完成）
+  session.exercises[0].sets = [
+    { weight_kg: 20, reps: 10, rpe: "", note: "" },
+    { weight_kg: 20, reps: 9, rpe: "", note: "" },
+    { weight_kg: 17.5, reps: 12, rpe: "", note: "" },
+  ];
+  session.exercises[1].sets = [
+    { weight_kg: 45, reps: 12, rpe: "", note: "" },
+    { weight_kg: 0, reps: 0, rpe: "", note: "" },
+  ];
+  const html = view.editorHtml(session, "chest");
+  // 按 <article 切段：card 的 class 在 data-exercise-card 之前，只按属性切会把 class 落掉
+  const cardStart = id => html.lastIndexOf("<article", html.indexOf(`data-exercise-card="${id}"`));
+  const doneCard = html.slice(cardStart(0), cardStart(1));
+  const pendingCard = html.slice(cardStart(1));
+
+  // 已完成：收小态、折叠标记、不显示上次表现与组间歇建议
+  assert.match(doneCard, /session-exercise is-done is-done-compact/);
+  assert.match(doneCard, /class="exercise-fold-mark"[^>]*aria-expanded="false"/);
+  assert.doesNotMatch(doneCard, /class="exercise-last/);
+  assert.doesNotMatch(doneCard, /class="rest-advice"/);
+  // 三组都收成只读一行，仍能看见重量次数，没有常驻删除叉、没有展开的编辑器
+  assert.equal((doneCard.match(/class="set-row is-collapsed"/g) || []).length, 3);
+  assert.equal((doneCard.match(/class="set-line is-readonly"/g) || []).length, 3);
+  assert.doesNotMatch(doneCard, /set-row is-active/);
+  assert.doesNotMatch(doneCard, /data-set-delete/);
+  assert.match(doneCard, /20 kg × 10/);
+  assert.match(doneCard, /3\/3 组/);
+
+  // 未完成：当前组仍展开，上次表现、组间歇建议、删除叉都在，没有折叠标记
+  assert.doesNotMatch(pendingCard, /is-done-compact/);
+  assert.doesNotMatch(pendingCard, /exercise-fold-mark/);
+  assert.match(pendingCard, /set-row is-active/);
+  assert.match(pendingCard, /class="rest-advice"/);
+  assert.match(pendingCard, /data-set-delete/);
+
+  // 展开过的动作回到完整态（内存态由 uiState 传入）
+  const expanded = view.editorHtml(session, "chest", [], { openSets: {}, expandedDone: new Set([session.exercises[0].id]) });
+  const expandedStart = expanded.lastIndexOf("<article", expanded.indexOf('data-exercise-card="0"'));
+  const expandedCard = expanded.slice(expandedStart, expanded.lastIndexOf("<article", expanded.indexOf('data-exercise-card="1"')));
+  assert.doesNotMatch(expandedCard, /is-done-compact/);
+  assert.match(expandedCard, /aria-expanded="true"/);
+  assert.match(expandedCard, /class="exercise-last/);
 });
 
 test("动作脚部给出组间歇推荐文案，大肌群比小肌群长", () => {
@@ -71,6 +127,9 @@ test("动作进展默认收起：训练页与历史页都改用折叠块", () =>
   history[0].status = "completed";
   history[0].exercises[0].sets = [{ weight_kg: 20, reps: 10 }];
   const session = workout.createSession("chest", new Date(2026, 8, 20));
+  // 训练页只统计这次训练里的动作；空训练不显示进展块（三个零不是信息）
+  assert.doesNotMatch(view.editorHtml(session, "chest", history), /动作进展/);
+  workout.addExercise(session, "dumbbell_bench_press");
   const editor = view.editorHtml(session, "chest", history);
   // 常驻入口按钮已移除，改成默认收起的 <details>，不占训练主流程的视觉重量。
   assert.doesNotMatch(editor, /data-tracked-progress/);
@@ -115,17 +174,18 @@ test("动作选择器支持整项点击并标记已添加动作", () => {
   assert.match(html, />已添加</);
 });
 
-test("动作选择器提供自定义动作入口，并列出用过的自定义动作", () => {
+test("动作选择器不再常驻自定义入口，只在搜不到时给新建", () => {
   const view = loadView();
   const session = workout.createSession("legs", new Date(2026, 9, 8));
   const html = view.exerciseLibraryHtml("legs", session.exercises, [{ id: "custom_农夫行走", name: "农夫行走" }]);
-  assert.match(html, /id="workout-custom-form"/);
-  assert.match(html, /id="workout-custom-name"[^>]*maxlength="20"/);
-  assert.match(html, /data-add-custom="农夫行走"/);
-  // 已经加进本次训练的自定义动作不再作为待选 chip 出现
-  workout.addCustomExercise(session, "农夫行走");
-  const again = view.exerciseLibraryHtml("legs", session.exercises, [{ id: "custom_农夫行走", name: "农夫行走" }]);
-  assert.doesNotMatch(again, /data-add-custom=/);
+  // 自定义输入区撤了：动作库基本盖得住，不能默认占着一屏的位置
+  assert.doesNotMatch(html, /id="workout-custom-form"/);
+  assert.doesNotMatch(html, /data-add-custom=/);
+  // 新建入口只存在于那个默认隐藏的空态里（搜索无结果时才由脚本放开）
+  assert.match(html, /id="workout-exercise-create"/);
+  assert.match(html, /class="exercise-empty" hidden/);
+  // 列表被包在独立的滚动区里，头和搜索不跟着滚
+  assert.match(html, /class="lib-scroll"/);
 });
 
 test("训练详情展示动作组次且历史卡提供编辑入口", () => {
@@ -152,7 +212,7 @@ test("训练历史按月份分组，无日期记录归入日期未记录", () =>
   assert.match(html, /class="history-month">2026 年 9 月</);
   assert.match(html, /class="history-month">日期未记录</);
   assert.match(html, /class="history-group"/);
-  assert.match(html, /class="history-meta"/);
+  assert.match(html, /class="history-facts"/);
   assert.match(html, /data-history-view=/);
 });
 
@@ -213,6 +273,36 @@ test("复制文本包含日期、时长与每组重量次数", () => {
   assert.match(text, /第 2 组 20 kg × 9 · RPE 9/);
 });
 
+test("结束区训练中默认收成一行，点开才是时长、状态词与备注", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date());
+  const collapsed = view.editorHtml(session, "chest");
+  // 默认收起：只留日期一行，▾ 与 aria-expanded 说明里面还有东西
+  assert.match(collapsed, /class="workout-completion is-collapsed"/);
+  assert.match(collapsed, /class="workout-completion-head" data-completion-toggle aria-expanded="false"/);
+  assert.match(collapsed, /class="workout-fold-mark"/);
+  assert.match(collapsed, /class="workout-completion-hint">状态词 · 备注</);
+  // 内容仍在 DOM 里（只是收起），否则填完收起再展开就丢值
+  assert.match(collapsed, /id="workout-duration"/);
+  assert.match(collapsed, /id="workout-note"/);
+  // 已经选过状态词的，收起行直接把它露出来
+  session.mood = "不错";
+  assert.match(view.editorHtml(session, "chest"), /class="workout-completion-hint">状态 · 不错</);
+  // 点开态由内存开关控制
+  const opened = view.editorHtml(session, "chest", [], { completionOpen: true });
+  assert.match(opened, /class="workout-completion is-open"/);
+  assert.match(opened, /aria-expanded="true"/);
+  // 历史详情是回看，不受这个收起开关影响：状态词与备注直接展示
+  const record = workout.createSession("chest", new Date(2026, 8, 20));
+  record.status = "completed";
+  record.mood = "练爽了";
+  record.note = "今天状态很好";
+  const detail = view.detailHtml(record);
+  assert.match(detail, /class="record-mood">练爽了</);
+  assert.match(detail, /class="record-note">今天状态很好</);
+  assert.doesNotMatch(detail, /workout-completion/);
+});
+
 test("结束区提供状态词快捷选项与多行备注", () => {
   const view = loadView();
   const session = workout.createSession("chest", new Date());
@@ -252,14 +342,17 @@ test("空闲页给出上次这一练与补记入口", () => {
   workout.addExercise(last, "dumbbell_bench_press");
   last.exercises[0].sets = [{ weight_kg: 20, reps: 10 }];
   const html = view.idleHtml("chest", [last]);
-  assert.match(html, /class="workout-last"/);
-  assert.match(html, /上次胸日/);
+  // 上次这一练并进了开始卡：日期与动作/组数在事实行，末组落在账本行上
+  assert.match(html, /class="workout-start-card"/);
+  assert.match(html, /今天 · 胸日/);
   assert.match(html, /2026-10-13/);
-  assert.match(html, /哑铃卧推 20×10/);
+  assert.match(html, /哑铃卧推<\/b> 20×10/);
   // 补记入口不单独提供：想补哪一天，开始训练后在结束区改日期
   assert.doesNotMatch(html, /workout-backfill/);
-  // 没有记录时整块不渲染，不编造安排
-  assert.doesNotMatch(view.idleHtml("chest", []), /class="workout-last"/);
+  // 没有记录时不给上次事实，也不给「照上次练」，不编造安排
+  const empty = view.idleHtml("chest", []);
+  assert.doesNotMatch(empty, /class="start-repeat"/);
+  assert.match(empty, /这个训练日还没有记录/);
 });
 
 test("历史卡与详情显示状态词", () => {
@@ -267,7 +360,7 @@ test("历史卡与详情显示状态词", () => {
   const session = workout.createSession("chest", new Date("2026-10-13T00:00:00"));
   session.status = "completed";
   session.mood = "不错";
-  assert.match(view.idleHtml("chest", [session]), /class="history-mood">不错</);
+  assert.match(view.idleHtml("chest", [session]), /class="history-stamp">不错</);
   assert.match(view.detailHtml(session), /class="record-mood">不错</);
 });
 
@@ -296,4 +389,110 @@ test("动作选择器按练过的次数排序，常用动作排在前面", () =>
   // 没有历史时保持动作库原序，不编造常用度
   const plain = view.exerciseLibraryHtml("chest", [], [], []);
   assert.ok(plain.indexOf(`data-add-exercise="${cold.id}"`) < plain.indexOf(`data-add-exercise="${frequent.id}"`));
+});
+
+test("统计：一行事实，容量带千分位，没录时是破折号而不是 0", () => {
+  const view = loadView();
+  const session = workout.createSession("legs", new Date(2026, 10, 4));
+  workout.addExercise(session, "barbell_squat");
+  session.exercises[0].sets = Array.from({ length: 6 }, () => ({ weight_kg: 100, reps: 12 }));
+  const html = view.statsHtml(workout.calculateStats(session));
+  // 四位数带千分位：不加逗号在窄屏上会读成一团数字
+  assert.match(html, /data-workout-stat="volume">7,200</);
+  assert.match(html, /<b data-workout-stat="setCount">6<\/b>组/);
+  // 开场必然为 0，就不拿它当主视觉：排了动作还没录时容量是一条破折号
+  const draft = workout.createSession("legs", new Date(2026, 10, 4));
+  workout.addExercise(draft, "barbell_squat");
+  assert.match(view.statsHtml(workout.calculateStats(draft)), /data-workout-stat="volume">—</);
+  assert.doesNotMatch(view.statsHtml(workout.calculateStats(draft)), />0<\/b> kg/);
+  // 一个动作都没排时整行不出现，不报三个零
+  assert.equal(view.statsHtml(workout.calculateStats(workout.createSession("legs", new Date(2026, 10, 4)))), "");
+  // 四栏等分和超大主数字的旧结构都不再出现
+  assert.doesNotMatch(html, /class="workout-stat"/);
+  assert.doesNotMatch(html, /workout-summary-hero/);
+});
+
+test("动作进展：只练过一次的动作在有可比数据时收成一行计数，不占整行", () => {
+  const view = loadView();
+  const make = (date, weight, reps) => {
+    const session = workout.createSession("legs", new Date(`${date}T00:00:00`));
+    workout.addExercise(session, "barbell_squat");
+    session.status = "completed";
+    session.date = date;
+    session.exercises[0].sets = [{ weight_kg: weight, reps }];
+    return session;
+  };
+  const once = workout.createSession("chest", new Date(2026, 9, 1));
+  workout.addExercise(once, "dumbbell_bench_press");
+  once.status = "completed";
+  once.date = "2026-10-01";
+  once.exercises[0].sets = [{ weight_kg: 20, reps: 10 }];
+  const html = view.idleHtml("chest", [once, make("2026-10-01", 60, 8), make("2026-10-08", 62.5, 8)]);
+  assert.match(html, /data-exercise-trend="barbell_squat"/);
+  assert.match(html, /\+2\.5 kg/);
+  // 只练过一次的哑铃卧推收进计数行，不再单独占一行
+  assert.doesNotMatch(html, /data-exercise-trend="dumbbell_bench_press"/);
+  assert.match(html, /另有 1 个动作只练过一次/);
+});
+
+test("逐组模式只渲染当前这一组，给的是两个大号输入而不是整页卡片", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 10, 6));
+  workout.addExercise(session, "dumbbell_bench_press");
+  const html = view.editorHtml(session, "chest", [], { focus: true, focusTarget: { exercise: 0, set: 0 } });
+  assert.match(html, /class="workout-app workout-focus"/);
+  assert.match(html, /data-focus-field="weight_kg"/);
+  assert.match(html, /data-focus-field="reps"/);
+  assert.match(html, /data-focus-done/);
+  assert.match(html, /data-focus-overview/);
+  // 逐组模式里不该出现总览那套动作卡与统计条
+  assert.doesNotMatch(html, /data-exercise-card/);
+  assert.doesNotMatch(html, /workout-summary/);
+});
+
+test("没有动作时也停在逐组屏，加动作的入口就在这块屏上", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 10, 6));
+  // 训练从「练什么」开始：空态留在逐组屏，不退回整页
+  const empty = view.editorHtml(session, "chest", [], { focus: true, focusTarget: null });
+  assert.match(empty, /workout-focus/);
+  assert.match(empty, /data-focus-add-exercise/);
+  assert.match(empty, /data-focus-cancel/);
+  assert.doesNotMatch(empty, /data-exercise-card/);
+  // 从总览进来时才给回到逐组的入口
+  assert.doesNotMatch(view.editorHtml(session, "chest", [], {}), /workout-focus/);
+  assert.match(view.editorHtml(session, "chest", [], {}), /data-focus-enter/);
+});
+
+test("总览弹窗与结束弹窗：默认导出里拿得到，含组列表与结束字段", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 10, 6));
+  workout.addExercise(session, "dumbbell_bench_press");
+  // 这两个弹窗是逐组模式唯一的全局入口，缺一个就退回整页总览
+  const overview = view.overviewDialogHtml(session, "chest");
+  assert.match(overview, /data-focus-jump="0-0"/);
+  assert.match(overview, /data-focus-finish-dialog/);
+  const finish = view.finishDialogHtml(session);
+  assert.match(finish, /id="workout-date"/);
+  assert.match(finish, /id="workout-duration"/);
+  assert.match(finish, /id="workout-note"/);
+  assert.match(finish, /workout-finish-save/);
+});
+
+test("逐组屏带秒表与图解位，补记弹窗不走正式训练", () => {
+  const view = loadView();
+  const session = workout.createSession("chest", new Date(2026, 10, 6));
+  workout.addExercise(session, "dumbbell_bench_press");
+  const focus = view.editorHtml(session, "chest", [], { focus: true, focusTarget: { exercise: 0, set: 0 } });
+  assert.match(focus, /data-focus-timer/);
+  assert.match(focus, /data-move-figure/);
+  // 补记是独立的轻量入口：日期、训练日、时长、备注，没有组数据
+  const backfill = view.backfillDialogHtml("chest");
+  assert.match(backfill, /id="backfill-date"/);
+  assert.match(backfill, /id="backfill-day"/);
+  assert.match(backfill, /id="backfill-duration"/);
+  assert.match(backfill, /id="backfill-save"/);
+  assert.doesNotMatch(backfill, /data-focus/);
+  // 空闲页给了这个入口
+  assert.match(view.idleHtml("chest", []), /data-backfill/);
 });

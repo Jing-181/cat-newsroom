@@ -5,8 +5,8 @@
   const trainingDays = [
   { id: "chest", name: "胸日" },
   { id: "back", name: "背日" },
-  { id: "shoulders", name: "肩日" },
   { id: "legs", name: "腿日" },
+  { id: "shoulders", name: "肩日" },
   { id: "arms", name: "手臂日" },
   { id: "full_body", name: "全身日" },
   { id: "cardio", name: "有氧恢复" },

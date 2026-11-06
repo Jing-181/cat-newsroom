@@ -12,7 +12,14 @@ export default defineConfig({
     minify: "esbuild", // 压缩混淆
     sourcemap: false,
     rollupOptions: {
-      input: { main: resolve(process.cwd(), "src/index.html") },
+      input: {
+        main: resolve(process.cwd(), "src/index.html"),
+        // 动作审查页是常驻的，要跟着构建走，不然部署后就没有了。
+        // 地址是 /preview/motion.html，跟 dev server 下一致。
+        motion: resolve(process.cwd(), "src/preview/motion.html"),
+        // 三种画法的横向对照页。
+        skins: resolve(process.cwd(), "src/preview/skins.html"),
+      },
       output: {
         // 带内容 hash：部署后文件名变化，强制浏览器拉取新样式，规避 GitHub Pages 10 分钟强缓存导致旧样式残留
         entryFileNames: "assets/[name]-[hash].js",

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>动作动画系统 · Motion Demo</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); font-family: var(--font); background: var(--page-bg); }
+    .shell { width: min(calc(100% - 32px), 980px); margin: 0 auto; padding: 30px 0 60px; }
+    .mast { display: flex; align-items: flex-end; gap: 16px; padding: 16px 0 14px; border-bottom: 3px double var(--border-input); }
+    .mast h1 { margin: 0; font-size: clamp(24px, 4vw, 38px); font-weight: 400; line-height: 1; }
+    .mast p { margin: 0; color: var(--text-secondary); font: 12.5px/1.5 var(--font-sans); }
+    .kicker { color: var(--accent); font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; }
+
+    .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 18px 0 6px; font: 12px var(--font-sans); color: var(--text-secondary); }
+    .bar button { padding: 7px 13px; border: 1px solid var(--border-input); border-radius: var(--radius-pill); background: var(--surface-card); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+    .bar button.on { border-color: #2e2316; background: #2e2316; color: #f4ecda; }
+    .bar .note { margin-left: auto; color: var(--text-tertiary); }
+
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { position: relative; display: flex; flex-direction: column; padding: 14px 16px 12px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); box-shadow: var(--shadow-card); }
+    .card header { display: flex; align-items: baseline; gap: 8px; }
+    .card h2 { margin: 0; font-size: 17px; font-weight: 400; letter-spacing: .02em; }
+    .card header code { color: var(--text-tertiary); font: 11px var(--font-sans); }
+    .stage { display: grid; place-items: center; min-height: 172px; color: var(--text-secondary); }
+    /* 虚线框就是 viewBox 的真实边界。溢出就会跑到框外，一眼能看出来。 */
+    .frame { position: relative; display: grid; place-items: center; height: 148px; aspect-ratio: 106 / 122; border: 1px dashed color-mix(in srgb, var(--text-tertiary) 55%, transparent); border-radius: 4px; }
+    .frame svg { height: 100%; width: 100%; overflow: visible; }
+    .frame svg .fig-far { opacity: .42; }
+    .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; padding-top: 9px; border-top: 1px solid var(--border); color: var(--text-tertiary); font: 11px var(--font-sans); }
+    .meta b { color: var(--text-secondary); font-weight: 600; }
+    .meta .beats { display: flex; gap: 3px; align-items: center; }
+    .meta .beat { width: 2px; height: 9px; background: var(--module-3); border-radius: 1px; }
+
+    /* 分组标题：推 / 拉 / 腿 / 核心有氧。排列按训练日靠，不按字母。 */
+    .group-head { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; margin: 14px 0 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .group-head h3 { margin: 0; font-family: var(--font); font-size: 15px; font-weight: 400; letter-spacing: .14em; }
+    .group-head span { color: var(--text-tertiary); font: 11px var(--font-sans); }
+    .grid.dark .group-head { border-bottom-color: var(--ink-line); }
+    .grid.dark .group-head h3 { color: var(--ink-text); }
+    .grid.dark .group-head span { color: rgba(240,232,213,.45); }
+
+    /* 深墨底：小人真正出场的地方（逐组屏），尺寸也按那边来，96px。 */
+    .grid.dark .card {
+      border-color: var(--ink-line); box-shadow: none;
+      background: radial-gradient(120% 80% at 82% 6%, rgba(196,113,40,.24), transparent 58%),
+                  linear-gradient(168deg, #4a3a28, #33281b 58%, #241b11);
+    }
+    .grid.dark .card h2, .grid.dark .meta b { color: var(--ink-text); }
+    .grid.dark .card header code { color: rgba(240,232,213,.45); }
+    .grid.dark .stage { min-height: 148px; color: rgba(240,232,213,.52); }
+    .grid.dark .frame { height: 118px; border-color: rgba(240,232,213,.18); }
+    .grid.dark .meta { border-top-color: var(--ink-line); color: rgba(240,232,213,.45); }
+    .grid.dark .meta .beat { background: #b89030; }
+
+    footer { margin-top: 34px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-tertiary); font: 11.5px/1.7 var(--font-sans); }
+    footer code { color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+<main class="shell">
+  <div class="mast">
+    <div>
+      <div class="kicker">Motion system</div>
+      <h1>动作动画回归页</h1>
+    </div>
+    <p>只加载 <code>src/lib/motion/</code>，不读数据、不连同步。<br>改完剪辑或皮肤，来这里看一遍。</p>
+  </div>
+
+  <div class="bar">
+    <button type="button" id="speed" aria-pressed="false">慢放 0.35×</button>
+    <button type="button" id="reduced" aria-pressed="false">模拟「减少动态效果」</button>
+    <button type="button" id="dark" aria-pressed="false">深墨底</button>
+    <span class="note">竖线是关键帧落点，越密说明这一段节奏越紧</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    这一页是 <code>docs/motion-system.md</code> 的实物入口，跟 <code>docs/design-demo.html</code> 一个意思：
+    前者看动作，后者看视觉。加动作或换皮肤以后两边都要过一遍。
+  </footer>
+</main>
+
+<script type="module">
+  import { CLIPS } from "/lib/motion/clips.js";
+  import { createFigure } from "/lib/motion/index.js";
+
+  const grid = document.querySelector("#grid");
+  // ?still=1 强制静帧、?dark=1 换深墨底、?at=0.35 指定定格在哪个相位（0–1）。
+  // 审阅时用，每次看到的是同一帧，而不是随手抓到的一帧。
+  const params = new URLSearchParams(location.search);
+  const still = params.get("still") === "1";
+  const dark = params.get("dark") === "1";
+  // 注意 Number(null) === 0：不先判空的话，没传 at 时会被当成「定格在 0」而不是「不指定」。
+  const atRaw = params.get("at");
+  const atNum = atRaw === null ? NaN : Number(atRaw);
+  const at = Number.isFinite(atNum) && atNum >= 0 && atNum <= 1 ? atNum : null;
+  const state = { speed: 1, reduced: still ? true : undefined };
+  let cleanups = [];
+
+  const GROUPS = [
+    ["基础模式", "蹲、髋铰链、待机。其余动作都是这几条变体"],
+    ["推", "胸、肩、三头"],
+    ["拉", "背、后束、二头"],
+    ["腿", "下肢"],
+    ["核心有氧", ""],
+  ];
+
+  function render() {
+    cleanups.forEach(fn => fn());
+    cleanups = [];
+    grid.innerHTML = "";
+
+    const shown = Object.values(CLIPS).filter(clip => clip.visible !== false);
+    const order = [...GROUPS.map(([g]) => g), ...new Set(shown.map(c => c.group))];
+
+    for (const group of order) {
+      const clips = shown.filter(clip => clip.group === group);
+      if (!clips.length) continue;
+
+      const head = document.createElement("div");
+      head.className = "group-head";
+      const note = GROUPS.find(([g]) => g === group)?.[1] || "";
+      head.innerHTML = `<h3>${group}</h3><span>${note}</span>`;
+      grid.append(head);
+
+      for (const clip of clips) {
+        grid.append(renderCard(clip));
+      }
+    }
+  }
+
+  function renderCard(clip) {
+    const card = document.createElement("section");
+    card.className = "card";
+    const beats = clip.tracks
+      .map(t => `<span class="beat" style="opacity:${0.35 + 0.65 * (t.at / clip.duration)}"></span>`)
+      .join("");
+    card.innerHTML = `<header><h2>${clip.label}</h2><code>${clip.id}</code></header>
+      <div class="stage"><div class="frame"><svg data-fig></svg></div></div>
+      <div class="meta">
+        <span>时长 <b>${clip.duration}s</b></span>
+        <span>关键帧 <b>${clip.tracks.length}</b></span>
+        <span>静帧 <b>${clip.stillAt}s</b></span>
+        <span class="beats">${beats}</span>
+      </div>`;
+    cleanups.push(createFigure(card.querySelector("[data-fig]"), {
+      clip: at === null ? clip : { ...clip, stillAt: clip.duration * at },
+      speed: state.speed,
+      reduced: state.reduced,
+    }));
+    return card;
+  }
+
+  const speedBtn = document.querySelector("#speed");
+  const reducedBtn = document.querySelector("#reduced");
+  const darkBtn = document.querySelector("#dark");
+  reducedBtn.classList.toggle("on", state.reduced === true);
+  reducedBtn.setAttribute("aria-pressed", String(state.reduced === true));
+
+  darkBtn.addEventListener("click", () => {
+    const on = grid.classList.toggle("dark");
+    darkBtn.classList.toggle("on", on);
+    darkBtn.setAttribute("aria-pressed", String(on));
+  });
+
+  if (dark) {
+    grid.classList.add("dark");
+    darkBtn.classList.add("on");
+    darkBtn.setAttribute("aria-pressed", "true");
+  }
+
+  speedBtn.addEventListener("click", () => {
+    state.speed = state.speed === 1 ? 0.35 : 1;
+    speedBtn.classList.toggle("on", state.speed !== 1);
+    speedBtn.setAttribute("aria-pressed", String(state.speed !== 1));
+    speedBtn.textContent = state.speed === 1 ? "慢放 0.35×" : "恢复常速";
+    render();
+  });
+
+  reducedBtn.addEventListener("click", () => {
+    state.reduced = state.reduced ? undefined : true;
+    reducedBtn.classList.toggle("on", state.reduced === true);
+    reducedBtn.setAttribute("aria-pressed", String(state.reduced === true));
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>

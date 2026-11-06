@@ -359,6 +359,123 @@ function trackedExercises(records) {
   return [...map.values()].sort((left, right) => right.lastDate.localeCompare(left.lastDate) || right.sessionCount - left.sessionCount);
 }
 
+// ---- 长期变化摘要：一句话说清「最近在涨还是停住了」----
+//
+// 原来的做法是把每次的最佳组排成 18×10 → 22.5×10 → 25×8 的箭头链。问题不在数据，在读数：
+// 箭头链只能给绝对序列，要变没变、变了多少，得自己一位一位比。所以这里先把每次折成一个标量，
+// 再只输出「跟上次比」的一个差量。
+
+// 每次训练的代表值。选哪把尺子按器械类型定：
+// 力量动作用估算强度（重量×次数折成同一把尺，减重加次不会被读成退步）；
+// 自重动作没有重量，用次数；有氧看时长（没时长就看距离）。
+function progressMetric(entry, equipment) {
+  const best = bestSet(entry.sets);
+  if (!best) return null;
+  const text = formatSetCompact(best, equipment);
+  if (isCardio({ equipment })) {
+    const duration = Number(best.duration_min || 0);
+    const distance = Number(best.distance_km || 0);
+    return { value: duration > 0 ? duration : distance * 6, unit: duration > 0 ? "分" : "km", text, weight: 0, reps: 0 };
+  }
+  const weight = Number(best.weight_kg || 0);
+  if (weight > 0) return { value: setIntensity(best), unit: "kg", text, weight, reps: Number(best.reps || 0) };
+  return { value: Number(best.reps || 0), unit: "次", text, weight, reps: Number(best.reps || 0) };
+}
+
+// 变化怎么说。同一个意思挑最具体的说法，让人一眼知道是加重量还是加次数：
+// 重量没动、次数多了 → 「+1 次」；次数没动、重量加了 → 「+2.5 kg」；两样都动 → 「+4%」（按估算强度）。
+function deltaText(digest) {
+  if (!digest.previous) return "首次";
+  // 没到阈值的变化直接说持平，不用「+0%」这种看起来像是算错了的写法。
+  if (digest.state === "flat") return "持平";
+  const sign = value => `${value > 0 ? "+" : "-"}${Math.abs(value)}`;
+  const { latest, previous } = digest;
+  if (latest.unit === "kg") {
+    if (latest.weight === previous.weight && latest.reps !== previous.reps) return `${sign(latest.reps - previous.reps)} 次`;
+    if (latest.reps === previous.reps && latest.weight !== previous.weight) return `${sign(Math.round((latest.weight - previous.weight) * 10) / 10)} kg`;
+    return `${sign(Math.round(digest.pct * 10) / 10)}%`;
+  }
+  if (latest.unit === "次") return `${sign(latest.value - previous.value)} 次`;
+  return `${sign(Math.round((latest.value - previous.value) * 10) / 10)}${latest.unit}`;
+}
+
+const PROGRESS_STATE_ORDER = { up: 0, down: 1, flat: 2, new: 3 };
+
+// 单个动作的长期变化：最新一次 vs 上一次，外加是否破纪录、连续进步几次。
+function progressDigest(records, track, limit = 6) {
+  const history = exerciseHistory(records, track.exercise_id, limit);
+  if (!history.length) return null;
+  const points = history.map(entry => progressMetric(entry, entry.equipment || track.equipment)).filter(Boolean);
+  const latest = points[0];
+  if (!latest) return null;
+  const previous = points[1] || null;
+  // 阈值：kg 档按 2% 起算（60kg 上的 2.5kg 约 4%，够得上）；次数档至少差 1 次；时长档至少 1 分钟。
+  const epsilon = latest.unit === "kg" ? Math.max(0.5, latest.value * 0.02) : 1;
+  const delta = previous ? Math.round((latest.value - previous.value) * 10) / 10 : 0;
+  const pct = previous && previous.value > 0 ? Math.round((delta / previous.value) * 1000) / 10 : 0;
+  const state = !previous ? "new" : delta >= epsilon ? "up" : delta <= -epsilon ? "down" : "flat";
+  const earlierMax = points.slice(1).reduce((max, point) => Math.max(max, point.value), -Infinity);
+  const isPR = Number.isFinite(earlierMax) && latest.value > earlierMax + 0.01;
+  // 连续进步：从最近一次往前数，相邻两次都在涨，断了就停。
+  let streak = 0;
+  for (let index = 0; index + 1 < points.length; index += 1) {
+    if (points[index].value > points[index + 1].value + epsilon) streak += 1;
+    else break;
+  }
+  return {
+    exercise_id: track.exercise_id,
+    name: track.name,
+    body_part: track.body_part,
+    unit: latest.unit,
+    date: latest.date,
+    text: latest.text,
+    latest,
+    previous,
+    delta,
+    pct,
+    state,
+    isPR: isPR && Boolean(previous),
+    streak,
+    sessionCount: history.length,
+    // 新旧正序，给迷你柱状图用
+    series: points.slice().reverse().map(point => point.value),
+  };
+}
+
+// 有变化的排前面：破纪录 → 进步（涨得多在前）→ 退步（掉得多在前）→ 持平 → 首次。
+function compareDigests(left, right) {
+  if (left.isPR !== right.isPR) return left.isPR ? -1 : 1;
+  const order = PROGRESS_STATE_ORDER[left.state] - PROGRESS_STATE_ORDER[right.state];
+  if (order) return order;
+  if (left.state === "up") return right.pct - left.pct;
+  if (left.state === "down") return left.pct - right.pct;
+  return String(right.date).localeCompare(String(left.date));
+}
+
+// 折叠块里的全部动作。exerciseIds 给了就只统计这几个（训练页只看今天要练的），
+// 没给就是全部（历史页看整体）。
+function progressDigests(records, { exerciseIds = null, limit = 8 } = {}) {
+  const wanted = exerciseIds ? new Set(exerciseIds) : null;
+  const items = [];
+  for (const track of trackedExercises(records)) {
+    if (wanted && !wanted.has(track.exercise_id)) continue;
+    const digest = progressDigest(records, track);
+    if (digest) items.push(digest);
+  }
+  return items.sort(compareDigests).slice(0, limit);
+}
+
+// 折叠状态下那一行字：直接给结论，不是使用说明。
+// 有新纪录时只说「N 项新纪录 · 最强的那一个」，不逐个列举：一行放不下三个动作，截断比少说更难读。
+function progressHeadline(digests) {
+  if (!digests.length) return "";
+  const prs = digests.filter(digest => digest.isPR);
+  const changed = digests.filter(digest => digest.state === "up" || digest.state === "down");
+  const picks = (changed.length ? changed : digests).slice(0, prs.length ? 1 : 2);
+  const parts = picks.map(digest => `${digest.name} ${deltaText(digest)}`);
+  return (prs.length ? `${prs.length} 项新纪录 · ` : "") + parts.join(" · ");
+}
+
 // ---- 组记录展示 ----
 
 // 负重文案：负数=助力（弹力带/助力器械），0=自重（仅自重类动作，其他动作显示 0 kg），正数=负重
@@ -377,6 +494,19 @@ function formatSetText(set, equipment) {
     return parts.join(" · ");
   }
   return `${weightText(set?.weight_kg, equipment)} × ${num(set?.reps)}`;
+}
+
+// 千分位：训练容量这种四位数不加逗号，在窄屏上会读成一团数字。
+function formatNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number.toLocaleString("en-US") : "0";
+}
+
+// 容量只在真录了东西之后才有意义。开场写「0 kg」等于把空白当成一个度量报出来，
+// 所以没数据时统一用破折号，不冒充一个 0。
+function formatVolume(volume) {
+  const number = Math.round(Number(volume || 0));
+  return number > 0 ? formatNumber(number) : "—";
 }
 
 // 紧凑写法：20×10，自重动作显示为 自重×12，助力动作显示为 助力20×8。
@@ -438,7 +568,8 @@ const Workout = {
   calculateStats, summary,
   todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,
-  exerciseHistory, trackedExercises, formatSetText, formatSetCompact, formatSetList,
+  exerciseHistory, trackedExercises, progressDigests, progressHeadline, deltaText, formatNumber, formatVolume,
+  formatSetText, formatSetCompact, formatSetList,
   cloneRecord, pruneSession, upsertSession, sortRecords,
 };
 export default Workout;
@@ -450,6 +581,7 @@ export {
   calculateStats, summary,
   todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,
-  exerciseHistory, trackedExercises, formatSetText, formatSetCompact, formatSetList,
+  exerciseHistory, trackedExercises, progressDigests, progressHeadline, deltaText, formatNumber, formatVolume,
+  formatSetText, formatSetCompact, formatSetList,
   cloneRecord, pruneSession, upsertSession, sortRecords,
 };

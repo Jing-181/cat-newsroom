@@ -4,6 +4,7 @@
 @import "../css/workout-ui.css";
 @import "../css/app-dialog.css";
 @import "../css/record-media.css";
+@import "../css/critters.css";
 @import "./desktop.css";
 @import "./responsive.css";
 
@@ -18,3 +19,24 @@ html, body { background: var(--page-bg); color: var(--text); font-family: var(--
 @media (prefers-reduced-motion: reduce) {
   .btn, .modal { transition: none !important; }
 }
+
+/* ---- 树影层（src/lib/leaf-shade.js）----
+   挂在 .layout 最底下一层；内容整体抬到它上面，叶影于是只从页面的空隙里透出来。
+   画布本身是低分辨率放大的，不加 CSS 模糊，保留那种“纸上看树荫”的软边。 */
+.leaf-shade { position: fixed; inset: 0; z-index: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+.main { position: relative; z-index: 1; }
+
+/* ---- 模块切换 ----
+   支持 View Transitions 时交给浏览器做交叉淡出；视图自己的入场动画必须关掉，
+   因为它从 opacity 0 开始，浏览器截到的新帧就是空白，反而更闪。 */
+@supports (view-transition-name: root) {
+  .view-swap { animation: none !important; }
+}
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 190ms; }
+::view-transition-old(root) { animation-timing-function: cubic-bezier(.4, 0, 1, 1); }
+::view-transition-new(root) { animation-timing-function: cubic-bezier(0, .55, .25, 1); }
+
+/* 弹窗左下角那种“退路”按钮：不抢主按钮，但必须找得到 */
+.dialog-quiet { margin-right:auto; padding:6px 2px; border:0; background:none; color:var(--text-tertiary); font:inherit; font-size:11.5px; letter-spacing:.02em; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.dialog-quiet:hover { color:var(--danger); }
