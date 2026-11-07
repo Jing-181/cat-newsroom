@@ -25,7 +25,11 @@
 
     /* 每一行是一个动作，每一列是一种画法。同一行里的姿势完全一致，才好对比。 */
     .board { margin-top: 14px; border-top: 1px solid var(--border); }
-    .row { display: grid; grid-template-columns: 96px repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--border); align-items: stretch; }
+    .row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--border); align-items: stretch; }
+    /* 体积线和 3D 暂停（2026-11-07）：先把线条稿的形定死，另外两条不再参与判断。
+       代码和文件都留着，只是不再并排展示——三个东西一起看，反而没一个能看准。 */
+    .row > .cell:nth-child(n+3) { display: none; }
+    .paused { margin: 10px 0 0; padding: 9px 12px; border: 1px dashed var(--border-input); border-radius: var(--radius-card); color: var(--text-tertiary); font: 11.5px/1.6 var(--font-sans); }
     .row-head { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
     .row-head h2 { margin: 0; font-size: 16px; font-weight: 400; letter-spacing: .02em; }
     .row-head code { color: var(--text-tertiary); font: 10.5px var(--font-sans); }
@@ -69,6 +73,8 @@
     </div>
     <p>关节数据完全相同，只有画法不同。<br>横向对比，不要分别看。</p>
   </div>
+
+  <p class="paused">体积线与 3D 暂停：先把线条稿的形定死。两个皮肤的文件都还在，只是不并排展示了。<br>形本身的基准在 <a href="./body.html">身体多视图</a>。</p>
 
   <div class="bar">
     <button type="button" id="play">播放</button>

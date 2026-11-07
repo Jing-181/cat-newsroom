@@ -18,13 +18,14 @@ export function createFigure(svg, {
   reduced,          // 传 true 强制静帧，传 false 强制播放；不传则跟随系统设置
   proportions = PROPORTIONS,
   skin: makeSkin = createSvgSkin,
+  skinOptions = {},   // 透传给皮肤的画法参数（body: "stick" | "shape" 等）
   player: makePlayer = createPlayer,
 } = {}) {
   if (!svg || typeof document === "undefined") return NOOP;
 
   const source = clip || clipFor(kind);
   const prepared = prepareClip(source);
-  const skin = makeSkin(svg, { proportions });
+  const skin = makeSkin(svg, { proportions, ...skinOptions });
   skin.resize(source.viewBox);
 
   if (scale !== 1) svg.style.setProperty("--fig-scale", String(scale));

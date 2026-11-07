@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>精灵图播放器 · Sprite</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); font-family: var(--font); background: var(--page-bg); }
+    .shell { width: min(calc(100% - 32px), 1080px); margin: 0 auto; padding: 28px 0 56px; }
+    .mast { display: flex; align-items: flex-end; gap: 16px; padding: 14px 0 12px; border-bottom: 3px double var(--border-input); }
+    .mast h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); font-weight: 400; line-height: 1; }
+    .mast p { margin: 0; color: var(--text-secondary); font: 12.5px/1.5 var(--font-sans); }
+    .kicker { color: var(--accent); font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; }
+
+    .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0 6px; font: 12px var(--font-sans); color: var(--text-secondary); }
+    .bar button { padding: 7px 13px; border: 1px solid var(--border-input); border-radius: var(--radius-pill); background: var(--surface-card); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+    .bar button.on { border-color: #2e2316; background: #2e2316; color: #f4ecda; }
+    .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 10px; font: 12px var(--font-sans); color: var(--text-secondary); }
+    .row label { display: flex; align-items: center; gap: 6px; }
+    .row input[type=number] { width: 62px; padding: 5px 7px; border: 1px solid var(--border-input); border-radius: 6px; background: var(--surface-card); color: var(--text); font: inherit; }
+    .row input[type=range] { width: 220px; }
+
+    .stage { display: grid; place-items: center; margin-top: 16px; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); min-height: 300px; }
+    #sprite { position: relative; }
+
+    .drop { display: grid; place-items: center; gap: 8px; padding: 26px; border: 1px dashed var(--border-input); border-radius: var(--radius-card); color: var(--text-tertiary); font: 12.5px/1.7 var(--font-sans); text-align: center; cursor: pointer; }
+    .drop.over { border-color: var(--accent); color: var(--accent); }
+    .drop b { color: var(--text-secondary); font-weight: 600; }
+
+    .strip { margin-top: 16px; overflow: auto; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); }
+    .strip img { display: block; max-width: none; image-rendering: pixelated; }
+    .hint { margin-top: 14px; color: var(--text-tertiary); font: 11.5px/1.8 var(--font-sans); }
+    .hint code { font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="mast">
+      <div>
+        <div class="kicker">Sprite Player</div>
+        <h1>精灵图播放器</h1>
+      </div>
+      <p>帧怎么画归设计，播到第几帧归这里。<br>换一套美术只换图片和行列数。</p>
+    </div>
+
+    <div class="bar">
+      <button id="play" class="on">播放</button>
+      <button id="pick">选一张精灵图</button>
+      <button id="demo">用占位图试一下</button>
+      <input type="file" id="file" accept="image/*" hidden>
+    </div>
+
+    <div class="row">
+      <label>列 <input type="number" id="cols" value="6" min="1" max="64"></label>
+      <label>行 <input type="number" id="rows" value="1" min="1" max="64"></label>
+      <label>帧数 <input type="number" id="frames" value="" min="1" max="1024" placeholder="自动"></label>
+      <label>fps <input type="number" id="fps" value="12" min="1" max="60"></label>
+      <label>尺寸 <input type="number" id="size" value="200" min="32" max="640"></label>
+      <label>相位 <input type="range" id="phase" min="0" max="1000" value="0"></label>
+    </div>
+
+    <div class="stage">
+      <div id="sprite"></div>
+    </div>
+
+    <div class="drop" id="drop">
+      <div><b>把精灵图拖进来</b>，或者点上面的「选一张精灵图」</div>
+      <div>图不会上传，只在你本机读。行优先：左上开始往右排，一行放不下换下一行。</div>
+    </div>
+
+    <div class="strip" id="strip" hidden><img id="sheet" alt=""></div>
+
+    <div class="hint">
+      用代码接入：<code>createSprite(el, { src, cols, rows, frames, fps })</code><br>
+      示范图（静态那张）不进播放器，单独当图片用；播放器只管动的那一份。
+    </div>
+  </div>
+
+  <script type="module">
+    import { createSprite } from "/lib/sprite/player.js";
+
+    const $ = id => document.getElementById(id);
+    const opt = () => ({
+      cols: Math.max(1, Number($("cols").value) || 1),
+      rows: Math.max(1, Number($("rows").value) || 1),
+      frames: $("frames").value ? Math.max(1, Number($("frames").value)) : null,
+      fps: Math.max(1, Number($("fps").value) || 12),
+      size: Math.max(32, Number($("size").value) || 200),
+      loop: true,
+    });
+
+    let sprite = createSprite($("sprite"), { ...opt(), src: "" });
+    let playing = false;
+
+    const mount = src => {
+      sprite.destroy();
+      sprite = createSprite($("sprite"), { ...opt(), src });
+      if (playing) sprite.play();
+      $("strip").hidden = false;
+      $("sheet").src = src;
+      $("drop").style.display = "none";
+    };
+
+    // 占位图：6 帧，一个点沿弧线走。只用来验证「切帧」这件事通了，
+    // 不代表任何动作 —— 真图要按参考风格画。
+    const makeDemoSheet = (cols = 6, cell = 160) => {
+      const c = document.createElement("canvas");
+      c.width = cell * cols;
+      c.height = cell;
+      const g = c.getContext("2d");
+      g.fillStyle = "#f4ecda";
+      g.fillRect(0, 0, c.width, c.height);
+      g.strokeStyle = "#2e2316";
+      g.lineWidth = 6;
+      g.lineCap = "round";
+      for (let i = 0; i < cols; i++) {
+        const cx = i * cell + cell / 2;
+        const t = i / cols;
+        const y = cell * 0.62 - Math.sin(t * Math.PI) * cell * 0.22;
+        g.beginPath();
+        g.arc(cx, cell * 0.3, cell * 0.12, 0, Math.PI * 2);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(cx, cell * 0.42);
+        g.lineTo(cx, y);
+        g.stroke();
+      }
+      return c.toDataURL("image/png");
+    };
+
+    $("demo").addEventListener("click", () => {
+      $("cols").value = 6;
+      $("rows").value = 1;
+      $("frames").value = "";
+      mount(makeDemoSheet(6));
+    });
+
+    $("pick").addEventListener("click", () => $("file").click());
+    $("file").addEventListener("change", e => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      mount(URL.createObjectURL(f));
+    });
+
+    const drop = $("drop");
+    drop.addEventListener("click", () => $("file").click());
+    for (const type of ["dragenter", "dragover"]) {
+      drop.addEventListener(type, e => { e.preventDefault(); drop.classList.add("over"); });
+    }
+    for (const type of ["dragleave", "drop"]) {
+      drop.addEventListener(type, e => { e.preventDefault(); drop.classList.remove("over"); });
+    }
+    drop.addEventListener("drop", e => {
+      const f = e.dataTransfer?.files?.[0];
+      if (!f || !f.type.startsWith("image/")) return;
+      mount(URL.createObjectURL(f));
+    });
+
+    $("play").addEventListener("click", () => {
+      playing = !playing;
+      $("play").classList.toggle("on", playing);
+      $("play").textContent = playing ? "暂停" : "播放";
+      playing ? sprite.play() : sprite.pause();
+    });
+
+    const params = new URLSearchParams(location.search);
+
+    // 改行列/尺寸/帧率：重建播放器。精灵图的帧尺寸变了，
+    // 光改参数不够——画布尺寸也要跟着变，重建比就地改安全。
+    const rebuild = () => {
+      const src = $("sheet").src;
+      if (!src) return;
+      const wasPlaying = playing;
+      sprite.destroy();
+      sprite = createSprite($("sprite"), { ...opt(), src });
+      if (wasPlaying) sprite.play();
+    };
+
+    for (const id of ["cols", "rows", "frames", "size", "fps"]) {
+      $(id).addEventListener("change", rebuild);
+    }
+
+    // 拖相位就是定格：方便逐帧核对，也方便截「示范图」那张。
+    $("phase").addEventListener("input", () => {
+      sprite.pause();
+      playing = false;
+      $("play").classList.remove("on");
+      $("play").textContent = "播放";
+      sprite.seek(Number($("phase").value) / 1000);
+    });
+
+    // ?demo=1 直接用占位图打开，方便验证和截图。
+    if (params.get("demo") === "1") {
+      $("demo").click();
+      $("play").click();
+    }
+  </script>
+</body>
+</html>

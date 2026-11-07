@@ -14,6 +14,9 @@
 //
 // 脚在 y=0，所有动作共用同一条地平线，所以共用框不会让它们上下跳。
 const FIGURE_BOX = "-50 -116 106 122";
+// 正面框：额状面动作的手臂向两侧展开，比矢状面宽得多（外展到肩高时手到 ±45），
+// 高度反而矮（头顶 97.5）。用侧面那个高长框，两侧手臂会被框切掉。
+const FRONT_BOX = "-56 -104 112 110";
 
 // 站直：膝屈 5°、胫骨 0°、躯干 3°。
 // 这几个数字看着琐碎，但第一版把「站直」写成了膝屈 32°，等于所有动作的起点都是微蹲。
@@ -30,19 +33,20 @@ const at = (pose, overrides) => ({ ...pose, ...overrides });
 // 最低点取平行蹲：膝屈 102°，文献区间 100–105°；躯干 26° 落在高杠的 15–25° 上限附近，
 // 解出来的胫骨前倾 29° 也在踝背屈的正常范围里。肩落在足中 x≈2，杠在脚心上方。
 // 手是握杠位：上臂略往后、屈肘，拳落在肩后上方，不是前平举。
-const SQUAT_STAND = at(STAND, { armSwing: -22, elbow: 148 });
+const SQUAT_STAND = at(STAND, { armSwing: 6, elbow: 158 });
 const squat = {
   id: "squat",
   label: "深蹲",
   group: "基础模式",
+  view: "side",
   prop: { kind: "barbell", at: "back" },
   duration: 3.8,
   stillAt: 1.5,    // 减少动态效果时停在这一秒：蹲到底之后、起来之前，动作最明确的一刻
   viewBox: FIGURE_BOX,
   tracks: [
     { at: 0, pose: SQUAT_STAND, ease: "inOut" },
-    { at: 1.25, pose: { hipHeight: 30.4, hipShift: -12.1, lean: 26, armSwing: -22, elbow: 148 } },
-    { at: 1.75, pose: { hipHeight: 30.4, hipShift: -12.1, lean: 26, armSwing: -22, elbow: 148 } },
+    { at: 1.25, pose: { hipHeight: 30.4, hipShift: -12.1, lean: 26, armSwing: 6, elbow: 158 } },
+    { at: 1.75, pose: { hipHeight: 30.4, hipShift: -12.1, lean: 26, armSwing: 6, elbow: 158 } },
     { at: 3.0, pose: SQUAT_STAND, ease: "inOut" },
     { at: 3.8, pose: SQUAT_STAND },
   ],
@@ -51,19 +55,27 @@ const squat = {
 // 髋铰链（罗马尼亚硬拉）：膝几乎不动，髋往后推，躯干折下去，手臂垂直吊着。
 // 文献：罗马尼亚硬拉躯干 60–75°（与竖直）、膝屈 15–25°；传统硬拉起肘更低、膝屈 55–65°。
 // 这里取 RDL 的折法，因为它在侧视里最能和深蹲区分开。
+//
+// 手臂写 barX/barHeight 而不是角度：硬拉的第一要义就是**杠始终在足中上方、只上下不走**。
+// 旧版用角度正解，杠在水平方向漂了 6.35 个单位（相当于 11cm），那就是「拖腿」错状。
+// 杠高不能拍脑袋，由臂长反推：站立时肩在 79.5，手臂自然下垂 34，掌就在 45.5。
+// 上一版的 58 是旧臂长（26）留下的，现在手只能够到 45.5，再写 58 就是「屈肘撞硬拉锁定」。
+// 底部从 lean 45 改成 62：手臂 34 从肩（俯身时高 60.6）往下量，只能够到 26.6，
+// 不能再直立。正好这也是真实 RDL 底部的背角（离水平 30°左右），不是为凑数改的。
 const hinge = {
   id: "hinge",
   label: "髋铰链",
   group: "基础模式",
+  view: "side",
   duration: 3.6,
   stillAt: 1.42,
   viewBox: FIGURE_BOX,
   tracks: [
-    { at: 0, pose: at(STAND, { armSwing: 0 }), ease: "inOut" },
-    { at: 1.3, pose: { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 0, elbow: 0 } },
-    { at: 1.55, pose: { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 0, elbow: 0 } },
-    { at: 3.0, pose: at(STAND, { armSwing: 0 }), ease: "inOut" },
-    { at: 3.6, pose: at(STAND, { armSwing: 0 }) },
+    { at: 0, pose: at(STAND, { barX: 0, barHeight: 45.5 }), ease: "inOut" },
+    { at: 1.3, pose: { hipHeight: 46.7, hipShift: -18, lean: 62, barX: 0, barHeight: 28 }, ease: "inOut" },
+    { at: 1.55, pose: { hipHeight: 46.7, hipShift: -18, lean: 62, barX: 0, barHeight: 28 } },
+    { at: 3.0, pose: at(STAND, { barX: 0, barHeight: 45.5 }), ease: "inOut" },
+    { at: 3.6, pose: at(STAND, { barX: 0, barHeight: 45.5 }) },
   ],
 };
 
@@ -75,6 +87,7 @@ const idle = {
   id: "idle",
   label: "待机",
   group: "基础模式",
+  view: "side",
   duration: 4,
   stillAt: 2,
   viewBox: FIGURE_BOX,
@@ -99,6 +112,8 @@ const press = {
   id: "press",
   label: "站姿推举",
   group: "推",
+  view: "side",
+  prop: { kind: "barbell", at: "hands" },
   duration: 2.9,
   stillAt: 1.05,
   viewBox: FIGURE_BOX,
@@ -111,44 +126,59 @@ const press = {
   ],
 };
 
-// 卧推：仰卧、躯干贴凳，手臂从「屈肘」推到「直臂」。
+// 卧推：仰卧、躯干贴凳，杆从胸口推到直臂。
 //
-// 关键：不用旋转整个人。躯干放平靠 lean 90°，腿仍然从髋往地面踩——
+// 关键一：不用旋转整个人。躯干放平靠 lean 90°，腿仍然从髋往地面踩——
 // 这样腿就不会跟着躯干横过来。上一版用 rootTilt 90° 把整个人转倒，
 // 结果腿和躯干叠成一个 V 字，就是这个原因。
-const BENCH_BASE = { hipHeight: 26, hipShift: -20, lean: 90 };
+//
+// 关键二：杆的路径是约束。侧视里卧推的杆就是一条竖线（在胸正上方上下），
+// 所以写 barX/barHeight。旧版写角度，杆往头那侧漂了 12.8 个单位，看着像在做“从脚往头方向拖”。
+// barX 取 12：那是肩在程度（hipShift -20 + torso 32）的位罝，也就是胸正上方。
+// 杠行程也不是拍的。旧版 36↔51 的顶位 51 恰好是旧臂长 26 的天花板——
+// 手够不到了，所以人被限制在那儿。臂长 34 之后，顶位回到解剖位置：肩 26 + 臂 34 ≈ 60。
+// 底位 30：躯干水平 90° 时胸口就压在肩线上，杠落在胸口略上方，肘在杠下。
+// 侧视里读起来就是「杠从胸口推到臂直」，这也是卧推在侧视里唯一诚实的读法。
+// 试：卧推走正面（从脚那头看）。躯干沿视线压缩，双臂向上推，横杠跨在两手之间。
+const BENCH_BASE = { hipHeight: 26, hipShift: -20, lean: 90, barX: 12 };
 const benchPress = {
   id: "bench",
   label: "卧推",
   group: "推",
-  prop: { kind: "barbell", at: "hands" },
+  view: "side",
+  prop: { kind: "barbell", at: "hands", setup: "bench" },
   duration: 3.0,
   stillAt: 0.45,
   viewBox: FIGURE_BOX,
   tracks: [
-    { at: 0, pose: { ...BENCH_BASE, armSwing: 92, elbow: 95 }, ease: "out" },
-    { at: 1.0, pose: { ...BENCH_BASE, armSwing: 179, elbow: 8 } },
-    { at: 1.3, pose: { ...BENCH_BASE, armSwing: 179, elbow: 8 } },
-    { at: 2.2, pose: { ...BENCH_BASE, armSwing: 92, elbow: 95 }, ease: "inOut" },
-    { at: 3.0, pose: { ...BENCH_BASE, armSwing: 92, elbow: 95 } },
+    { at: 0, pose: { ...BENCH_BASE, barHeight: 30 }, ease: "out" },
+    { at: 1.0, pose: { ...BENCH_BASE, barHeight: 59.5 }, ease: "inOut" },
+    { at: 1.3, pose: { ...BENCH_BASE, barHeight: 59.5 } },
+    { at: 2.2, pose: { ...BENCH_BASE, barHeight: 30 }, ease: "inOut" },
+    { at: 3.0, pose: { ...BENCH_BASE, barHeight: 30 } },
   ],
 };
 
 // 侧平举：站直，手臂从体侧抬到与肩同高。
 // 「与肩同高」在正向解算里就是 armSwing 90°，肘微屈 15°——不是直臂，直臂会被读成机器。
+// 侧平举：**正面视角**。这是一个额状面动作：手臂向体侧外展。
+// 用侧视摆它，手臂「抬到肩高」在矢状面投影里本来就不该离开身体轮廓，
+// 那个姿势是假的，读起来像前后摆臂。正面才看得到外展角本身。
 const lateralRaise = {
   id: "lateral-raise",
   label: "侧平举",
   group: "推",
+  view: "front",
+  prop: { kind: "dumbbell", at: "hands" },
   duration: 2.6,
   stillAt: 0.95,
-  viewBox: FIGURE_BOX,
+  viewBox: FRONT_BOX,
   tracks: [
-    { at: 0, pose: at(STAND, { armSwing: 2, elbow: 8 }), ease: "out" },
-    { at: 0.8, pose: at(STAND, { armSwing: 90, elbow: 15 }), ease: "inOut" },
-    { at: 1.1, pose: at(STAND, { armSwing: 90, elbow: 15 }) },
-    { at: 2.0, pose: at(STAND, { armSwing: 2, elbow: 8 }) },
-    { at: 2.6, pose: at(STAND, { armSwing: 2, elbow: 8 }) },
+    { at: 0, pose: { hipHeight: 50, armAbduct: 8, elbow: 12, stance: 7 }, ease: "out" },
+    { at: 0.8, pose: { hipHeight: 50, armAbduct: 88, elbow: 16, stance: 7 }, ease: "inOut" },
+    { at: 1.1, pose: { hipHeight: 50, armAbduct: 88, elbow: 16, stance: 7 } },
+    { at: 2.0, pose: { hipHeight: 50, armAbduct: 8, elbow: 12, stance: 7 } },
+    { at: 2.6, pose: { hipHeight: 50, armAbduct: 8, elbow: 12, stance: 7 } },
   ],
 };
 
@@ -158,6 +188,8 @@ const pushdown = {
   id: "pushdown",
   label: "绳索下压",
   group: "推",
+  view: "side",
+  prop: { kind: "cable", at: "hands" },
   duration: 2.4,
   stillAt: 0.82,
   viewBox: FIGURE_BOX,
@@ -174,39 +206,60 @@ const pushdown = {
 // 拉：俯身划船、引体向上、弯举
 // ─────────────────────────────────────────────────────────────
 
-// 俯身划船：折髋 45°、膝微屈 → 肘后收、拳拉到下肋。
+// 俯身划船：折髋 45°、膝微屈 → **肘往身后驱动**、拳拉到下肋。
 // 躯干 45° 是标准杠铃划船最常被引用的数字；膝屈 35° 而不是第一版的 63°（那个是半蹲着划船）。
+//
+// 上一版只改了 elbow（0→125），armSwing 五帧全部写死 2，实测上臂相对躯干
+// 每一帧都是 -43°——那就是「大臂不动、只折小臂」，而划船的第一口令恰恰是「肘往身后走」。
+// 现在 armSwing 从 2 拉到 -35，上臂相对躯干走 37°，肘真的到身后去了。
+//
+// 已知限制：这副骨架的手臂只有 26 个单位，肩到腹的距离是 26.6，
+// 所以杠怎么解都碰不到肚子。那是比例问题不是角度问题，见 docs/skeleton-design.md。
+const ROW_BOTTOM = { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 2, elbow: 0 };
+const ROW_TOP = { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: -35, elbow: 120 };
 const row = {
   id: "row",
   label: "俯身划船",
   group: "拉",
+  view: "side",
+  prop: { kind: "barbell", at: "hands" },
   duration: 2.7,
   stillAt: 0.9,
   viewBox: FIGURE_BOX,
   tracks: [
-    { at: 0, pose: { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 2, elbow: 0 }, ease: "out" },
-    { at: 0.75, pose: { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 2, elbow: 125 } },
-    { at: 1.05, pose: { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 2, elbow: 125 } },
-    { at: 1.9, pose: { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 2, elbow: 0 }, ease: "inOut" },
-    { at: 2.7, pose: { hipHeight: 46.7, hipShift: -16.7, lean: 45, armSwing: 2, elbow: 0 } },
+    { at: 0, pose: ROW_BOTTOM, ease: "out" },
+    { at: 0.75, pose: ROW_TOP, ease: "inOut" },
+    { at: 1.05, pose: ROW_TOP },
+    { at: 1.9, pose: ROW_BOTTOM, ease: "inOut" },
+    { at: 2.7, pose: ROW_BOTTOM },
   ],
 };
 
-// 引体向上：悬垂，手臂伸直过头顶 → 身体上移，手臂收到屈肘、拳到肩旁。
-// 身体跟着上移，这是这个动作唯一的「位移」信息，不能省。
-const PULLUP_HANG = { hipHeight: 40, hipShift: 0, lean: 3, armSwing: 178, elbow: 0 };
+// 引体向上：栁是钉死的，人往上走。
+// 所以下面每个关键帧都不写 hipHeight，只写 gripY（同一个值）和手臂角。
+// 身体升多少完全由屈肘角推出来，不需要人猜——上一版就是因为它要人猜，
+// 结果手在水平方向漂了 10 个单位，看着像在拉杠下来而不是引体。
+const PULLUP_HANG = {
+  gripY: 115, gripX: 0, freeLegs: true,
+  lean: 2, armSwing: 179, elbow: 6, freeThigh: 8, freeKnee: 48,
+};
+const PULLUP_TOP = {
+  gripY: 115, gripX: 0, freeLegs: true,
+  lean: 4, armSwing: 158, elbow: 106, freeThigh: 16, freeKnee: 62,
+};
 const pullUp = {
   id: "pull-up",
   label: "引体向上",
   group: "拉",
+  view: "side",
   prop: { kind: "bar", at: "hands" },
   duration: 3.2,
   stillAt: 1.35,
   viewBox: FIGURE_BOX,
   tracks: [
     { at: 0, pose: PULLUP_HANG, ease: "out" },
-    { at: 1.2, pose: { hipHeight: 52, hipShift: 0, lean: 5, armSwing: 168, elbow: 110 }, ease: "inOut" },
-    { at: 1.5, pose: { hipHeight: 52, hipShift: 0, lean: 5, armSwing: 168, elbow: 110 } },
+    { at: 1.2, pose: PULLUP_TOP, ease: "inOut" },
+    { at: 1.5, pose: PULLUP_TOP },
     { at: 2.5, pose: PULLUP_HANG },
     { at: 3.2, pose: PULLUP_HANG },
   ],
@@ -219,6 +272,8 @@ const curl = {
   id: "curl",
   label: "弯举",
   group: "拉",
+  view: "side",
+  prop: { kind: "dumbbell", at: "hands" },
   duration: 2.6,
   stillAt: 0.88,
   viewBox: FIGURE_BOX,
@@ -244,6 +299,7 @@ const splitSquat = {
   id: "split-squat",
   label: "保加利亚分腿蹲",
   group: "腿",
+  view: "side",
   duration: 3.4,
   stillAt: 1.3,
   viewBox: FIGURE_BOX,
@@ -259,21 +315,25 @@ const splitSquat = {
 // 坐姿腿屈伸：小腿从垂直（膝屈 90°）踢到伸直。
 // 侧视里坐姿靠髋高 + 躯干角度表达，不需要另写骨骼：
 // 髋落低、躯干立起、膝屈 90°，读起来就是「坐着」。
+const LEG_EXT_BASE = {
+  freeLegs: true, footFlat: true, hipHeight: 32, hipShift: -8, lean: 6,
+  freeThigh: 90, armSwing: 28, elbow: 85,
+};
 const legExtension = {
   id: "leg-extension",
   label: "坐姿腿屈伸",
   group: "腿",
+  view: "side",
+  prop: { kind: "seat", at: "back" },
   duration: 2.8,
   stillAt: 1.05,
   viewBox: FIGURE_BOX,
   tracks: [
-    // 坐到板凳高度：髋高 33、髋往后 8，膝屈约 90°，小腿垂直向下
-    { at: 0, pose: { hipHeight: 33, hipShift: -8, lean: 4, armSwing: 40, elbow: 80 }, ease: "out" },
-    // 踢直：小腿从垂直转到水平向前，靠 hipShift 往前推进表达「膝伸」
-    { at: 0.9, pose: { hipHeight: 33, hipShift: 4, lean: 4, armSwing: 40, elbow: 80 }, ease: "inOut" },
-    { at: 1.2, pose: { hipHeight: 33, hipShift: 4, lean: 4, armSwing: 40, elbow: 80 } },
-    { at: 2.2, pose: { hipHeight: 33, hipShift: -8, lean: 4, armSwing: 40, elbow: 80 } },
-    { at: 2.8, pose: { hipHeight: 33, hipShift: -8, lean: 4, armSwing: 40, elbow: 80 } },
+    { at: 0, pose: { ...LEG_EXT_BASE, freeKnee: 80 }, ease: "out" },
+    { at: 0.9, pose: { ...LEG_EXT_BASE, freeKnee: 2 }, ease: "inOut" },
+    { at: 1.2, pose: { ...LEG_EXT_BASE, freeKnee: 2 } },
+    { at: 2.2, pose: { ...LEG_EXT_BASE, freeKnee: 80 }, ease: "inOut" },
+    { at: 2.8, pose: { ...LEG_EXT_BASE, freeKnee: 80 } },
   ],
 };
 
@@ -289,6 +349,7 @@ const plank = {
   id: "plank",
   label: "平板支撑",
   group: "核心有氧",
+  view: "side",
   visible: false,
   duration: 5,
   stillAt: 2.5,
@@ -300,41 +361,71 @@ const plank = {
   ],
 };
 
-// 悬挂举腿：悬垂，身体从垂直到折叠。
-// 单腿骨架演不了「双腿抬平」，所以改用躯干折角近似 —— 看上去是身体在卷。
-// 这一条是已知限制，写进 docs/motion-system.md，不当成正确表现。
+// 悬挂举腿：手握杠不动，动的应该是腿。
+// 上一版用「躯干折角」近似抬腿，因为当时骨架只有一条腿、腿还钉在地上。
+// 现在 freeLegs 把腿从髋正解， gripY 把手钉住，于是能演真的：双腿抬到接近水平。
+// 两腿给一点角度差，看上去才不像纸片。
+// 悬挂类共用底子：杠钉在 115 高，掍点锁死。
+// 杠高不是随便定的：臂长 34、躯干 29.5、腿 50，挂下来从杠到踝共 113.5 单位。
+// 原来写 110 是旧臂长（26）下的值，那时人比现在高挂 8 单位，刚好能离地；
+// 臂长修正后同一条杠会把人往下放 8 单位，脚踝只剩 2.7，看着像站在地上。
+// 115 是框顶（116）能容下的最高杠位，踝落到 7.7，珠尖 0.8，人真离了地。
+const HANG_BASE = {
+  gripY: 115, gripX: 0, freeLegs: true,
+  lean: 3, armSwing: 179, elbow: 4,
+  // 腿抬到接近水平时脚尖会探出框右边，所以整体左移 6 个单位。
+  // 平移量恒定不变，不影响「握点不动」这条断言。
+  anchorX: -6,
+};
+// 悬挂举腿：握点钉住，膝盖抬到接近水平。
+const HANG_BOX = "-50 -116 106 126"; // 框底比站姿动作低 4：挂下来的时候「地面」不是约束
 const hangingLegRaise = {
   id: "hanging-leg-raise",
   label: "悬挂举腿",
   group: "核心有氧",
+  view: "side",
   duration: 3.2,
   stillAt: 1.25,
-  viewBox: FIGURE_BOX,
+  viewBox: HANG_BOX,
   tracks: [
-    { at: 0, pose: { hipHeight: 40, hipShift: 0, lean: 3, armSwing: 178, elbow: 0 }, ease: "out" },
-    { at: 1.1, pose: { hipHeight: 40, hipShift: 0, lean: 62, armSwing: 178, elbow: 0 }, ease: "inOut" },
-    { at: 1.4, pose: { hipHeight: 40, hipShift: 0, lean: 58, armSwing: 178, elbow: 0 } },
-    { at: 2.5, pose: { hipHeight: 40, hipShift: 0, lean: 3, armSwing: 178, elbow: 0 } },
-    { at: 3.2, pose: { hipHeight: 40, hipShift: 0, lean: 3, armSwing: 178, elbow: 0 } },
+    { at: 0, pose: { ...HANG_BASE, freeThigh: 8, freeKnee: 48, farThigh: 11, farKnee: 54 }, ease: "out" },
+    { at: 1.1, pose: { ...HANG_BASE, freeThigh: 76, freeKnee: 10, farThigh: 70, farKnee: 14 }, ease: "inOut" },
+    { at: 1.4, pose: { ...HANG_BASE, freeThigh: 80, freeKnee: 8, farThigh: 74, farKnee: 12 } },
+    { at: 2.5, pose: { ...HANG_BASE, freeThigh: 8, freeKnee: 48, farThigh: 11, farKnee: 54 }, ease: "in" },
+    { at: 3.2, pose: { ...HANG_BASE, freeThigh: 8, freeKnee: 48, farThigh: 11, farKnee: 54 } },
   ],
 };
 
 // 跑步：跑步机和户外跑共用。
-// 侧面跑步的核心是「双腿交替」，单腿骨架演不了交替，只能靠整体起伏 + 摆臂近似。
-// 这一条是真的限制，不是妥协：要演交替必须给骨架加第二条腿。
+//
+// 现在能演真的交替了：跑步有腾空 phase，脚本来就不接地，所以用 freeLegs 把两条腿都改成角度正解，
+// 两腿反相。上一版两条腿每帧角度完全相同（实测 25/25、3/3），所以看上去只有一条腿。
+// 大腿摆幅按跑步的髋屈伸范围给：前腿抬到 +32、后腿蹬到 -18，共 50°。
+// 手臂跟同侧腿反相（近腿往前时近臂往后），肘角锁在 90±10，这是跑步摆臂的标准姿态。
+const RUN_A = {
+  freeLegs: true, footFlat: true, hipHeight: 52, hipShift: -2, lean: 8,
+  freeThigh: 32, freeKnee: 18, farThigh: -18, farKnee: 105,
+  armSwing: -22, elbow: 88,
+};
+const RUN_B = {
+  freeLegs: true, footFlat: true, hipHeight: 52, hipShift: -2, lean: 8,
+  freeThigh: -18, freeKnee: 105, farThigh: 32, farKnee: 18,
+  armSwing: 34, elbow: 78,
+};
 const run = {
   id: "run",
   label: "跑步",
   group: "核心有氧",
+  view: "side",
   duration: 1.2,
   stillAt: 0.3,
   viewBox: FIGURE_BOX,
   tracks: [
-    { at: 0, pose: { hipHeight: 48, hipShift: -2, lean: 10, armSwing: 60, elbow: 80 }, ease: "inOut" },
-    { at: 0.3, pose: { hipHeight: 52, hipShift: -2, lean: 8, armSwing: 100, elbow: 60 }, ease: "inOut" },
-    { at: 0.6, pose: { hipHeight: 48, hipShift: -2, lean: 10, armSwing: 60, elbow: 80 }, ease: "inOut" },
-    { at: 0.9, pose: { hipHeight: 52, hipShift: -2, lean: 8, armSwing: 20, elbow: 100 }, ease: "inOut" },
-    { at: 1.2, pose: { hipHeight: 48, hipShift: -2, lean: 10, armSwing: 60, elbow: 80 } },
+    { at: 0, pose: RUN_A, ease: "inOut" },
+    { at: 0.3, pose: RUN_B, ease: "inOut" },
+    { at: 0.6, pose: RUN_A, ease: "inOut" },
+    { at: 0.9, pose: RUN_B, ease: "inOut" },
+    { at: 1.2, pose: RUN_A },
   ],
 };
 
@@ -346,13 +437,25 @@ export const CLIPS = {
   plank, hangingLegRaise, run,
 };
 
-// 动作名 → 剪辑。长正则在前（先具体后笼统），否则「俯身飞鸟」会被「推」抢走、
+// 对象键是 camelCase 的历史包袱（benchPress/pullUp/...），对外唯一的规范身份是 clip.id。
+// 之前 clipFor() 直接 CLIPS[kind]，而归类规则返回的是 kebab-case 的 id，
+// 于是 bench / pull-up / split-squat / leg-extension / lateral-raise 五条
+// 全部静默摸到 undefined、回落成 idle——动作照常播，只是演的不是那件事。
+// 现在所有查询走 id，键只留给老调用兼容。
+const BY_ID = new Map(Object.values(CLIPS).map(clip => [clip.id, clip]));
+
+/** 全部规范 id，顺序同 CLIPS 声明顺序。测试用它查漏。 */
+export const CLIP_IDS = Object.freeze([...BY_ID.keys()]);
+
+// 动作名 → 规范 id。长正则在前（先具体后笼统），否则「俯身飞鸟」会被「推」抢走、
 // 「腿举」会被「腿屈伸」抢走这类错配会到处出现。
 // 认不出的回 idle，宁可不动也不要演错。
 const NAME_RULES = [
   ["bench", /卧推/],
-  // 悬挂举腿和悬垂放在同一条组里，必须先于「引体」判，否则会被当成悬垂
-  ["plank", /举腿|卷腹|仰卧起坐|死虫|健腹轮|平板|支撑/],
+  // 举腿必须排在 plank 和 pull-up 之前：「悬挂举腿」同时含「悬挂」和「举腿」，
+  // 排在后面就会被引体抢走；而它本身跟平板支撑是两个动作，不能共用一条剪辑。
+  ["hanging-leg-raise", /举腿/],
+  ["plank", /卷腹|仰卧起坐|死虫|健腹轮|平板|支撑/],
   ["pull-up", /引体|悬垂|悬挂/],
   ["split-squat", /保加利亚|分腿蹲/],
   ["leg-extension", /腿屈伸|腿弯举|腿内收|腿外展|内收|外展/],
@@ -373,8 +476,12 @@ export function kindForName(name = "") {
   return "idle";
 }
 
+/** 归类表里出现过的所有目标 id。测试用它确认每一条都真能落到剪辑上。 */
+export const NAME_RULE_TARGETS = Object.freeze(NAME_RULES.map(([id]) => id));
+
 export function clipFor(kind) {
-  return CLIPS[kind] || CLIPS.idle;
+  // 认规范 id 优先，再退到对象键（兼容老调用），都不是才回 idle。
+  return BY_ID.get(kind) || CLIPS[kind] || CLIPS.idle;
 }
 
-export default { CLIPS, clipFor, kindForName };
+export default { CLIPS, CLIP_IDS, clipFor, kindForName, NAME_RULE_TARGETS };

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>身体多视图 · Body Sheet</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); font-family: var(--font); background: var(--page-bg); }
+    .shell { width: min(calc(100% - 32px), 1080px); margin: 0 auto; padding: 28px 0 56px; }
+    .mast { display: flex; align-items: flex-end; gap: 16px; padding: 14px 0 12px; border-bottom: 3px double var(--border-input); }
+    .mast h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); font-weight: 400; line-height: 1; }
+    .mast p { margin: 0; color: var(--text-secondary); font: 12.5px/1.5 var(--font-sans); }
+    .kicker { color: var(--accent); font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; }
+
+    .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0 4px; font: 12px var(--font-sans); color: var(--text-secondary); }
+    .bar button { padding: 7px 13px; border: 1px solid var(--border-input); border-radius: var(--radius-pill); background: var(--surface-card); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+    .bar button.on { border-color: #2e2316; background: #2e2316; color: #f4ecda; }
+    .bar .note { margin-left: auto; color: var(--text-tertiary); }
+
+    /* 三块板子同高：同一个人从三个方向看，身高必须一样，不一样就是解算错了。 */
+    .board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+    .board.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .panel { display: flex; flex-direction: column; gap: 8px; }
+    .panel .head { display: flex; align-items: baseline; gap: 8px; }
+    .panel h2 { margin: 0; font-size: 15px; font-weight: 400; letter-spacing: .02em; }
+    .panel code { color: var(--text-tertiary); font: 10.5px var(--font-sans); }
+    .stage { position: relative; display: grid; place-items: center; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); overflow: hidden; }
+    .stage svg { display: block; overflow: visible; }
+    /* 地面线和身高刻度是这张图的意义：三视图不比着高度看，等于没画。 */
+    .stage .rule { position: absolute; left: 0; right: 0; bottom: var(--ground, 12px); height: 1px; background: color-mix(in srgb, var(--text-tertiary) 40%, transparent); }
+    .marks { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); font: 11.5px var(--font-sans); color: var(--text-secondary); }
+    .marks div { display: flex; justify-content: space-between; }
+    .marks b { color: var(--text); font-weight: 600; }
+    .marks .sep { margin: 6px 0 3px; border-top: 1px solid var(--border); }
+
+    .foot { margin-top: 18px; color: var(--text-tertiary); font: 11.5px/1.7 var(--font-sans); }
+    .board.dark .stage { background: #2a2119; border-color: rgba(240,232,213,.16); }
+    .board.dark .marks { background: #2a2119; border-color: rgba(240,232,213,.16); color: #b8ab96; }
+    .board.dark .marks b { color: #f0e8d5; }
+    .board.dark .stage .rule { background: rgba(240,232,213,.28); }
+    .board.dark .stage svg { color: #efe6d2; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="mast">
+      <div>
+        <div class="kicker">Body Sheet</div>
+        <h1>身体多视图</h1>
+      </div>
+      <p>同一套骨架，三个方向。<br>先定形，再谈动作。</p>
+    </div>
+
+    <div class="bar">
+      <button id="dark">深墨底</button>
+      <button id="ruler">身高刻度</button>
+      <span class="note">三块板子同一比例，身高对不上就是解算错了</span>
+    </div>
+
+    <div class="board two" id="board">
+      <div class="panel">
+        <div class="head"><h2>侧视</h2><code>side · 矢状面</code></div>
+        <div class="stage"><div class="rule"></div><svg id="fig-side"></svg></div>
+        <div class="marks" id="marks-side"></div>
+      </div>
+      <div class="panel">
+        <div class="head"><h2>正视</h2><code>front · 额状面</code></div>
+        <div class="stage"><div class="rule"></div><svg id="fig-front"></svg></div>
+        <div class="marks" id="marks-front"></div>
+      </div>
+
+    </div>
+
+    <div class="foot" id="foot"></div>
+  </div>
+
+  <script type="module">
+    import { createFigure } from "/lib/motion/index.js";
+    import { PROPORTIONS } from "/lib/motion/core.js";
+
+    const params = new URLSearchParams(location.search);
+    const dark = params.get("dark") === "1";
+    const size = Number(params.get("size")) || 320;
+
+    // 共用框：三块板子必须同一个 viewBox，否则「同一比例」这句话就是假的。
+    const BOX = "-56 -104 112 110";
+    const H = 110;   // viewBox 高度
+
+    const STAND_SIDE = { hipHeight: PROPORTIONS.stand, hipShift: 0, lean: 0, armSwing: 0, elbow: 0 };
+    const STAND_FRONT = { hipHeight: PROPORTIONS.stand, hipShift: 0, lean: 0, armAbduct: 0, elbow: 0, stance: 7 };
+
+    const makeClip = (id, view, pose) => ({
+      id, label: id, group: "", view, duration: 1, stillAt: 0, viewBox: BOX,
+      tracks: [{ at: 0, pose }, { at: 1, pose }],
+    });
+
+    const cleanups = [];
+    const mount = (el, clip, opacity, skinOptions) => {
+      el.setAttribute("viewBox", BOX);
+      const svg = el;
+      cleanups.push(createFigure(svg, { clip, reduced: true, skinOptions }));
+      if (opacity != null) svg.style.opacity = String(opacity);
+    };
+
+    mount(document.getElementById("fig-side"), makeClip("side", "side", STAND_SIDE));
+    mount(document.getElementById("fig-front"), makeClip("front", "front", STAND_FRONT));
+
+
+
+    // 尺寸：把 svg 的高度定下来，皮肤按真实像素挑尺寸档。
+    for (const el of document.querySelectorAll(".stage svg")) {
+      el.style.height = `${size}px`;
+      el.style.aspectRatio = "112 / 110";
+    }
+    for (const rule of document.querySelectorAll(".stage .rule")) {
+      rule.style.setProperty("--ground", `${size * (6 / H) + 12}px`);
+    }
+
+    const LANDMARKS = [
+      ["头顶", PROPORTIONS.stand + PROPORTIONS.torso + PROPORTIONS.neck + PROPORTIONS.headRadius],
+      ["肩（肩峰）", PROPORTIONS.stand + PROPORTIONS.torso],
+      ["腕", PROPORTIONS.stand + PROPORTIONS.torso - PROPORTIONS.upperArm - PROPORTIONS.forearm],
+      ["髋", PROPORTIONS.stand],
+      ["膝", PROPORTIONS.stand - PROPORTIONS.thigh],
+      ["踝", 0],
+    ];
+    const WIDTHS = [
+      ["肩宽", PROPORTIONS.shoulderWidth],
+      ["髋宽", PROPORTIONS.hipWidth],
+      ["站距（半）", 7],
+    ];
+
+    const rows = (extra) => LANDMARKS.map(([k, v]) => `<div><span>${k}</span><b>${v.toFixed(1)}</b></div>`).join("")
+      + `<div class="sep"></div>`
+      + extra.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+
+    document.getElementById("marks-side").innerHTML = rows([["远侧错位", "1.2"], ["视深", "投影掉"]]);
+    document.getElementById("marks-front").innerHTML = rows(WIDTHS.map(([k, v]) => [k, v.toFixed ? v.toFixed(1) : v]));
+    
+
+    document.getElementById("foot").textContent =
+      "这套骨架的判据：踝固定在 y=0；腕落在髋下 4.5；站立膝屈 2.3°。";
+    document.getElementById("foot").textContent +=
+      " 侧视看屈伸，正视看外展。两个方向指向同一副骨头，身高必须一样。";
+
+    const darkBtn = document.getElementById("dark");
+    const board = document.getElementById("board");
+    board.classList.toggle("dark", dark);
+    darkBtn.classList.toggle("on", dark);
+    darkBtn.addEventListener("click", () => {
+      const on = board.classList.toggle("dark");
+      darkBtn.classList.toggle("on", on);
+      for (const el of document.querySelectorAll(".stage svg")) el.style.color = on ? "#efe6d2" : "";
+    });
+    if (dark) for (const el of document.querySelectorAll(".stage svg")) el.style.color = "#efe6d2";
+
+    // 身高刻度：在侧视板上画一条标尺，从踝到头顶，看比例对不对。
+    let rulerOn = false;
+    const rulerBtn = document.getElementById("ruler");
+    rulerBtn.addEventListener("click", () => {
+      rulerOn = !rulerOn;
+      rulerBtn.classList.toggle("on", rulerOn);
+      for (const el of document.querySelectorAll(".stage svg")) {
+        const existing = el.querySelector(".ruler-g");
+        if (existing) existing.remove();
+        if (!rulerOn) continue;
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "ruler-g");
+        for (const [name, y] of LANDMARKS) {
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          line.setAttribute("d", `M-54 ${-y}L-46 ${-y}`);
+          line.setAttribute("stroke", "currentColor");
+          line.setAttribute("stroke-width", "0.8");
+          line.setAttribute("opacity", "0.55");
+          g.append(line);
+        }
+        el.append(g);
+      }
+    });
+  </script>
+</body>
+</html>

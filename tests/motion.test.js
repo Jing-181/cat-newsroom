@@ -18,7 +18,7 @@ import {
   solveKnee,
   solvePose,
 } from "../src/lib/motion/core.js";
-import { CLIPS, clipFor, kindForName } from "../src/lib/motion/clips.js";
+import { CLIPS, CLIP_IDS, clipFor, kindForName, NAME_RULE_TARGETS } from "../src/lib/motion/clips.js";
 
 // 这四个动作归到正确的模式。其余四类按训练日走，不逐个列。
 test("动作名归到正确的动作模式", () => {
@@ -49,9 +49,113 @@ test("归类不会让笼统关键字抢走具体动作", () => {
   assert.equal(kindForName("腿举"), "squat");
   assert.equal(kindForName("保加利亚分腿蹲"), "split-squat", "不能被「蹲」抢走");
   assert.equal(kindForName("坐姿腿弯举"), "leg-extension", "不能被「弯举」抢走");
-  assert.equal(kindForName("悬挂举腿"), "plank", "不能被「腿举」抢走");
+  assert.equal(kindForName("悬挂举腿"), "hanging-leg-raise", "不能被「悬挂」或「平板」抢走");
+  assert.equal(kindForName("悬垂举腿"), "hanging-leg-raise");
+  assert.equal(kindForName("悬垂"), "pull-up", "单纯的悬挂还是引体");
   assert.equal(kindForName("双杠臂屈伸"), "pushdown");
   assert.equal(kindForName("过顶臂屈伸"), "pushdown");
+});
+
+// 归类表里的每一个目标都必须真的能落到剪辑上。
+// 这条是给「键用 camelCase、id 用 kebab-case」那类错配兜底的：改规则忘了改 id，
+// 不写这条断言就只会表现为「动作照常播，但演的是另一个动作」，人眼很难发现。
+test("归类表里每个目标都能取到真实剪辑，不落 idle", () => {
+  for (const target of NAME_RULE_TARGETS) {
+    const clip = clipFor(target);
+    assert.notEqual(clip.id, "idle", `归类目标 "${target}" 取不到剪辑，回落成了 idle`);
+    assert.equal(clip.id, target, `归类目标 "${target}" 取到的是 "${clip.id}"`);
+  }
+});
+
+// 每个剪辑都能被 clipFor 按 id 取到，且 id 不重复。
+test("每条剪辑都能按 id 取到，且 id 唯一", () => {
+  assert.equal(new Set(CLIP_IDS).size, CLIP_IDS.length, "有剪辑 id 重复");
+  for (const id of CLIP_IDS) {
+    assert.equal(clipFor(id).id, id, `clipFor("${id}") 没取到自己`);
+  }
+});
+
+// 真实训练里高频出现的动作名，逐个确认它们演的是对的那件事。
+// 和上面那条不同：这里查的是「名字 → 最终剪辑」整条链路。
+test("真实动作名端到端落到正确的剪辑", () => {
+  const cases = [
+    ["杠铃深蹲", "squat"],
+    ["哑铃卧推", "bench"],
+    ["站姿推举", "press"],
+    ["引体向上", "pull-up"],
+    ["坐姿绳索划船", "row"],
+    ["罗马尼亚硬拉", "hinge"],
+    ["哑铃弯举", "curl"],
+    ["保加利亚分腿蹲", "split-squat"],
+    ["坐姿腿屈伸", "leg-extension"],
+    ["哑铃侧平举", "lateral-raise"],
+    ["绳索下压", "pushdown"],
+    ["平板支撑", "plank"],
+    ["悬挂举腿", "hanging-leg-raise"],
+    ["户外跑步", "run"],
+    ["", "idle"],
+    ["某个没听过的动作", "idle"],
+  ];
+  for (const [name, expectedId] of cases) {
+    assert.equal(clipFor(kindForName(name)).id, expectedId, `"${name}" 演的不是 ${expectedId}`);
+  }
+});
+
+// 视角是数据，不是 if。判据：动作在哪个运动平面发生，就用哪个视角看。
+// 矢状面（前屈后伸、上下）用侧视；额状面（向两侧展开）用正面。
+// 写错不会报错，只会「动作看着在动但该动的关节没动」——所以要测。
+test("每条剪辑都声明了合法视角", () => {
+  for (const clip of Object.values(CLIPS)) {
+    assert.ok(clip.view === undefined || clip.view === "side" || clip.view === "front",
+      `${clip.id} 的视角 "${clip.view}" 不认识`);
+  }
+});
+
+// 正面解算器不读 armSwing / lean / freeLegs / gripY / barHeight。
+// 在正面剪辑里写这些字段不会报错，只会默默失效——效果就是小人在原地不动。
+test("正面剪辑不用只属于侧面的参数", () => {
+  const SIDE_ONLY = ["armSwing", "freeLegs", "freeThigh", "freeKnee", "gripY", "gripX", "barHeight", "barX"];
+  for (const clip of Object.values(CLIPS)) {
+    if (clip.view !== "front") continue;
+    for (const track of clip.tracks || []) {
+      for (const key of SIDE_ONLY) {
+        assert.equal(track.pose[key], undefined,
+          `${clip.id} 是正面视角，却在 t=${track.at} 写了 ${key}，正面解算器不读它`);
+      }
+    }
+  }
+});
+
+// 正面视角要对称：没有侧倾时，两只手、两只脚应该是镜像。
+// 不对称说明解算里某一边的方向符号写反了，画出来就是一只胳膊长一只短。
+test("正面视角左右对称", () => {
+  for (const clip of Object.values(CLIPS)) {
+    if (clip.view !== "front") continue;
+    const prepared = prepareClip(clip);
+    for (let i = 0; i <= 24; i++) {
+      const p = solvePose(sampleClip(prepared, (i / 24) * prepared.duration));
+      const pairs = [["手", p.handNear, p.handFar], ["膝", p.kneeNear, p.kneeFar], ["肩", p.shoulderNear, p.shoulderFar]];
+      for (const [what, near, far] of pairs) {
+        assert.ok(Math.abs(near.x + far.x) < 1e-6, `${clip.id} 的${what}左右不对称`);
+        assert.ok(Math.abs(near.y - far.y) < 1e-6, `${clip.id} 的${what}左右不等高`);
+      }
+    }
+  }
+});
+
+// 正面剪辑必须有一个正面看得见的关节真在动，否则就是「声明了正面却设东西可看」。
+test("正面剪辑真的在动", () => {
+  for (const clip of Object.values(CLIPS)) {
+    if (clip.view !== "front") continue;
+    const prepared = prepareClip(clip);
+    const first = solvePose(sampleClip(prepared, 0));
+    let moved = 0;
+    for (let i = 1; i <= 24; i++) {
+      const p = solvePose(sampleClip(prepared, (i / 24) * prepared.duration));
+      moved = Math.max(moved, Math.hypot(p.handNear.x - first.handNear.x, p.handNear.y - first.handNear.y));
+    }
+    assert.ok(moved > 10, `${clip.id} 是正面视角，但手只走了 ${moved.toFixed(1)} 单位`);
+  }
 });
 
 // 每条剪辑的元信息都要齐，预览页和归类都靠它。
@@ -175,10 +279,13 @@ test("所有动作在整条时间轴上都是有限数", () => {
     for (let i = 0; i <= 240; i++) {
       const pose = solvePose(sampleClip(prepared, (i / 240) * prepared.duration));
       for (const [name, point] of Object.entries(pose)) {
-        if (name === "lean") {
-          assert.ok(Number.isFinite(point), `${clip.id} 的 lean 不是数`);
+        // pose 里不只有点，还有标量（lean、headR）和字符串（view），
+        // 一刀切当成点会让新增字段直接把测试撞下来——这里按类型分开查。
+        if (typeof point === "number") {
+          assert.ok(Number.isFinite(point), `${clip.id} 的 ${name} 不是有限数`);
           continue;
         }
+        if (!point || typeof point !== "object") continue;
         assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y), `${clip.id} 的 ${name} 出界了`);
       }
     }

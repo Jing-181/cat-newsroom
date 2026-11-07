@@ -12,6 +12,7 @@
 // 肢体是有宽度的形状，不是线：关节点之间用「两端半径不同的胶囊」拼出来。
 // 粗细比例全在这里，骨架（core.js）一个字不动。
 
+import { PROPORTIONS } from "../../core.js";
 import { sizeTier, strokeUnits, measureHeight } from "../optical.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -141,8 +142,10 @@ export function createSkin(target, {
   widths = {},
   farOffset = 6.5,   // 远侧肢体整体往后错开这么多，才看得出是前后两条
 } = {}) {
-  const P = { thigh: 26, shin: 26, torso: 32, upperArm: 13, forearm: 13, headRadius: 7, ...proportions };
-  const scale = P.thigh / 26 || 1;
+  // 比例必须从 core 取：写一份旧数字在这里，换骨架之后这个皮肤会用自己的旧腿长去画，
+  // 和 core 解出来的关节点对不上，人就成了断的。
+  const P = { ...PROPORTIONS, ...proportions };
+  const scale = P.upperArm / 19 || 1;
   const W = {};
   for (const [key, value] of Object.entries({ ...RADII, ...widths })) W[key] = value * scale;
   const C = { ...COLORS, ...palette };
@@ -454,6 +457,10 @@ export function createSkin(target, {
       }
       const layer = prop.at === "back" ? propBack : propFront;
       clearProp(layer === propBack ? propFront : propBack);
+
+      // 绳索和凳子/训练椅这个皮肤还不会画。不认识的器械一律不画，
+      // 否则会当成杠铃画到手上——那比不画错得多。线条稿已经支持这三种。
+      if (prop.kind !== "barbell" && prop.kind !== "bar" && prop.kind !== "dumbbell") return;
 
       // 背上的杠跟躯干垂直（角度直接取 lean，不是 lean + π/2——
       // 后者会算出一根豎着的杆，这是契约里标过的坑）。

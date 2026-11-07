@@ -28,8 +28,7 @@
     .card header code { color: var(--text-tertiary); font: 11px var(--font-sans); }
     .stage { display: grid; place-items: center; min-height: 172px; color: var(--text-secondary); }
     /* 虚线框就是 viewBox 的真实边界。溢出就会跑到框外，一眼能看出来。 */
-    .frame { position: relative; display: grid; place-items: center; height: 148px; aspect-ratio: 106 / 122; border: 1px dashed color-mix(in srgb, var(--text-tertiary) 55%, transparent); border-radius: 4px; }
-    .frame svg { height: 100%; width: 100%; overflow: visible; }
+    .frame { position: relative; display: grid; place-items: center; height: 148px; aspect-ratio: 106 / 122; border: 1px dashed color-mix(in srgb, var(--text-tertiary) 55%, transparent); border-radius: 4px; }    .frame svg { height: 100%; width: 100%; overflow: visible; }
     .frame svg .fig-far { opacity: .42; }
     .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; padding-top: 9px; border-top: 1px solid var(--border); color: var(--text-tertiary); font: 11px var(--font-sans); }
     .meta b { color: var(--text-secondary); font-weight: 600; }
@@ -100,7 +99,17 @@
   const atRaw = params.get("at");
   const atNum = atRaw === null ? NaN : Number(atRaw);
   const at = Number.isFinite(atNum) && atNum >= 0 && atNum <= 1 ? atNum : null;
-  const state = { speed: 1, reduced: still ? true : undefined };
+  // ?clip=pull-up 只看一条（多个用逗号）。定点验收时不想翻整页。
+  const clipFilter = params.get("clip")
+    ? params.get("clip").split(",").map(s => s.trim()).filter(Boolean)
+    : null;
+  // ?at= 就是「定格在这个相位」，所以它必须同时停住播放：只改 stillAt 不停播放，
+  // 截图会随手抓到循环里的其他帧，看到的跟你要的不是同一张图。
+  // ?size=96 把虚线框定到指定高度，用来复核小尺寸下的可读性。
+  const sizeRaw = params.get("size");
+  const sizeNum = sizeRaw === null ? NaN : Number(sizeRaw);
+  const size = Number.isFinite(sizeNum) && sizeNum >= 32 ? sizeNum : null;
+  const state = { speed: 1, reduced: still || at !== null ? true : undefined };
   let cleanups = [];
 
   const GROUPS = [
@@ -116,7 +125,8 @@
     cleanups = [];
     grid.innerHTML = "";
 
-    const shown = Object.values(CLIPS).filter(clip => clip.visible !== false);
+    const shown = Object.values(CLIPS).filter(clip => clip.visible !== false)
+      .filter(clip => !clipFilter || clipFilter.includes(clip.id));
     const order = [...GROUPS.map(([g]) => g), ...new Set(shown.map(c => c.group))];
 
     for (const group of order) {
@@ -149,6 +159,12 @@
         <span>静帧 <b>${clip.stillAt}s</b></span>
         <span class="beats">${beats}</span>
       </div>`;
+    // 虚线框的宽高比必须跟这条剪辑自己的 viewBox 走。
+    // 写死 106/122 的话，正面视角（112/110）的小人会被横向拉宽。
+    const frame = card.querySelector(".frame");
+    const [bx, by, bw, bh] = String(clip.viewBox).split(/[\s,]+/).map(Number);
+    if ([bx, by, bw, bh].every(Number.isFinite)) frame.style.aspectRatio = `${bw} / ${bh}`;
+    if (size) frame.style.height = `${size}px`;
     cleanups.push(createFigure(card.querySelector("[data-fig]"), {
       clip: at === null ? clip : { ...clip, stillAt: clip.duration * at },
       speed: state.speed,

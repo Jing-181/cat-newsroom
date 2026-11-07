@@ -174,6 +174,8 @@ export function layout(out, pose, k = 1) {
 // 线条稿里也是这么骗的，两套画法要骗得一致。
 export function layoutProp(out, base, prop, pose, k = 1) {
   if (!prop) return 0;
+  // 不认识的器械（绳索、凳子）不画，不要当成杠铃画到手上。
+  if (prop.kind !== "barbell" && prop.kind !== "bar" && prop.kind !== "dumbbell") return 0;
   const lying = Math.abs(pose.lean) > 1.2;
   const half = prop.kind === "dumbbell" ? 7 : 19;
   const plate = (prop.kind === "dumbbell" ? 3.6 : GIRTH.plate) * k;
