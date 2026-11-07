@@ -26,6 +26,8 @@ npm run check       # 语法检查（supabase-sync.js）+ 全部测试
 npm run build       # 产出 dist/（含 prebuild 拷贝步骤）
 ```
 
+推送 main 时 CI（`.github/workflows/deploy.yml`）会依次跑 `npm run check` 与 `npm run build`，**任一失败就不会部署**——所以「本地跑通了」这件事现在有机械兜底。
+
 端口被占或想换端口：`sh scripts/dev-server.sh start 5180`。脚本用的是 `--strictPort`，端口被占会直接报错，不会偷偷换端口。
 第三参数是 host：`sh scripts/dev-server.sh start 5176 127.0.0.1` 只给本机。
 

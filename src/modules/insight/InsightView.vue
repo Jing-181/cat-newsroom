@@ -4,6 +4,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG } from "../../lib/config.js";
 import { icon } from "../../lib/icons.js";
 import { today, dateStr, avgProgress, weekDates } from "../../lib/utils.js";
+import Workout from "../../lib/workout.js";
 import { getData, save, subscribe } from "../../lib/store.js";
 import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
@@ -22,7 +23,7 @@ function render() {
     if (m.type === "todo") { main = `${it.filter(x => x.done).length}/${it.length} 已完成`; pct = it.length ? Math.round(it.filter(x => x.done).length / it.length * 100) : 0; }
     else if (m.type === "checkin") { const t = today(); main = `今日 ${it.filter(x => x.log && x.log[t]).length}/${it.length} 打卡`; pct = it.length ? Math.round(it.filter(x => x.log && x.log[t]).length / it.length * 100) : 0; }
     else if (m.type === "progress") { pct = avgProgress(it).value; main = `平均进度 ${pct}%`; }
-    else if (m.type === "workout") { const n = (typeof Workout !== "undefined" ? it.filter(Workout.isSession) : it).length; main = `${n} 次训练`; }
+    else if (m.type === "workout") { const n = it.filter(Workout.isSession).filter(x => x.status === "completed").length; main = `${n} 次训练`; }
     else if (m.type === "finance") { const e = it.filter(x => x.type === "expense").reduce((a, x) => a + +x.amount, 0); const inc = it.filter(x => x.type === "income").reduce((a, x) => a + +x.amount, 0); main = `收 ¥${inc} · 支 ¥${e}`; }
     else main = `${it.length} 条记录`;
     return `<div class="pin" data-open="${m.key}" style="cursor:pointer">

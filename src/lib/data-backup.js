@@ -5,7 +5,7 @@
 import AppDialog from "./app-dialog.js";
 
 const SCHEMA_VERSION = 1;
-const META_KEYS = ["__avatar", "__pomo", "__trend"];
+const META_KEYS = ["__avatar", "__pomo", "__trend", "__homeOrder", "__homeVersionVisible"];
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));

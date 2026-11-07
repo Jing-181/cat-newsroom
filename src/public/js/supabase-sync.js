@@ -59,7 +59,12 @@ function loadScript(src) {
 }
 
 function readOutbox() {
-  try { return JSON.parse(localStorage.getItem(SYNC_OUTBOX_KEY)) || []; } catch (_) { return []; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SYNC_OUTBOX_KEY));
+    // 必须是数组：损坏成 {} / 标量时，SyncCore.enqueue 的 outbox.filter 会抛 TypeError，
+    // 沿 store.persist → window.syncRecord（无 try/catch）冒泡，保存后 UI 停止刷新。
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) { return []; }
 }
 
 function writeOutbox(outbox) {

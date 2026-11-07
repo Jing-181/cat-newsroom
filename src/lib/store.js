@@ -6,7 +6,13 @@ import { SEED_FLAG, markSeedRecords } from "./demo-data.js";
 function load() {
   try {
     const raw = localStorage.getItem(CONFIG.storageKey);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // 解析成功不等于可以信任：顶层必须是对象（非 null、非数组、非标量），
+      // 否则后面每个 getData()[key] 都会抛 TypeError 把应用打成白屏。
+      // 与下面的跨标签 storage 路径保持同样的严格度。
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    }
   } catch (_) { /* 损坏数据回退到种子 */ }
   const d = {};
   // 样板记录全部打上 __seed 标识：同步层据此判断「这条不是用户自己加的」

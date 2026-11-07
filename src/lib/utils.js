@@ -1,4 +1,5 @@
 // 通用工具：日期、连续天数、进度、环图/趋势 SVG、报刊栏目标题（与主站逻辑一致）
+import Workout from "./workout.js";
 
 export function localDateKey(date = new Date()) {
   const year = date.getFullYear();
@@ -19,9 +20,9 @@ export function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-// 本周（周一起）7 天的 ISO 日期
-export function weekDates() {
-  const n = new Date();
+// 本周（周一起）7 天的 ISO 日期。可传入参照日期，便于测试与跨周推算（不传即今天）
+export function weekDates(reference = new Date()) {
+  const n = reference instanceof Date ? reference : new Date(reference);
   const dow = (n.getDay() + 6) % 7;
   const mon = new Date(n);
   mon.setDate(n.getDate() - dow);
@@ -82,7 +83,7 @@ export function streak(log) {
 
 export function avgProgress(list) {
   if (!list || !list.length) return { value: 0, sub: "0" };
-  const sessions = typeof Workout !== "undefined" ? list.filter(Workout.isSession) : [];
+  const sessions = list.filter(Workout.isSession);
   if (sessions.length) return { value: 100, sub: `${sessions.length} 次训练` };
   const progress = list.filter(x => x.target != null);
   const v = progress.length
