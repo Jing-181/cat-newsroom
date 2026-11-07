@@ -1,6 +1,6 @@
 <script setup>
 // 应用外壳：侧栏（品牌/导航/同步区/备份/设备切换）+ 主视区（按导航切换模块组件）
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import { CONFIG } from "./lib/config.js";
 import { icon } from "./lib/icons.js";
 import { dateStr } from "./lib/utils.js";
@@ -35,35 +35,65 @@ const saved = DeviceMode.restoreView();
 const view = ref(VIEWS[saved] ? saved : "home");
 const current = computed(() => VIEWS[view.value] || HomeView);
 
-// 切模块：优先用 View Transitions 做真正的交叉淡出。
-// 以前是“旧视图立刻拆掉 + 新视图从 opacity 0 淡入”，中间总有一帧是空的，
-// 从深墨色的训练页切到别的页面时特别明显（一黑一白）。
-// 交叉淡出只需要浏览器把前后两帧叠在一起，不用两个视图同时挂在 DOM 里。
+// 切模块：原生 View Transitions 管快照与换页时机，WAAPI 在新快照上做墨迹圆形揭示。
+// 旧的交叉淡出让两层都半透明，中间帧会透出纸底发白；CSS 里已按 MDN 的做法
+// 关掉默认动画与混合，让新帧整块盖在旧帧之上。没有 GPU 设备、定时器和额外监听。
 const canViewTransition = () =>
   typeof document !== "undefined" &&
   typeof document.startViewTransition === "function" &&
   !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
-function go(key) {
+let pendingKey = null;
+let inkPoint = { x: 0, y: 0 };
+let unmountLeafShade = null;
+
+function pointFrom(event) {
+  if (event?.clientX > 0 || event?.clientY > 0) return { x: event.clientX, y: event.clientY };
+  const rect = event?.currentTarget?.getBoundingClientRect?.();
+  return rect
+    ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+    : { x: window.innerWidth / 2, y: window.innerHeight * 0.78 };
+}
+
+function go(key, event) {
   if (!VIEWS[key]) return;
+  pendingKey = key;
+  inkPoint = pointFrom(event);
   const swap = () => {
-    view.value = key;
+    view.value = pendingKey; // 读最新值：连续点击时浏览器会 skip 前一个转场
     drawerOpen.value = false; // 移动端选完模块后收起抽屉
     // 运动页的全屏开关只管那一页，切走时要撤回，不然别的页面也没导航栏
     document.documentElement.classList.remove("workout-fullscreen");
-    DeviceMode.saveView(key);
+    DeviceMode.saveView(pendingKey);
   };
   if (!canViewTransition()) {
     swap();
     window.scrollTo({ top: 0 });
     return;
   }
-  // 回调要等 Vue 把新 DOM 写进去，否则截到的是旧一帧
   const transition = document.startViewTransition(async () => {
     swap();
-    await nextTick();
+    await nextTick(); // 等 Vue 把新 DOM 写进去，浏览器截到的才不是旧一帧
   });
-  // 滚动放到动画之后：中途跳位置会把交叉淡出弄成一次跳动
+  // ready 之后伪元素树才存在。在 new 快照上做 clip-path，旧帧保持不透明，
+  // 新帧从落点铺开盖上去，中途任何一帧都不会透出底色。
+  transition.ready.then(() => {
+    const { x, y } = inkPoint;
+    const radius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+    document.documentElement.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+      {
+        duration: 420,
+        easing: "cubic-bezier(.22,.72,.2,1)",
+        fill: "both",
+        pseudoElement: "::view-transition-new(root)",
+      },
+    );
+  }).catch(() => { /* 被后续点击 skip 时 ready 会 reject，页面状态已落地，无需补偿 */ });
+  // 滚动放到动画之后：中途跳位置会把揭示弄成一次跳动
   transition.finished.finally(() => window.scrollTo({ top: 0 }));
 }
 
@@ -103,7 +133,8 @@ async function onSyncIndicatorClick() {
 onMounted(() => {
   ensurePomodoroController();
   // 树影层：挂在 .layout 最底下（由 mountLeafShade 自己 prepend），只负责一层气氛，不接任何交互
-  mountLeafShade({ parent: document.querySelector(".layout") || document.body });
+  // 存下 teardown，App 卸载时别把 canvas 和 visibility/resize 监听留在页面上
+  unmountLeafShade = mountLeafShade({ parent: document.querySelector(".layout") || document.body });
 
   // 开应用记一次：冷启动与切回用 sessionStorage 区分（只记形状，不记内容）
   const launchedKey = "cat-newsroom-trace-launched";
@@ -140,6 +171,10 @@ onMounted(() => {
     Toast.show(event.detail?.message || "登录状态已失效，请重新登录", { duration: 6000 });
     openAuthModal("login");
   });
+});
+
+onUnmounted(() => {
+  unmountLeafShade?.();
 });
 
 function onAvatarClick() { avatarInputRef.value?.click(); }
@@ -237,13 +272,13 @@ async function onAvatarChange(e) {
         <div><h1 id="brandName">{{ CONFIG.owner }}</h1><p id="brandSlogan">{{ CONFIG.slogan }}</p></div>
       </div>
       <nav class="nav">
-        <a class="navi" :class="{ active: view === 'home' }" @click="go('home')"><span v-html="icon('home', 19)"></span>首页</a>
+        <a class="navi" :class="{ active: view === 'home' }" @click="go('home', $event)"><span v-html="icon('home', 19)"></span>首页</a>
         <div class="nav-sep">功能模块</div>
-        <a v-for="m in CONFIG.modules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
+        <a v-for="m in CONFIG.modules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
         <div class="nav-sep">统计</div>
-        <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight')"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
+        <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight', $event)"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
         <div class="nav-sep">配置</div>
-        <a class="navi" :class="{ active: view === 'settings' }" @click="go('settings')"><span v-html="icon('settings', 19)"></span>个人配置</a>
+        <a class="navi" :class="{ active: view === 'settings' }" @click="go('settings', $event)"><span v-html="icon('settings', 19)"></span>个人配置</a>
       </nav>
       <div class="sync-area" id="syncArea">
         <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
@@ -262,9 +297,9 @@ async function onAvatarChange(e) {
     </main>
     <!-- 移动底栏（≤820px 显示） -->
     <nav class="m-tabs">
-      <button type="button" :class="{ active: view === 'home' }" @click="go('home')"><span v-html="icon('home', 19)"></span>首页</button>
-      <button type="button" :class="{ active: view === 'sport' }" @click="go('sport')"><span v-html="icon('activity', 19)"></span>运动</button>
-      <button type="button" :class="{ active: view === 'insight' }" @click="go('insight')"><span v-html="icon('chart', 19)"></span>洞察</button>
+      <button type="button" :class="{ active: view === 'home' }" @click="go('home', $event)"><span v-html="icon('home', 19)"></span>首页</button>
+      <button type="button" :class="{ active: view === 'sport' }" @click="go('sport', $event)"><span v-html="icon('activity', 19)"></span>运动</button>
+      <button type="button" :class="{ active: view === 'insight' }" @click="go('insight', $event)"><span v-html="icon('chart', 19)"></span>洞察</button>
       <button type="button" @click="toggleDrawer(true)"><span v-html="icon('grid', 19)"></span>更多</button>
     </nav>
     <!-- 抽屉遮罩 -->

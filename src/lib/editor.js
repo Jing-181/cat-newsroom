@@ -6,6 +6,7 @@ import { getData, persist, save, bump } from "./store.js";
 import AppDialog from "./app-dialog.js";
 import RecordList from "./record-list.js";
 import RecordMedia from "./record-media.js";
+import { bindLayer } from "./dialog-contract.js";
 import Toast from "./toast.js";
 import Trace from "./trace.js";
 
@@ -25,9 +26,9 @@ function mediaFieldHTML(key, d) {
         <input id="f-image-file" type="file" accept="image/*" hidden></div>
       <div class="media-actions">
         <button type="button" class="btn ghost" id="f-image-clear">清空</button>
-        <button type="button" class="media-toggle" id="f-media-toggle">更多配图</button>
+        <button type="button" class="media-toggle" id="f-media-toggle">收起</button>
       </div>
-      <div class="media-advanced" id="f-media-advanced" hidden>
+      <div class="media-advanced" id="f-media-advanced">
         <div class="media-preset-head"><strong>默认配图</strong><span class="media-fallback">不上传也能直接选</span></div>
         <div class="preset-grid" id="f-image-preset">${mediaPresetChoicesHTML(key, layout, preset)}</div>
         <div class="upload-note">不上传时会使用选中的默认配图；上传后会自动填入图片 URL。</div>
@@ -152,15 +153,27 @@ export function openEditor(key, item) {
     else fields += `<div class="field"><label>${esc(f.label)}</label><input id="f-cf-${f.key}" value="${attr(v)}" placeholder="${attr(f.placeholder || "")}"/></div>`;
   });
   // 外观与图片统一折叠：需要时才展开，减轻弹窗首屏重量
-  fields += `<details class="modal-fold"><summary>外观与图片</summary><div>${layoutField}${mediaFieldHTML(key, d)}</div></details>`;
+  fields = `<div class="form-essential">${fields}</div>`;
+  fields += `<details class="modal-fold form-advanced"><summary>外观与图片</summary><div>${layoutField}${mediaFieldHTML(key, d)}</div></details>`;
   const overlay = document.createElement("div"); overlay.className = "overlay editor-overlay";
   overlay.innerHTML = `<div class="modal editor-modal"><div class="modal-head"><h3>${editing ? "编辑" : "新建"} · ${m.name}</h3><div class="sub">${m.desc}</div></div>
     <div class="modal-body">${fields}</div>
     <div class="modal-actions">${editing ? '<button class="link-danger" id="m-del">删除</button>' : ""}<div class="spacer"></div>
       <button class="btn ghost" id="m-cancel">取消</button><button class="btn" id="m-save">保存</button></div></div>`;
   document.body.appendChild(overlay);
-  const close = () => overlay.remove();
-  overlay.onclick = e => { if (e.target === overlay) close(); };
+  let dirty = false;
+  overlay.addEventListener("input", () => { dirty = true; });
+  overlay.addEventListener("change", () => { dirty = true; });
+  const layer = bindLayer({
+    element: overlay,
+    confirmDiscard: true,
+    isDirty: () => dirty,
+    initialFocus: "#f-title",
+    onClose: () => { dirty = false; },
+  });
+  const close = () => layer.requestClose();
+  // 保存成功后的关闭不该再问「放弃未保存的修改」：捕获阶段先清标记
+  overlay.querySelector("#m-save")?.addEventListener("click", () => { dirty = false; }, true);
   overlay.querySelector("#m-cancel").onclick = close;
   overlay.querySelectorAll(".seg").forEach(seg => seg.querySelectorAll(".opt").forEach(o => o.onclick = () => {
     seg.querySelectorAll(".opt").forEach(x => x.classList.remove("on")); o.classList.add("on");
@@ -201,7 +214,11 @@ export function openEditor(key, item) {
 
 /* ---------- delete with undo ---------- */
 // 直接删除并弹出「已删除 · 撤销」轻提示，不再弹确认框；撤销恢复本地并重新推送同步
-export function confirmDelete(key, id) {
+export async function confirmDelete(key, id) {
+  const ok = await AppDialog.confirm("删除后 5 秒内可撤销。", {
+    title: "删除这条记录？", danger: true, okText: "删除", cancelText: "保留",
+  });
+  if (!ok) return;
   const all = getData()[key] || [];
   const index = all.findIndex(i => i.id == id);
   if (index < 0) return;

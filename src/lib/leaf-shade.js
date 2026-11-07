@@ -1,16 +1,39 @@
 // 树影层：一层极淡的叶影铺在页面最底下，缓慢摇曳。
 //
-// 不用贴图，也不用逐帧造渐变：先把一团柔边阴影预渲染成一张 96×96 的精灵图，
-// 再把它当成"一片叶子"反复缩放、旋转、漂移着画上去。几十片叶子就是一片树荫。
+// 三条路径，按耗电从高到低：
+//   gpu    —— 桌面 + 安全上下文 + WebGPU：WGSL 片元着色器直接算叶影，
+//             1/4 分辨率、12fps、低功耗适配器，见 leaf-shade-webgpu.js
+//   canvas —— 手机 / 无 WebGPU：2D 精灵图，手机 1/5 分辨率 10fps，
+//             桌面无 GPU 时 1/3 分辨率 24fps
+//   still  —— 系统开了减少动态效果：只画一帧，不排任何定时器
 //
-// 三个成本上的取舍：
-// 1) 画布只有视口的三分之一分辨率，靠浏览器放大做自然虚化，省掉 ctx.filter 的模糊开销；
-// 2) 精灵图只造一次，每帧只做 drawImage，没有每帧新建渐变对象；
-// 3) 30fps 封顶、页面不可见时停，系统开了「减少动态效果」就只画一帧静态的。
+// 手机上不走 WebGPU，一半是我选的，一半是浏览器定的：局域网 http://192.168.x.x
+// 不是安全上下文，navigator.gpu 根本不存在；就算存在，给一层氛围常驻跑 shader
+// 也是白费电。决定耗电的是每帧算多少像素、跑多少帧，不是用 WebGPU 还是 2D canvas。
+// 两条动态路径都用 setTimeout 而非 rAF：树影不需要跟 vsync 对齐，
+// 两次绘制之间让 CPU/GPU 真的空闲下来，这才是省电的大头。
+//
+// 2D 路径不用贴图，也不逐帧造渐变：把一团柔边阴影预渲染成 96×96 精灵图，
+// 反复缩放、旋转、漂移着画上去，几十片叶子就是一片树荫。
+
+import { TIER, pickTier, tierBudget, readEnv } from "./leaf-shade-tier.js";
+import { createGpuLeafShade } from "./leaf-shade-webgpu.js";
 
 const SHADOW = [72, 62, 44];      // 叶影颜色（暖褐，压在米色纸上偏冷一点）
-const RENDER_SCALE = 1 / 3;       // 画布内部分辨率比例
-const FPS = 30;
+
+// 影子撒在哪里是固定的（同一台机器每次打开都看到同一片树荫），飘的只是相位。
+// 锚点故意全压在四角与四条边上：中间那一片要留给字，树荫只从页面边缘漫进来。
+// WGSL 版用的是同一组中心点，见 leaf-shade-webgpu.js 的 centers。
+const ANCHORS = [
+  { x: 0.04, y: 0.05, size: 0.34 },
+  { x: 0.96, y: 0.09, size: 0.3 },
+  { x: 0.03, y: 0.94, size: 0.32 },
+  { x: 0.95, y: 0.9, size: 0.36 },
+  { x: 0.52, y: 0.01, size: 0.26 },
+  { x: 0.02, y: 0.52, size: 0.26 },
+  { x: 0.99, y: 0.5, size: 0.24 },
+  { x: 0.5, y: 0.99, size: 0.22 },
+];
 
 function makeSprite(size = 96) {
   const sprite = document.createElement("canvas");
@@ -29,19 +52,6 @@ function makeSprite(size = 96) {
   ctx.fillRect(0, 0, size, size);
   return sprite;
 }
-
-// 影子撒在哪里是固定的（同一台机器每次打开都看到同一片树荫），飘的只是相位。
-// 锚点故意全压在四角与四条边上：中间那一片要留给字，树荫只从页面边缘漫进来。
-const ANCHORS = [
-  { x: 0.04, y: 0.05, size: 0.34 },
-  { x: 0.96, y: 0.09, size: 0.3 },
-  { x: 0.03, y: 0.94, size: 0.32 },
-  { x: 0.95, y: 0.9, size: 0.36 },
-  { x: 0.52, y: 0.01, size: 0.26 },
-  { x: 0.02, y: 0.52, size: 0.26 },
-  { x: 0.99, y: 0.5, size: 0.24 },
-  { x: 0.5, y: 0.99, size: 0.22 },
-];
 
 function buildClusters() {
   return ANCHORS.map((anchor, index) => {
@@ -73,56 +83,66 @@ function buildClusters() {
   });
 }
 
-export function mountLeafShade({ parent = document.body, opacity = 0.34 } = {}) {
-  const canvas = document.createElement("canvas");
-  canvas.className = "leaf-shade";
-  canvas.setAttribute("aria-hidden", "true");
-  canvas.style.opacity = String(opacity);
-  parent.prepend(canvas);
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    canvas.remove();
-    return () => {};
-  }
-
-  const sprite = makeSprite();
-  const clusters = buildClusters();
-  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  let width = 0;
-  let height = 0;
-  let frame = 0;
-  let lastPaint = 0;
-  let lastTime = 0;
+// 统一的节拍器。刻意不用 rAF：rAF 跟着 vsync 每 16ms 唤醒一次，
+// 而树影十几帧就够，中间那些唤醒纯属耗电。页面不可见时连定时器一起停。
+function startClock({ fps, draw, resize }) {
+  const interval = 1000 / fps;
+  let timer = 0;
   let running = true;
 
+  const tick = () => {
+    if (!running || document.hidden) { timer = 0; return; }
+    draw(performance.now() / 1000);
+    timer = window.setTimeout(tick, interval);
+  };
+  const start = () => {
+    if (!running || timer || document.hidden) return;
+    timer = window.setTimeout(tick, interval);
+  };
+  const stop = () => { window.clearTimeout(timer); timer = 0; };
+  const onVisibility = () => { if (document.hidden) stop(); else start(); };
+  const onResize = () => { resize(); if (!document.hidden) draw(performance.now() / 1000); };
+
+  window.addEventListener("resize", onResize);
+  document.addEventListener("visibilitychange", onVisibility);
+  resize();
+  draw(performance.now() / 1000); // 首帧立刻出，不等第一个 interval
+  start();
+  return () => {
+    running = false;
+    stop();
+    window.removeEventListener("resize", onResize);
+    document.removeEventListener("visibilitychange", onVisibility);
+  };
+}
+
+function mount2D(canvas, { scale, fps, still }) {
+  const context = canvas.getContext("2d");
+  if (!context) return () => {};
+  const sprite = makeSprite();
+  const clusters = buildClusters();
+
   const resize = () => {
-    width = Math.max(1, Math.round(window.innerWidth * RENDER_SCALE));
-    height = Math.max(1, Math.round(window.innerHeight * RENDER_SCALE));
-    canvas.width = width;
-    canvas.height = height;
-    paint(lastTime, true);
+    canvas.width = Math.max(1, Math.round(window.innerWidth * scale));
+    canvas.height = Math.max(1, Math.round(window.innerHeight * scale));
   };
 
-  const paint = (time, force = false) => {
+  // 时间单位是秒。阵风、整簇漂移、单片摇摆三层周期错开，看不出循环。
+  const draw = t => {
+    const width = canvas.width;
+    const height = canvas.height;
     if (!width || !height) return;
-    if (!force && time - lastPaint < 1000 / FPS) return;
-    lastPaint = time;
-    const t = time / 1000;
     context.clearRect(0, 0, width, height);
     const unit = Math.min(width, height);
-    // 阵风：慢速起伏的包络。匀速摆动看着像机器在平移，有强弱才像风。
     const gust = 0.55 + 0.45 * Math.sin(t * 0.13) * Math.sin(t * 0.047 + 1.1);
 
     clusters.forEach(cluster => {
-      // 整簇的漂移比单片叶子慢一档，像树在大周期地晃
       const offsetX = Math.sin(t * cluster.speed + cluster.size * 7) * cluster.driftX * width;
       const offsetY = Math.cos(t * cluster.speed * 0.78 + cluster.size * 5) * cluster.driftY * height;
       const cx = cluster.x * width + offsetX;
       const cy = cluster.y * height + offsetY;
 
       cluster.items.forEach(leaf => {
-        // 摇摆叠两个周期：一个跟着全局风，一个走自己的频率，合起来不容易看出循环
         const sway = Math.sin(t * cluster.speed * 1.7 + leaf.phase) * gust
           + Math.sin(t * cluster.speed * 0.63 + leaf.phase * 1.7) * 0.35;
         const radius = leaf.radius * cluster.size * unit;
@@ -139,43 +159,79 @@ export function mountLeafShade({ parent = document.body, opacity = 0.34 } = {}) 
     });
   };
 
-  const loop = time => {
-    if (!running) return;
-    lastTime = time;
-    paint(time);
-    frame = requestAnimationFrame(loop);
+  if (still) {
+    const onResize = () => { resize(); draw(0); };
+    window.addEventListener("resize", onResize);
+    resize();
+    draw(0);
+    return () => window.removeEventListener("resize", onResize);
+  }
+  return startClock({ fps, draw, resize });
+}
+
+function mountGpu(canvas, ctrl, { scale, fps, onLost }) {
+  let stopped = false;
+  ctrl.lost?.then(() => { if (!stopped) onLost?.(); });
+  const resize = () => ctrl.resize(
+    Math.max(1, Math.round(window.innerWidth * scale)),
+    Math.max(1, Math.round(window.innerHeight * scale)),
+  );
+  const stop = startClock({ fps, draw: t => ctrl.render(t), resize });
+  return () => {
+    stopped = true;
+    stop();
+    ctrl.destroy();
+  };
+}
+
+export function mountLeafShade({ parent = document.body, opacity = 0.34, env } = {}) {
+  const host = parent || document.body;
+  const options = env || readEnv();
+  const tier = pickTier(options);
+  const budget = tierBudget(tier, options.mobile);
+
+  const makeCanvas = () => {
+    const canvas = document.createElement("canvas");
+    canvas.className = "leaf-shade";
+    canvas.setAttribute("aria-hidden", "true");
+    canvas.style.opacity = String(opacity);
+    canvas.dataset.shadeTier = tier; // DevTools 里能直接确认走了哪档
+    host.prepend(canvas);
+    return canvas;
   };
 
-  const start = () => {
-    if (reduceMotion) {
-      paint(0, true);
-      return;
-    }
-    if (!running) return;
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(loop);
+  let canvas = makeCanvas();
+  let disposed = false;
+  let fellBack = false;
+  let teardown = () => {};
+
+  // 回落必须换一张 canvas：取过 webgpu context 的 canvas 不能再取 2d。
+  const fallback = reason => {
+    if (disposed || fellBack) return;
+    fellBack = true;
+    teardown();
+    canvas.remove();
+    canvas = makeCanvas();
+    canvas.dataset.shadeTier = TIER.CANVAS;
+    canvas.dataset.shadeFallback = typeof reason === "string" ? reason : (reason?.message || "device lost");
+    teardown = mount2D(canvas, { ...tierBudget(TIER.CANVAS, options.mobile), still: false });
   };
 
-  const onVisibility = () => {
-    if (document.hidden) {
-      running = false;
-      cancelAnimationFrame(frame);
-      return;
-    }
-    running = true;
-    start();
-  };
-
-  resize();
-  if (!reduceMotion) start();
-  window.addEventListener("resize", resize);
-  document.addEventListener("visibilitychange", onVisibility);
+  if (tier === TIER.GPU) {
+    createGpuLeafShade(canvas)
+      .then(ctrl => {
+        if (disposed) { ctrl.destroy(); return; }
+        teardown = mountGpu(canvas, ctrl, { ...budget, onLost: fallback });
+      })
+      .catch(fallback);
+  } else {
+    teardown = mount2D(canvas, { ...budget, still: tier === TIER.STILL });
+  }
 
   return () => {
-    running = false;
-    cancelAnimationFrame(frame);
-    window.removeEventListener("resize", resize);
-    document.removeEventListener("visibilitychange", onVisibility);
+    if (disposed) return;
+    disposed = true;
+    teardown();
     canvas.remove();
   };
 }

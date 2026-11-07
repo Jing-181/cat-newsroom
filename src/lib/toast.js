@@ -27,12 +27,12 @@ function ensureStyle() {
       padding: 10px 16px; border-radius: 12px; background: var(--surface-card); color: var(--text);
       border: 1px solid var(--border); box-shadow: var(--shadow-overlay);
       font-size: 13px; font-weight: 600; line-height: 1.4;
-      animation: cat-toast-in .2s cubic-bezier(.2,.8,.3,1); }
+      animation: cat-toast-in var(--dur-base) var(--ease-out); }
     .cat-toast .cat-toast-ic { display: inline-grid; place-items: center; color: var(--module-1); flex: 0 0 auto; }
     .cat-toast-action { border:0; background:var(--accent-muted); color:var(--accent); font-size:12.5px; font-weight:800;
       padding:5px 12px; border-radius:8px; cursor:pointer; white-space:nowrap; flex: 0 0 auto; }
     .cat-toast-action:active { transform: translateY(1px); }
-    .cat-toast.out { animation: cat-toast-out .18s ease forwards; }
+    .cat-toast.out { animation: cat-toast-out var(--dur-fast) var(--ease-out) forwards; }
     @keyframes cat-toast-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
     @keyframes cat-toast-out { to { opacity: 0; transform: translateY(4px) scale(.97); } }
     @media (max-width: 820px) {
@@ -67,7 +67,11 @@ export function show(message, options = {}) {
   const dismiss = () => {
     if (toast.classList.contains("out")) return;
     toast.classList.add("out");
-    setTimeout(() => toast.remove(), 180);
+    // 用 animationend 跟 CSS 的 --dur-fast 对齐，不再人工写死一个毫秒数；
+    // 系统开了减少动态效果时全局把时长压到 .001ms，这个事件照样会来。
+    const remove = () => toast.remove();
+    toast.addEventListener("animationend", remove, { once: true });
+    setTimeout(remove, 300); // 兜底：动画事件万一没来，也别把 toast 留在屏幕上
   };
   setTimeout(dismiss, options.duration ?? DURATION);
   toast.addEventListener("click", dismiss);

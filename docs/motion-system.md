@@ -1,5 +1,9 @@
 # 动作动画系统
 
+> ⚠️ **2026-11-07 作废。** SVG 线条小人方案暂停，本文档里的画法规范（线宽、尺寸档、头身比、视角、皮肤）全部不再执行。
+> 只保留两块，见 docs/motion-keep.md：人体结构、运动轨迹。来龙去脉见 docs/motion-archive-2026-11-07.md。
+
+
 > 代码正本：`src/lib/motion/`。这篇文档只写规则和契约，不复述实现。
 > 适用：训练页的小人、以后任何「会动的线条图形」。界面反馈（hover、弹窗淡入）不在这套里，见文末边界。
 
@@ -88,9 +92,34 @@
 
 - hover、focus、弹窗淡入、列表入场这类界面反馈 → 继续用 CSS transition 和 `--dur-fast` / `--dur-base` / `--ease-out`。
 - 全屏氛围（树影、纸纹）→ 走 canvas，`player.js` 可以复用，但它有自己的采样逻辑。
-- 过场（开练墨障）→ 是一次性的状态切换，时间写死在 `ink-sweep.js` 里更清楚。
+  树影现状：`src/lib/leaf-shade.js` 按环境分三档。桌面 + 安全上下文 + WebGPU 可用时走
+  `leaf-shade-webgpu.js` 的 WGSL 片元着色器（1/4 分辨率、12fps、优先低功耗适配器）；
+  手机局域网 http 不是安全上下文，与桌面无 WebGPU 时一并回落 2D 精灵图（手机 1/5 分辨率、10fps）；
+  系统开了减少动态效果只画一帧。两条动态路径都用 `setTimeout` 而非 rAF，
+  页面不可见时连定时器一起停。档位判定在 `leaf-shade-tier.js`，跑的是 `.leaf-shade` 的 `dataset.shadeTier`。
+- 过场 → 独立的一套，见下节。开练墨障（`ink-sweep.js`）仍是一次性 DOM 过场，时间写死在那里更清楚。
 
 判断标准：**它有没有「姿势」这个概念**。有，进这套；没有，留在 CSS 里。
+
+## 页面转场（不进动作系统）
+
+模块切换用浏览器原生的 View Transitions API，没有自研状态机、GPU 设备和额外监听。
+入口只有 `src/App.vue` 的 `go()`，样式在 `src/styles.css` 的模块切换段。
+
+默认交叉淡出让 `::view-transition-old/new(root)` 两层同时半透明，中间帧会透出纸底发白。
+按 MDN「圆形揭示」示例的官方做法，CSS 里把 `::view-transition-image-pair(root)` 的
+`isolation` 设回 `auto`，并关掉 old/new 的默认 `animation` 与 `mix-blend-mode`：
+旧帧保持不透明垫在下面，`go()` 在 `transition.ready` 之后用 WAAPI 对
+`::view-transition-new(root)` 做 `clip-path` 圆形揭示，新帧从点击处整块盖上去。
+
+生命周期全部交给 `ViewTransition` 本身：`updateCallbackDone` 等 DOM 换完、`ready` 挂动画、
+`finished` 之后才复位滚动；页面隐藏时浏览器自动 skip；连续点击时浏览器 skip 前一个转场，
+而 `swap()` 读的是最新的 `pendingKey`，最终状态落在最后一次点击。减少动态效果或浏览器
+不支持 API 时直接换页，不建任何动画。没有 GPU 设备、canvas、定时器或全局监听需要清理。
+
+交互级反馈（按钮、弹窗、Tab、区域展开）继续用 Vue 的 `<Transition>` / `<TransitionGroup>`
+与 CSS transition，不在这一层。氛围层（树影、纸纹）仍走 canvas 与 `leaf-shade-*.js`。
+局部交互尚未逐一接入，等这个转场稳定后再加。
 
 ## 已知限制
 

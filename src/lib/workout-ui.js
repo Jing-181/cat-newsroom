@@ -1047,7 +1047,7 @@ function mount(container, options) {
       if (deleteButton) {
         const record = findRecord(deleteButton.dataset.historyDelete);
         if (!record) return;
-        if (!(await AppDialog.confirm(`删除「${record.title || "这条训练"}」？`, { title:"删除训练记录", danger:true, okText:"删除" }))) return;
+        if (!(await AppDialog.confirm(`删除「${record.title || "这条训练"}」？`, { title:"删除训练记录", danger:true, okText:"删除", cancelText:"保留" }))) return;
         records.splice(records.indexOf(record), 1);
         options.onDelete(record);
         container.querySelector("#workout-dialog")?.close();

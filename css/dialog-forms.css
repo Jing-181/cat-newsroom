@@ -1,0 +1,29 @@
+/* 分场景弹窗：形态各定各的，关闭语义共用 dialog-contract.js。
+   这里只放表单类与通用离场，确认框的轻卡在 app-dialog.css，训练弹窗保持 workout-ui.css 原样。 */
+
+/* 通用离场：animationend 由 contract 收尾，兜底定时器防动画没跑起来 */
+.overlay.is-closing { animation: overlay-out var(--dur-fast) var(--ease-out) forwards; pointer-events: none; }
+.overlay.is-closing .modal { animation: modal-out var(--dur-fast) var(--ease-out) forwards; }
+@keyframes overlay-out { to { opacity: 0; } }
+@keyframes modal-out { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+
+/* 登录：小卡。Tab 换成 button，抹掉 UA 的灰底与边框 */
+.auth-modal { width: 360px; max-width: min(92vw, 360px); padding: 22px 24px; }
+.auth-modal h3 { font-size: 17px; }
+.auth-modal .sub { font-size: 12px; margin: 4px 0 14px; }
+.auth-tabs { display:flex; gap:0; margin-bottom:14px; border-bottom:1px solid var(--border); }
+/* 三条选择器：压过 desktop.css 里后加载的 .auth-modal .auth-tab */
+.overlay .auth-modal .auth-tab { flex:1; text-align:center; padding:8px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
+  background:none; border:0; border-bottom:2px solid transparent; color:var(--text-secondary);
+  transition:all var(--dur-fast) var(--ease-out); }
+.overlay .auth-modal .auth-tab.on { color:var(--accent); border-bottom-color:var(--accent); }
+.auth-modal .field { margin-bottom:10px; }
+.auth-modal .modal-actions { margin-top:16px; justify-content:flex-end; }
+.auth-hint { font-size:11px; color:var(--text-tertiary); margin-top:10px; line-height:1.5; }
+.sheet-error { margin:2px 0 0; color:var(--danger); font-size:12px; line-height:1.5; }
+.sheet-error[hidden] { display:none; }
+
+/* 记录编辑：首屏只露必要字段，高级项统一折叠，表单有清楚的分组间距 */
+.editor-modal .form-essential > .field,
+.editor-modal .form-essential > .frow { margin-bottom:12px; }
+.editor-modal .form-advanced { margin-top:4px; }

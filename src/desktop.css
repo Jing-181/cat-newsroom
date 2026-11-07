@@ -289,10 +289,10 @@
 
   /* ---------- modal ---------- */
   .overlay { position:fixed; inset:0; background:color-mix(in srgb, var(--text) 44%, transparent); backdrop-filter: blur(3px); z-index:60;
-    display:flex; align-items:center; justify-content:center; animation: fade .16s ease; }
+    display:flex; align-items:center; justify-content:center; animation: fade var(--dur-fast) var(--ease-out); }
   @keyframes fade { from { opacity:0; } }
   .modal { background:var(--surface-card); border-radius:20px; padding:26px; width:480px; max-width:92vw; max-height:90vh; overflow-y:auto;
-    box-shadow:0 24px 60px color-mix(in srgb, var(--text) 26%, transparent); animation: pop .18s cubic-bezier(.2,.8,.3,1); }
+    box-shadow:0 24px 60px color-mix(in srgb, var(--text) 26%, transparent); animation: pop var(--dur-base) var(--ease-out); }
   @keyframes pop { from { transform: translateY(10px) scale(.98); opacity:0; } }
   .modal h3 { font-size:19px; font-weight:800; letter-spacing:-.01em; }
   .modal .sub { color:var(--text-secondary); font-size:13px; margin:5px 0 18px; }
@@ -301,7 +301,7 @@
   .frow { display:flex; gap:12px; } .frow .field { flex:1; }
   .seg { display:flex; gap:8px; flex-wrap:wrap; }
   .seg .opt { flex:1; min-width:64px; text-align:center; padding:10px; border-radius:var(--radius-tile); border:1px solid var(--border-input);
-    cursor:pointer; font-size:13px; font-weight:600; color:var(--text-secondary); transition: all .12s; }
+    cursor:pointer; font-size:13px; font-weight:600; color:var(--text-secondary); transition: all var(--dur-fast) var(--ease-out); }
   .seg .opt.on { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
   .modal-actions { display:flex; align-items:center; gap:10px; margin-top:22px; }
   .link-danger { color:var(--danger); background:none; border:none; font-size:14px; font-weight:600; cursor:pointer; padding:8px 10px; border-radius:8px; }
@@ -318,7 +318,7 @@
   .modal-fold { margin-top:4px; border:1px solid var(--border); border-radius:12px; background:var(--surface-nested); }
   .modal-fold summary { display:flex; align-items:center; gap:6px; padding:11px 14px; cursor:pointer; font-size:13px; font-weight:700; color:var(--text-secondary); list-style:none; user-select:none; }
   .modal-fold summary::-webkit-details-marker { display:none; }
-  .modal-fold summary::after { content:"▾"; margin-left:auto; color:var(--text-tertiary); font-size:11px; transition:transform .15s; }
+  .modal-fold summary::after { content:"▾"; margin-left:auto; color:var(--text-tertiary); font-size:11px; transition:transform var(--dur-fast) var(--ease-out); }
   .modal-fold[open] summary::after { transform:rotate(180deg); }
   .modal-fold > div { padding:4px 14px 14px; }
   .modal-fold .field:last-child { margin-bottom:0; }
@@ -380,8 +380,8 @@
   .set-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:14px; }
   /* 开关（个人配置页） */
   .switch { border:0; background:none; padding:0; cursor:pointer; }
-  .switch-track { display:block; width:44px; height:26px; border-radius:999px; background:var(--border-input); position:relative; transition:background .18s; }
-  .switch-track i { position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--surface-card); box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .18s; }
+  .switch-track { display:block; width:44px; height:26px; border-radius:999px; background:var(--border-input); position:relative; transition:background var(--dur-base) var(--ease-out); }
+  .switch-track i { position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--surface-card); box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform var(--dur-base) var(--ease-out); }
   .switch.on .switch-track { background:var(--module-1); }
   .switch.on .switch-track i { transform:translateX(18px); }
 
@@ -468,7 +468,7 @@
   .done-fold { margin-top:6px; border:1px dashed var(--border); border-radius:var(--radius-tile); background:var(--surface-nested); }
   .done-fold summary { display:flex; align-items:center; padding:9px 14px; cursor:pointer; font-size:12.5px; font-weight:700; color:var(--text-secondary); list-style:none; user-select:none; }
   .done-fold summary::-webkit-details-marker { display:none; }
-  .done-fold summary::after { content:"▾"; margin-left:auto; color:var(--text-tertiary); font-size:11px; transition:transform .15s; }
+  .done-fold summary::after { content:"▾"; margin-left:auto; color:var(--text-tertiary); font-size:11px; transition:transform var(--dur-fast) var(--ease-out); }
   .done-fold[open] summary::after { transform:rotate(180deg); }
   .done-fold .done-list { padding:4px 8px 10px; display:grid; gap:6px; }
   .done-fold .done-list .rec { box-shadow:none; }
@@ -705,7 +705,7 @@
   .auth-modal { width:380px; }
   .auth-modal .auth-tabs { display:flex; gap:0; margin-bottom:18px; border-bottom:1px solid var(--border); }
   .auth-modal .auth-tab { flex:1; text-align:center; padding:10px; font-size:14px; font-weight:700; cursor:pointer;
-    border-bottom:2px solid transparent; color:var(--text-secondary); transition:all .15s; }
+    border-bottom:2px solid transparent; color:var(--text-secondary); transition:all var(--dur-fast) var(--ease-out); }
   .auth-modal .auth-tab.on { color:var(--accent); border-bottom-color:var(--accent); }
   .auth-modal .auth-hint { font-size:12px; color:var(--text-tertiary); margin-top:14px; line-height:1.6; }
   .auth-modal .auth-hint b { color:var(--text-secondary); }

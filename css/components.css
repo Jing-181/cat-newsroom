@@ -15,7 +15,7 @@
   background: var(--surface-card);
   font: 700 14px/1 var(--font-sans);
   cursor: pointer;
-  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 .shared-btn:hover { border-color: var(--accent); background: var(--accent-muted); }
 .shared-btn:active { transform: translateY(1px); }

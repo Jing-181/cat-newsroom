@@ -29,7 +29,7 @@
   .m-topbar .sync-indicator::before { width: 6px; height: 6px; }
 
   /* 侧栏 → 抽屉 */
-  .sidebar { width: min(300px, 84vw); transform: translateX(-100%); transition: transform .24s cubic-bezier(.2,.8,.3,1); z-index: 45; box-shadow: var(--shadow-overlay); }
+  .sidebar { width: min(300px, 84vw); transform: translateX(-100%); transition: transform var(--dur-base) var(--ease-out); z-index: 45; box-shadow: var(--shadow-overlay); }
   .sidebar.m-open { transform: translateX(0); }
   .sidebar .nav { flex: 1; }
 
@@ -38,7 +38,8 @@
     background: linear-gradient(180deg, var(--drawer-bg), var(--drawer-bg-top)); color: var(--drawer-text);
     border-top: 1px solid var(--drawer-hover); padding-bottom: env(safe-area-inset-bottom); }
   .m-tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 0 7px;
-    border: none; background: transparent; color: var(--drawer-text-mute); font-size: 11px; font-weight: 600; cursor: pointer; }
+    border: none; background: transparent; color: var(--drawer-text-mute); font-size: 11px; font-weight: 600; cursor: pointer;
+    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
   .m-tabs button.active { color: var(--drawer-text); }
   .m-tabs button svg { display: block; }
   /* 按下即反馈：触摸设备上 :hover 基本不会触发，没有按压态会觉得点了没反应 */
@@ -47,7 +48,7 @@
 
   /* 抽屉遮罩 */
   .m-scrim { display: block; position: fixed; inset: 0; z-index: 39; background: rgba(58,46,32,.45);
-    opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+    opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
   .m-scrim.open { opacity: 1; pointer-events: auto; }
 
   /* 主区 */

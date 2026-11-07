@@ -3,6 +3,7 @@
 @import "../css/components.css";
 @import "../css/workout-ui.css";
 @import "../css/app-dialog.css";
+@import "../css/dialog-forms.css";
 @import "../css/record-media.css";
 @import "../css/critters.css";
 @import "./desktop.css";
@@ -26,16 +27,24 @@ html, body { background: var(--page-bg); color: var(--text); font-family: var(--
 .leaf-shade { position: fixed; inset: 0; z-index: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
 .main { position: relative; z-index: 1; }
 
-/* ---- 模块切换 ----
-   支持 View Transitions 时交给浏览器做交叉淡出；视图自己的入场动画必须关掉，
-   因为它从 opacity 0 开始，浏览器截到的新帧就是空白，反而更闪。 */
+/* ---- 模块切换：原生 View Transitions ----
+   默认交叉淡出让 old/new 两层同时半透明，中间帧会透出纸底发白。按 MDN「圆形揭示」
+   示例的官方做法关掉默认动画与混合：旧帧保持不透明垫在下面，App.vue 在
+   transition.ready 之后用 WAAPI 对 ::view-transition-new(root) 做 clip-path 揭示，
+   新帧从点击处整块盖上去，中途任何一帧都不会露底。 */
 @supports (view-transition-name: root) {
   .view-swap { animation: none !important; }
 }
+::view-transition-image-pair(root) { isolation: auto; }
+/* UA 还会给 group 跑一段 250ms 的尺寸/位移补间；模块切换时 root 尺寸不变，
+   留着只会和 420ms 的揭示动画时长打架，直接关掉让时序只剩一条。 */
+::view-transition-group(root) { animation: none; }
 ::view-transition-old(root),
-::view-transition-new(root) { animation-duration: 190ms; }
-::view-transition-old(root) { animation-timing-function: cubic-bezier(.4, 0, 1, 1); }
-::view-transition-new(root) { animation-timing-function: cubic-bezier(0, .55, .25, 1); }
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  display: block;
+}
 
 /* 弹窗左下角那种“退路”按钮：不抢主按钮，但必须找得到 */
 .dialog-quiet { margin-right:auto; padding:6px 2px; border:0; background:none; color:var(--text-tertiary); font:inherit; font-size:11.5px; letter-spacing:.02em; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }

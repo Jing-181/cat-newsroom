@@ -1,53 +1,37 @@
-// 统一应用内确认与提示弹窗，替代浏览器原生对话框。
-//
-// ESM 模块：import { confirm, alert } from "./app-dialog.js"。
+// 二次确认 / 提示：top-layer 原生 dialog，居中轻卡，一句标题一句说明两个按钮。
+// 用原生 dialog 是因为训练页的 <dialog> 在 top-layer，确认框必须也在顶层才看得见。
+import { bindLayer } from "./dialog-contract.js";
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"]/g, character => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;",
   }[character]));
 }
 
 function open(options = {}) {
   const confirmMode = options.type === "confirm";
-  const overlay = document.createElement("div");
-  overlay.className = "overlay app-dialog-overlay";
-  overlay.innerHTML = `<div class="modal app-dialog" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" aria-describedby="app-dialog-message">
-    <div class="grab"></div>
-    <div class="app-dialog-mark ${confirmMode ? "is-confirm" : "is-alert"}">${confirmMode ? "?" : "!"}</div>
-    <h2 id="app-dialog-title">${esc(options.title || (confirmMode ? "请确认" : "提示"))}</h2>
-    <div class="sub" id="app-dialog-message">${esc(options.message || "")}</div>
+  const dialog = document.createElement("dialog");
+  dialog.className = "sheet-confirm";
+  dialog.setAttribute("aria-label", options.title || (confirmMode ? "请确认" : "提示"));
+  dialog.innerHTML = `
+    <h2>${esc(options.title || (confirmMode ? "请确认" : "提示"))}</h2>
+    <p class="sub">${esc(options.message || "")}</p>
     <div class="modal-actions">
-      ${confirmMode ? `<button type="button" class="btn ghost" data-dialog-cancel>${esc(options.cancelText || "取消")}</button>` : ""}
+      ${confirmMode ? `<button type="button" class="btn ghost" data-layer-close>${esc(options.cancelText || "取消")}</button>` : ""}
       <button type="button" class="btn ${options.danger ? "danger" : ""}" data-dialog-ok>${esc(options.okText || "知道了")}</button>
-    </div>
-  </div>`;
-  document.body.appendChild(overlay);
-  const dialog = overlay.querySelector(".app-dialog");
-  const ok = overlay.querySelector("[data-dialog-ok]");
-  const cancel = overlay.querySelector("[data-dialog-cancel]");
-  let settled = false;
-  const close = value => {
-    if (settled) return;
-    settled = true;
-    overlay.remove();
-    options.onClose?.(value);
-    return value;
-  };
-  ok.addEventListener("click", () => close(confirmMode ? true : undefined));
-  cancel?.addEventListener("click", () => close(false));
-  overlay.addEventListener("click", event => {
-    if (confirmMode && event.target === overlay) close(false);
+    </div>`;
+  document.body.appendChild(dialog);
+  dialog.showModal();
+
+  const layer = bindLayer({
+    element: dialog,
+    closeValue: confirmMode ? false : undefined,
+    confirmDiscard: false, // 确认框本身就是「问」，不再套一层问
+    initialFocus: confirmMode ? "[data-layer-close]" : "[data-dialog-ok]",
+    onClose: value => options.onClose?.(value),
   });
-  dialog.addEventListener("keydown", event => {
-    if (event.key === "Escape" && confirmMode) close(false);
-    if (event.key === "Enter" && event.target === dialog) close(confirmMode ? true : undefined);
-  });
-  queueMicrotask(() => (confirmMode ? cancel : ok)?.focus());
-  return { overlay, close };
+  dialog.querySelector("[data-dialog-ok]").addEventListener("click", () => layer.requestClose(confirmMode ? true : undefined));
+  return { overlay: dialog, close: layer.requestClose };
 }
 
 export function confirm(message, options = {}) {

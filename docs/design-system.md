@@ -39,6 +39,7 @@
 - 全站默认 `corner-shape: squircle`，圆角按超椭圆渲染；不支持该属性的浏览器自动回退为普通圆角。需要保持正圆的元素（圆点、圆形标记、圆形关闭按钮）显式设回 `round`。
 - 阴影：普通卡片 `--shadow-card`；hover 用 `--shadow-hover`；弹窗、浮层和 Toast 用 `--shadow-overlay`。
 - 动效：统一用 `--dur-fast`（.15s）/ `--dur-base`（.22s）与 `--ease-out`；hover 只用 fast，`prefers-reduced-motion: reduce` 时全局关闭。这两组 token 只负责界面反馈（hover、focus、弹窗、列表入场）。有角色的动作（训练页小人这类会自己演一段的图形）不走 CSS，走 `src/lib/motion/`，规则见 `docs/motion-system.md`。
+- 浮层分工：弹窗、抽屉、Toast 的进入用 `--dur-base`，遮罩淡出、Tab / 折叠箭头、按钮 hover 用 `--dur-fast`。底部 Tab 的 active 变色也走 `--dur-fast`，不再瞬时跳。别在界面反馈里再写一次性时长或另一条缓动曲线。
 - 字重：正文 400/500，标签与标题 700，只有超大数字和报刊刊头用 800。不再新增 750 这类非标准字重。
 
 ## 组件与状态
