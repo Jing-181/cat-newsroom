@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>动作图解库 · Motion Library</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); font-family: var(--font); background: var(--page-bg); }
+    .shell { width: min(calc(100% - 32px), 1120px); margin: 0 auto; padding: 28px 0 60px; }
+    .mast { display: flex; align-items: flex-end; gap: 16px; padding: 14px 0 12px; border-bottom: 3px double var(--border-input); }
+    .mast h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); font-weight: 400; line-height: 1; }
+    .mast p { margin: 0; color: var(--text-secondary); font: 12.5px/1.5 var(--font-sans); }
+    .kicker { color: var(--accent); font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; }
+
+    .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0 4px; font: 12px var(--font-sans); color: var(--text-secondary); }
+    .bar input[type=search] { width: min(280px, 100%); padding: 8px 12px; border: 1px solid var(--border-input); border-radius: var(--radius-pill); background: var(--surface-card); color: var(--text); font: inherit; }
+    .bar label { display: flex; align-items: center; gap: 6px; }
+    .bar input[type=range] { width: 130px; }
+    .bar .note { margin-left: auto; color: var(--text-tertiary); }
+
+    .lookup { display: none; gap: 16px; align-items: center; margin: 14px 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); box-shadow: var(--shadow-card); }
+    .lookup.show { display: flex; }
+    .lookup .preview { flex: 0 0 auto; display: grid; place-items: center; min-width: 108px; min-height: 96px; }
+    .lookup .body { flex: 1; min-width: 0; }
+    .lookup h2 { margin: 0 0 4px; font-size: 17px; font-weight: 400; }
+    .lookup .tag { color: var(--accent); font: 700 10.5px/1 var(--font-sans); letter-spacing: .12em; text-transform: uppercase; }
+    .lookup p { margin: 6px 0 0; color: var(--text-secondary); font: 12px/1.7 var(--font-sans); }
+    .lookup.miss p { color: var(--danger); }
+    .lookup pre { margin: 10px 0 0; padding: 10px 12px; border-radius: var(--radius-control); background: var(--page-bg); color: var(--text-secondary); font: 11px/1.65 var(--font-sans); overflow: auto; }
+
+    .cover { margin: 14px 0 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); font: 12px/1.7 var(--font-sans); color: var(--text-secondary); }
+    .cover b { color: var(--text); font-size: 15px; font-weight: 700; }
+    .cover .meter { display: inline-block; width: 120px; height: 6px; margin: 0 8px; border-radius: 999px; background: var(--border); vertical-align: middle; overflow: hidden; }
+    .cover .meter i { display: block; height: 100%; background: var(--module-3); }
+    .cover details { margin-top: 8px; }
+    .cover summary { cursor: pointer; color: var(--accent); }
+    .cover .missing { margin-top: 6px; color: var(--text-tertiary); line-height: 1.9; }
+
+    .group-head { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .group-head h3 { margin: 0; font: 400 17px/1 var(--font); letter-spacing: .1em; }
+    .group-head span { color: var(--text-tertiary); font: 11px var(--font-sans); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+    .cell { padding: 10px 8px 9px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); box-shadow: var(--shadow-card); cursor: pointer; text-align: center; transition: border-color var(--dur-fast) var(--ease-out); }
+    .cell:hover, .cell.on { border-color: var(--accent); }
+    .cell .fig { margin: 0 auto 6px; }
+    .cell b { display: block; font: 600 12px/1.4 var(--font-sans); color: var(--text); }
+    .cell small { display: block; margin-top: 2px; color: var(--text-tertiary); font: 10px/1.3 var(--font-sans); }
+    .foot { margin-top: 26px; color: var(--text-tertiary); font: 11.5px/1.8 var(--font-sans); }
+    .foot code { font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="mast">
+      <div>
+        <div class="kicker">Motion Library · Static Figures</div>
+        <h1>动作图解库</h1>
+      </div>
+      <p>56 个动作各一张静态图解。<br>风格由人定，代码只管取格。</p>
+    </div>
+
+    <div class="bar">
+      <input type="search" id="q" placeholder="输入动作名，如「坐姿绳索划船（宽握）」" autocomplete="off">
+      <label>尺寸 <input type="range" id="size" min="48" max="200" value="104"></label>
+      <span class="note" id="size-note">104 px</span>
+    </div>
+
+    <div class="lookup" id="lookup">
+      <div class="preview" id="lookup-fig"></div>
+      <div class="body">
+        <div class="tag" id="lookup-tag"></div>
+        <h2 id="lookup-name"></h2>
+        <p id="lookup-msg"></p>
+        <pre id="lookup-css" hidden></pre>
+      </div>
+    </div>
+
+    <div class="cover" id="cover"></div>
+
+    <div id="groups"></div>
+
+    <div class="foot">
+      裁剪框由 <code>scripts/motion-frames.py</code> 从原图量出，验收图见 <code>docs/motion-library-frames.png</code>。<br>
+      静态图解与逐帧动画是两回事：这里按名字取格，<code>sprite/player.js</code> 按时间切帧，别混用。<br>
+      接入用 <code>figureFor(name)</code> 取格子、<code>cssFor(cell, width)</code> 出样式；认不出的名字返回 null，调用方应回退到文字徽章。
+    </div>
+  </div>
+
+  <script type="module">
+    import { GROUPS, CELLS, cellsInGroup, figureFor, cssFor, cssTextFor, mountFigure } from "/lib/sprite/library.js";
+    import { exercises } from "/lib/workout-catalog.js";
+
+    // 相对路径：GitHub Pages 子路径部署时 /assets/ 会指向域名根。
+    // 这里用纯相对字符串，CSS background-image 一律相对 HTML 文档解析：
+    // 页面在 /preview/library.html，../assets/ 在 dev 与部署后都指到 public 的那张图。
+    // 别换成 new URL(..., import.meta.url)：Vite 会把内联 module 抽成 JS chunk，
+    // 基址从 HTML 变成 JS 文件，两种环境下只是碰巧都对，很脆。
+    const SRC = "../assets/motion-library.png";
+    const $ = id => document.getElementById(id);
+    let width = Number($("size").value);
+
+    const figures = [];
+
+    const paint = () => {
+      $("size-note").textContent = `${width} px`;
+      for (const { el, cell } of figures) Object.assign(el.style, cssFor(cell, width, SRC));
+    };
+
+    for (const group of GROUPS) {
+      const head = document.createElement("div");
+      head.className = "group-head";
+      head.innerHTML = `<h3></h3><span></span>`;
+      head.querySelector("h3").textContent = group.label;
+      head.querySelector("span").textContent = `${cellsInGroup(group.key).length} 个动作 · ${group.key}`;
+      $("groups").append(head);
+
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      for (const cell of cellsInGroup(group.key)) {
+        const box = document.createElement("div");
+        box.className = "cell";
+        box.dataset.id = cell.id;
+        const fig = document.createElement("div");
+        fig.className = "fig";
+        Object.assign(fig.style, cssFor(cell, width, SRC));
+        fig.setAttribute("role", "img");
+        fig.setAttribute("aria-label", `${cell.name} 动作图解`);
+        const name = document.createElement("b");
+        name.textContent = cell.name;
+        const meta = document.createElement("small");
+        meta.textContent = cell.frame.join(", ");
+        box.append(fig, name, meta);
+        figures.push({ el: fig, cell });
+        box.addEventListener("click", () => {
+          $("q").value = cell.name;
+          document.querySelectorAll(".cell.on").forEach(n => n.classList.remove("on"));
+          box.classList.add("on");
+          lookup(cell.name);
+        });
+        grid.append(box);
+      }
+      $("groups").append(grid);
+    }
+
+    function lookup(raw) {
+      const box = $("lookup");
+      box.classList.add("show");
+      const cell = figureFor(raw);
+      const fig = $("lookup-fig");
+      fig.innerHTML = "";
+      $("lookup-css").hidden = true;
+      if (!cell) {
+        box.classList.add("miss");
+        $("lookup-tag").textContent = "No Figure";
+        $("lookup-name").textContent = raw || "（空）";
+        $("lookup-msg").textContent = "没有对应的图解。调用方应回退到原来的文字徽章，不要随便配一张图。";
+        return;
+      }
+      box.classList.remove("miss");
+      $("lookup-tag").textContent = `${cell.groupLabel} · ${cell.id}`;
+      $("lookup-name").textContent = `${raw} → ${cell.name}`;
+      $("lookup-msg").textContent = `裁剪框 [${cell.frame.join(", ")}]，显示宽度 ${width}px。`;
+      const view = document.createElement("div");
+      mountFigure(view, cell, { width, src: SRC });
+      fig.append(view);
+      const pre = $("lookup-css");
+      pre.hidden = false;
+      pre.textContent = cssTextFor(cell, width, SRC);
+    }
+
+    $("q").addEventListener("input", e => {
+      document.querySelectorAll(".cell.on").forEach(n => n.classList.remove("on"));
+      lookup(e.target.value.trim());
+    });
+    $("size").addEventListener("input", e => {
+      width = Number(e.target.value);
+      paint();
+      if ($("q").value.trim()) lookup($("q").value.trim());
+    });
+
+    // 覆盖率：动作库里的名字有多少能查到图解，缺哪些。
+    // 这不是要求 100%——没有图就老实显示文字，比配错图好。
+    const hit = exercises.filter(x => figureFor(x.name));
+    const missing = exercises.filter(x => !figureFor(x.name));
+    const pct = Math.round((hit.length / exercises.length) * 100);
+    const cover = $("cover");
+    cover.innerHTML = `
+      <div>动作库覆盖：<b>${hit.length}</b> / ${exercises.length} 个动作（<b>${pct}%</b>）
+        <span class="meter"><i style="width:${pct}%"></i></span>
+        没图的动作回退到文字徽章，属预期行为。</div>
+      <details><summary>查看没有图解的 ${missing.length} 个动作</summary>
+        <div class="missing">${missing.map(x => x.name).join(" · ")}</div></details>`;
+  </script>
+</body>
+</html>

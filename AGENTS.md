@@ -102,12 +102,16 @@ token 在 `css/theme.css`：颜色（`--page-bg` `--surface-*` `--text*` `--acce
 
 - **界面反馈**（hover、focus、弹窗淡入、列表入场）走 CSS transition，只用 `--dur-fast` / `--dur-base` / `--ease-out`。
 - **有角色的动作**（训练小人这类会自己演一段的线条图形）走 `src/lib/motion/`，规则见 `docs/motion-system.md`。不要在组件里自己起 rAF，也不要把动作节奏写成 CSS keyframes。
+- **静态动作图解**（56 个动作各一张的手绘图集）走 `src/lib/sprite/library.js`，按名字取格；和逐帧播放器 `src/lib/sprite/player.js` 是两回事，别混。见 `docs/motion-library.md`。
+  注意：`src/lib/motion/` 的 SVG 线条小人方案已于 2026-11-07 归档暂停（造型该由人定），解算器与 15 条轨迹表留作画帧对照，不要再往那条路上加画法规范。
 
 ## 文档索引
 
 - `docs/任务表.md` — 当前排期与执行约束（最该先看）
 - `docs/design-system.md` — 视觉规范正本（颜色 / 字体 / 圆角 / 阴影 / 动效 token）
-- `docs/motion-system.md` — 动作动画系统（分层、姿势契约、加动作与换项目的步骤）；实物入口 `/preview/motion.html`
+- `docs/motion-system.md` — 动作动画系统（分层、姿势契约、加动作与换项目的步骤）；实物入口 `/preview/motion.html`。**画法规范已作废**，只留解算器与轨迹
+- `docs/motion-keep.md` — 动作系统唯一需要继承的文档（人体结构 + 运动轨迹）；`docs/motion-archive-2026-11-07.md` — 归档记录
+- `docs/motion-library.md` — 静态动作图解库（56 张图、裁剪框、换素材、后续扩展逐帧的接口）；实物入口 `/preview/library.html`
 - `docs/设计系统` → `docs/design-system.md`
 - `docs/design-review-prompts.md` — 设计审查提示词手册（八条，各配一个本仓库的真实示例）
 - `docs/design-review-2026-10.md` — 审美与代码细节审查

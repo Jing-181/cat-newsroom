@@ -19,6 +19,11 @@ export default defineConfig({
         motion: resolve(process.cwd(), "src/preview/motion.html"),
         // 三种画法的横向对照页。
         skins: resolve(process.cwd(), "src/preview/skins.html"),
+        // 骨架多视图、精灵播放器、动作图解库三张验收页。
+        // 之前只挂了 motion/skins，部署后这三页会 404（2026-11-07 补）。
+        body: resolve(process.cwd(), "src/preview/body.html"),
+        sprite: resolve(process.cwd(), "src/preview/sprite.html"),
+        library: resolve(process.cwd(), "src/preview/library.html"),
       },
       output: {
         // 带内容 hash：部署后文件名变化，强制浏览器拉取新样式，规避 GitHub Pages 10 分钟强缓存导致旧样式残留
