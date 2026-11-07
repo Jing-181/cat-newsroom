@@ -12,6 +12,8 @@
 // 肢体是有宽度的形状，不是线：关节点之间用「两端半径不同的胶囊」拼出来。
 // 粗细比例全在这里，骨架（core.js）一个字不动。
 
+import { sizeTier, strokeUnits, measureHeight } from "../optical.js";
+
 const NS = "http://www.w3.org/2000/svg";
 
 // 单位是「身体单位」，跟骨架同一套。整体按 P.thigh / 26 缩放，换骨架比例时不会走形。
@@ -37,6 +39,7 @@ const COLORS = {
   body: "#EFCF5A",      // 暖黄
   bodyFar: "#B0913A",   // 远侧肢体压暗，制造前后
   mark: "#9A7724",      // 肌肉线：比身体暗一档，不抢轮廓
+  markStrong: "#6E5216", // 小尺寸用：压更深，不然抗锯齿一抹就成灰雾
   shorts: "#3B3630",    // 深灰短裤，把身体分成上中下三段
   prop: "#6E5F49",      // 器械杆
   propPlate: "#4A3C2C", // 杠片，比杆暗，两块配重才读得出来
@@ -66,6 +69,11 @@ const MARKS = [
   // 前臂
   { layer: "arm", bone: "forearm", t0: 0.34, o0: 0.42, t1: 0.58, o1: 0.16 },
 ];
+
+// 小尺寸只留三笔：胸下缘、股四头、二头。
+// 三个身体区域各一处——读成「有胸、有腿、有胳膊」，而不是均匀铺开的一层灰。
+// 选这三笔的依据：靠身体中轴或外缘，不会被手臂或短裤盖住。
+const COMPACT_MARKS = new Set([MARKS[0], MARKS[3], MARKS[6]]);
 
 const n1 = v => v.toFixed(1);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -141,6 +149,13 @@ export function createSkin(target, {
 
   target.innerHTML = "";
 
+  // 尺寸档：线宽与肌肉线条数都跟它走。初始 full，量到真实尺寸后重算。
+  let px = 0;
+  let tier = "full";
+  let probes = 0;
+  const inkNodes = [];
+  const markNodes = [];
+
   // 只造不挂：元素的插入顺序就是图层顺序，最后统一按 order 数组挂上去。
   const make = (tag, attrs) => {
     const node = document.createElementNS(NS, tag);
@@ -155,7 +170,11 @@ export function createSkin(target, {
     "stroke-linecap": "round",
   };
   // 一对路径共用同一份 d：描边在前、填充在后，所以 paint 里只算一次几何。
-  const pair = color => [make("path", { ...inkAttrs, d: "" }), make("path", { fill: color, d: "" })];
+  const pair = color => {
+    const ink = make("path", { ...inkAttrs, d: "" });
+    inkNodes.push(ink);
+    return [ink, make("path", { fill: color, d: "" })];
+  };
   const draw = (p, d) => {
     p[0].setAttribute("d", d);
     p[1].setAttribute("d", d);
@@ -170,6 +189,7 @@ export function createSkin(target, {
     });
     node._bone = bone;
     node._mark = m;
+    markNodes.push(node);
     return node;
   };
 
@@ -288,12 +308,42 @@ export function createSkin(target, {
 
   const headRadius = P.headRadius * 1.06;
 
+  // 按尺寸档重算线宽与细节。全部是属性赋值，不在 paint 里做。
+  const applyTier = () => {
+    tier = sizeTier(px);
+    const compact = tier === "compact";
+    // 只对描边和肌肉线做光学缩放；身体填充半径不动——
+    // 身体的胖瘦是画风的一部分，不能因为图小了就变瘦。
+    const opt = strokeUnits(px, 1);
+    const outline = W.outline * opt * (compact ? 1.18 : 1);
+    const mark = W.mark * opt * (compact ? 1.6 : 1);
+    const markColor = compact ? C.markStrong : C.mark;
+
+    for (const node of inkNodes) node.setAttribute("stroke-width", String(2 * outline));
+    for (const node of markNodes) {
+      node.setAttribute("stroke-width", String(mark));
+      node.setAttribute("stroke", markColor);
+      // 小尺寸留三笔，其余直接不画。留着但缩细 = 一层灰雾，比不画更差。
+      const keep = !compact || COMPACT_MARKS.has(node._mark);
+      node.style.display = keep ? "" : "none";
+    }
+  };
+
   return {
     resize(viewBox) {
       if (viewBox) target.setAttribute("viewBox", viewBox);
+      px = measureHeight(target);
+      applyTier();
     },
 
     paint(pose) {
+      // 首次挂载时元素可能还没进文档，gBCR 是 0。前几帧探一下，量到就定死。
+      if (px <= 0 && probes < 8) {
+        probes += 1;
+        const h = measureHeight(target);
+        if (h > 0) { px = h; applyTier(); }
+      }
+
       const { hip, knee, ankle, shoulder, elbow, hand, head } = pose;
 
       // 远侧肢体：压暗 + 略细 + 整体后错，三件事一起做才读得出前后。

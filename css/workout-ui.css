@@ -979,15 +979,28 @@ button.set-hint:hover { color:var(--module-4); }
 
 /* ---- 动作库弹窗：头部与搜索固定，只让列表滚 ----
    以前是整张弹窗一起滚，输入搜索时键盘一顶、列表一换，页面就跳，
-   看起来像"不稳"。现在把它拆成 flex 列：头、搜索各占固定高度，剩下的才是滚动区。 */
-.workout-dialog.is-list { display:flex; flex-direction:column; overflow:hidden; overscroll-behavior:contain; }
-.workout-dialog.is-list #workout-dialog-content { display:flex; flex-direction:column; flex:1; min-height:0; }
+   看起来像"不稳"。现在把它拆成 flex 列：头、搜索各占固定高度，剩下的才是滚动区。
+
+   高度必须给死。只写 max-height 的话，WebKit（iOS Safari）不会把它当成确定高度，
+   里面的 flex 子项就不会收缩，列表超出部分被 overflow:hidden 切掉 —— 手机上就是"显示不全"。 */
+.workout-dialog.is-list {
+  display:flex; flex-direction:column;
+  height:min(82vh,760px); max-height:min(82vh,760px);
+  overflow:hidden; overscroll-behavior:contain;
+}
+.workout-dialog.is-list #workout-dialog-content { display:flex; flex-direction:column; flex:1 1 auto; min-height:0; }
 .workout-dialog.is-list .dialog-head { flex:0 0 auto; }
 .workout-dialog.is-list .exercise-search { flex:0 0 auto; margin:0 0 10px; }
 .workout-dialog.is-list .lib-scroll {
-  flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+  /* min-height 兜底：万一 WebKit 又把 flex 高度算成 0，至少还能看见几行，不会整块消失 */
+  flex:1 1 auto; min-height:240px; overflow-y:auto; overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch; padding-bottom:6px;
 }
 
 /* 列表自己在 .lib-scroll 里滚，内层不要再套一个滚动容器（会变成两层滚动、手感发黏） */
 .workout-dialog.is-list .dialog-library { max-height:none; overflow:visible; }
+
+/* 手机上按可视区算高度，并把键盘弹起时的 dvh 变化考虑进去 */
+@media (max-width: 820px) {
+  .workout-dialog.is-list { height:calc(100dvh - 96px); max-height:calc(100dvh - 96px); }
+}

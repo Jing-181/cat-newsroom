@@ -116,6 +116,11 @@
   // ?size=96 用真实出场尺寸渲染，?size=180 看大图。不传就用审阅回退尺寸。
   const sizeParam = Number(params.get("size"));
   const forcedSize = Number.isFinite(sizeParam) && sizeParam > 0 ? sizeParam : null;
+  // ?at=0.4 定格在剪辑的 40% 处。截图和审阅必须可重现，
+  // 否则每次看到的是随手抓到的一帧，没法比较。
+  const atRaw = params.get("at");
+  const atNum = atRaw === null ? NaN : Number(atRaw);
+  const frozen = Number.isFinite(atNum) && atNum >= 0 && atNum <= 1 ? atNum : null;
   const mounts = [];
 
   async function build() {
@@ -195,7 +200,8 @@
 
   function paint(seconds) {
     for (const m of mounts) {
-      const pose = solvePose(sampleClip(m.prepared, seconds), PROPORTIONS);
+      const t = frozen === null ? seconds : frozen * m.prepared.duration;
+      const pose = solvePose(sampleClip(m.prepared, t), PROPORTIONS);
       m.skin.paint(pose);
       m.skin.paintProp?.(m.clip.prop, pose);
     }
@@ -217,6 +223,12 @@
   });
   playBtn.classList.add("on");
   playBtn.textContent = "暂停";
+
+  if (frozen !== null) {
+    state.playing = false;
+    playBtn.classList.remove("on");
+    playBtn.textContent = "播放";
+  }
 
   darkBtn.addEventListener("click", () => {
     const on = board.classList.toggle("dark");
