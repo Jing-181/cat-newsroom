@@ -820,6 +820,8 @@ button.set-hint:hover { color:var(--module-4); }
 .focus-last.is-first { color:rgba(240,232,213,.34); }
 .focus-last.is-filled { color:rgba(240,232,213,.34); letter-spacing:.02em; }
 .focus-hint { margin:auto 0 12px; font-size:10.5px; letter-spacing:.04em; color:rgba(240,232,213,.42); }
+/* 逐组屏里两个主按钮同在 DOM，只切 hidden；浏览器默认的 [hidden] 优先级低于我们写的组件样式，这里显式置底 */
+.workout-focus [hidden] { display:none; }
 .focus-primary { width:100%; min-height:52px; border:0; border-radius:999px; background:#e8dcc0; color:#2e2316; font:inherit; font-size:14.5px; font-weight:700; letter-spacing:.04em; cursor:pointer; touch-action:manipulation; }
 .focus-primary:active { background:#f0e6ce; }
 .focus-primary.is-finish { background:#7a8a58; color:#f4ecda; }

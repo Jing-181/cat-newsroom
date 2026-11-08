@@ -228,7 +228,7 @@ function focusHtml(session, selectedDay, target, history = []) {
   // 现在当前动作名下面直接给上/下一个，训练中换动作不用离开这一屏。
   const totalExercises = session.exercises.length;
   const nav = totalExercises > 1
-    ? `<div class="focus-nav"><button type="button" class="focus-nav-btn" data-focus-move-exercise="-1"${target.exercise === 0 ? " disabled" : ""}>‹ 上一个</button><span class="focus-nav-pos">动作 ${target.exercise + 1} / ${totalExercises}</span><button type="button" class="focus-nav-btn" data-focus-move-exercise="1"${target.exercise === totalExercises - 1 ? " disabled" : ""}>下一个 ›</button></div>`
+    ? `<div class="focus-nav" data-count="${totalExercises}"><button type="button" class="focus-nav-btn" data-focus-move-exercise="-1"${target.exercise === 0 ? " disabled" : ""}>‹ 上一个</button><span class="focus-nav-pos">动作 ${target.exercise + 1} / ${totalExercises}</span><button type="button" class="focus-nav-btn" data-focus-move-exercise="1"${target.exercise === totalExercises - 1 ? " disabled" : ""}>下一个 ›</button></div>`
     : "";
 
   const tail = target.exercise === session.exercises.length - 1
@@ -238,9 +238,12 @@ function focusHtml(session, selectedDay, target, history = []) {
     ? "全部组已记录 · 可以结束了"
     : `第 ${target.set + 1} / ${totalSets} 组${tail ? ` · ${tail}` : ""}`;
 
-  const primary = pending === 0
-    ? `<button type="button" class="focus-primary is-finish" data-focus-finish>结束训练</button>`
-    : `<button type="button" class="focus-primary" data-focus-done>完成这组</button>`;
+  // 两个主按钮都在 DOM 里，只切 hidden：逐屏局部更新时不必重画按钮、也不丢监听。
+  const primary = `<button type="button" class="focus-primary" data-focus-done${pending === 0 ? " hidden" : ""}>完成这组</button><button type="button" class="focus-primary is-finish" data-focus-finish${pending === 0 ? "" : " hidden"}>结束训练</button>`;
+
+  // 上次这组同样固定成「一句话 + 一个可点按钮」，文字和按钮各自更新，不整套重画。
+  const lastState = !previousText ? " is-first" : (suggestionOn ? " is-filled" : "");
+  const lastText = !previousText ? "这个动作首次记录" : (suggestionOn ? "上次这组的数字已填入，直接完成或改数字" : "上次这组");
 
   return `<section class="workout-app workout-focus" data-focus-root>
       <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-timer" data-focus-timer>00:00</span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
@@ -249,8 +252,8 @@ function focusHtml(session, selectedDay, target, history = []) {
       <div class="focus-dots" aria-hidden="true">${dots}</div>
       <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
       ${previousText ? (suggestionOn
-        ? `<p class="focus-last is-filled">上次这组的数字已填入，直接完成或改数字</p>`
-        : `<p class="focus-last">上次这组 <button type="button" data-focus-last>${escapeHtml(previousText)}</button></p>`) : `<p class="focus-last is-first">这个动作首次记录</p>`}
+        ? `<p class="focus-last is-filled"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`
+        : `<p class="focus-last"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last>${escapeHtml(previousText)}</button></p>`) : `<p class="focus-last is-first"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`}
       <div class="focus-coach" aria-hidden="true"><svg class="move-figure" data-move-figure></svg></div>
       <p class="focus-hint">${hint}</p>
       <div class="focus-actions">${primary}</div>

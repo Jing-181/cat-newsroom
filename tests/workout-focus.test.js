@@ -99,8 +99,8 @@ test("空白组把上次的重量与次数摆成建议值，但不写进数据�
   assert.match(html, /class="focus-value is-suggest"[^>]*value="22\.5"/);
   assert.match(html, /class="focus-value is-suggest"[^>]*value="10"/);
   assert.equal(workout.setHasRecord(session.exercises[0].sets[0]), false, "建议值不等于本次记录");
-  // 已经填好了，就不要再把同一个数字重复写一遍
-  assert.doesNotMatch(html, /data-focus-last/);
+  // 已经填好了，按钮隐藏，不再把同一个数字重复写一遍
+  assert.match(html, /data-focus-last hidden/);
 
   // 跨器械换动作：不带上一个动作的重量，改用这个动作自己的上次数据
   const cable = workoutView.editorHtml(session, "chest", history, { focus: true, focusTarget: { exercise: 1, set: 0 } });

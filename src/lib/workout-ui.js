@@ -225,6 +225,93 @@ function mount(container, options) {
     });
   }
 
+  // 逐组屏的位置变化只改屏幕上的值，不重画整屏。
+  // 为什么：innerHTML 重建会把输入框一起换掉，手机上的焦点与键盘跟着收起，
+  // 视口一缩一伸就是頁面在抖。这里只改文本、数值和状态类，节点本身不动。
+  // 字段集变了（力量 ↔ 有氧）或动作数变了才退回完整 render。
+  function paintFocus(direction) {
+    const root = container.querySelector(".workout-focus");
+    const fields = root?.querySelector(".focus-fields");
+    const target = currentFocusTarget();
+    const exercise = session?.exercises?.[target?.exercise];
+    if (!root || !fields || !exercise) { render(); return; }
+
+    const wanted = Workout.isCardio(exercise) ? "duration_min,distance_km" : "weight_kg,reps";
+    const currentFields = [...fields.querySelectorAll("[data-focus-field]")].map(item => item.dataset.focusField).join(",");
+    const totalExercises = session.exercises.length;
+    const nav = root.querySelector(".focus-nav");
+    if (currentFields !== wanted) { render(); return; }
+    if (totalExercises > 1 && nav?.dataset.count !== String(totalExercises)) { render(); return; }
+
+    const set = exercise.sets[target.set] || {};
+    const previousSet = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[target.set];
+    const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
+
+    fields.dataset.focusEx = exercise.id;
+    fields.dataset.focusSet = String(target.set);
+    fields.querySelectorAll("[data-focus-field]").forEach(input => {
+      const field = input.dataset.focusField;
+      const typed = set[field] === 0 || set[field] === "" || set[field] == null ? "" : set[field];
+      const suggest = typed === "" && previousSet && Number(previousSet[field]) ? previousSet[field] : "";
+      const shown = typed === "" ? suggest : typed;
+      input.value = shown;
+      input.classList.toggle("is-empty", shown === "");
+      input.classList.toggle("is-suggest", typed === "" && suggest !== "");
+    });
+
+    const name = root.querySelector(".focus-name");
+    if (name) name.textContent = exercise.name;
+    const meta = root.querySelector(".focus-head p");
+    if (meta) meta.textContent = `${exercise.body_part} · ${exercise.equipment} · ${Workout.recordedSets(exercise).length}/${exercise.sets.length} 组`;
+
+    if (nav) {
+      const position = nav.querySelector(".focus-nav-pos");
+      if (position) position.textContent = `动作 ${target.exercise + 1} / ${totalExercises}`;
+      nav.querySelectorAll("[data-focus-move-exercise]").forEach(button => {
+        button.disabled = Number(button.dataset.focusMoveExercise) < 0
+          ? target.exercise === 0
+          : target.exercise === totalExercises - 1;
+      });
+    }
+
+    const dots = root.querySelector(".focus-dots");
+    if (dots) {
+      dots.innerHTML = exercise.sets.map((item, index) => `<i class="focus-dot${Workout.setHasRecord(item) ? " is-done" : ""}${index === target.set ? " is-now" : ""}"></i>`).join("");
+    }
+
+    const last = root.querySelector(".focus-last");
+    if (last) {
+      last.className = `focus-last${!previousSet ? " is-first" : (suggestionOn ? " is-filled" : "")}`;
+      const lastText = last.querySelector(".focus-last-text");
+      if (lastText) lastText.textContent = !previousSet ? "这个动作首次记录" : (suggestionOn ? "上次这组的数字已填入，直接完成或改数字" : "上次这组");
+      const lastButton = last.querySelector("[data-focus-last]");
+      if (lastButton) {
+        lastButton.hidden = !previousSet || suggestionOn;
+        lastButton.textContent = previousSet ? Workout.formatSetCompact(previousSet, exercise.equipment) : "";
+      }
+    }
+
+    const pending = session.exercises.reduce((sum, item) => sum + item.sets.filter(next => !Workout.setHasRecord(next)).length, 0);
+    const remaining = totalExercises - 1 - target.exercise;
+    const tail = target.exercise === totalExercises - 1 ? "最后一个动作" : `后面还有 ${remaining} 个动作`;
+    const hint = root.querySelector(".focus-hint");
+    if (hint) hint.textContent = pending === 0 ? "全部组已记录 · 可以结束了" : `第 ${target.set + 1} / ${exercise.sets.length} 组 · ${tail}`;
+    const doneButton = root.querySelector("[data-focus-done]");
+    const finishButton = root.querySelector("[data-focus-finish]");
+    if (doneButton) doneButton.hidden = pending === 0;
+    if (finishButton) finishButton.hidden = pending !== 0;
+
+    // 小人跟着动作走；同一动作切组时不动它，不然每次换组都会重新起演一遍。
+    const svg = root.querySelector("[data-move-figure]");
+    if (svg && svg.dataset.figureFor !== exercise.id) {
+      if (figureCleanup) { figureCleanup(); figureCleanup = null; }
+      figureCleanup = mountMoveFigure(svg, { kind: kindForName(exercise.name) });
+      svg.dataset.figureFor = exercise.id;
+    }
+
+    playFocusSlide(direction);
+  }
+
   // 左右滑动：按「动作内所有组」排成一条线前后走，越过本动作末组就进下一个动作。
   // 与「下一个动作」按钮不同：这里是逐组移动，回看上一组也用它。
   function stepFocus(delta) {
@@ -239,8 +326,7 @@ function mount(container, options) {
     const next = order[Math.min(order.length - 1, Math.max(0, here + delta))];
     if (!next || (next.exercise === scope.exerciseIndex && next.set === scope.setIndex)) return;
     rememberFocus(next.exercise, next.set);
-    render();
-    playFocusSlide(delta);
+    paintFocus(delta);
   }
 
   function persistDraft() {
@@ -301,6 +387,7 @@ function mount(container, options) {
         const target = currentFocusTarget();
         const exercise = session.exercises[target?.exercise];
         figureCleanup = mountMoveFigure(svg, { kind: kindForName(exercise?.name || "") });
+        svg.dataset.figureFor = exercise?.id || "";
       }
     } catch (error) {
       console.warn("focus extras skipped", error);
@@ -740,8 +827,7 @@ function mount(container, options) {
       else focusPoint = null;
       // 采用建议值改的是数据，需要落一次草稿（render 只负责画）。
       persistDraft();
-      render();
-      playFocusSlide(1);
+      paintFocus(1);
       flashFocus(next ? `第 ${setIndex + 1} 组已记录 · 休息 ${advice.minutes}` : "全部组已记录");
     });
     // 上/下一个动作：不离开这一屏就能换动作，落到该动作第一个没记录的组。
@@ -757,8 +843,7 @@ function mount(container, options) {
       // 同一套器械换动作时把重量带过去，与「完成这组」自动前进是同一条规则。
       carryWeight(scope, to);
       rememberFocus(to.exercise, to.set);
-      render();
-      playFocusSlide(delta);
+      paintFocus(delta);
     }));
     container.querySelector("[data-focus-cancel]")?.addEventListener("click", abandonSession);
     // 左右滑动切组 / 切动作：与上/下一个动作按钮是同一条推进线，步长小一档。
@@ -822,7 +907,9 @@ function mount(container, options) {
         }
       }
       rememberFocus(scope.exerciseIndex, nextSet);
-      updateSession();
+      // 加组同样不重画整屏：组数变多只影响进度点与提示文字，输入框保持存活。
+      updateSession({ rerender: false });
+      paintFocus(0);
     });
     // 加动作：走已有的动作选择弹窗，加完把目标切到它的第一组
     container.querySelector("[data-focus-add-exercise]")?.addEventListener("click", openExerciseLibrary);
