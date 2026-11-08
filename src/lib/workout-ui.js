@@ -206,6 +206,25 @@ function mount(container, options) {
     return filled;
   }
 
+  // 逐组屏换位置时的位移提示：不位移的话，切没切只能靠再看一遍动作名。
+  // 方向跟着手：左滑（下一组）从右侧进来，右滑从左侧进来。
+  // 轻微：位移 14px、150ms，只动主体三块，顶栏和底部按钮不动。
+  function playFocusSlide(direction) {
+    if (!shouldAnimate() || !direction) return;
+    const tokens = getComputedStyle(document.documentElement);
+    const seconds = parseFloat(tokens.getPropertyValue("--dur-fast")) || 0.15;
+    const easing = tokens.getPropertyValue("--ease-out").trim() || "ease-out";
+    const offset = direction > 0 ? 14 : -14;
+    [".focus-head", ".focus-dots", ".focus-fields"].forEach(selector => {
+      const node = container.querySelector(`.workout-focus ${selector}`);
+      if (!node) return;
+      node.animate(
+        [{ transform: `translateX(${offset}px)`, opacity: 0.6 }, { transform: "translateX(0)", opacity: 1 }],
+        { duration: seconds * 1000, easing, fill: "backwards" },
+      );
+    });
+  }
+
   // 左右滑动：按「动作内所有组」排成一条线前后走，越过本动作末组就进下一个动作。
   // 与「下一个动作」按钮不同：这里是逐组移动，回看上一组也用它。
   function stepFocus(delta) {
@@ -221,6 +240,7 @@ function mount(container, options) {
     if (!next || (next.exercise === scope.exerciseIndex && next.set === scope.setIndex)) return;
     rememberFocus(next.exercise, next.set);
     render();
+    playFocusSlide(delta);
   }
 
   function persistDraft() {
@@ -721,6 +741,7 @@ function mount(container, options) {
       // 采用建议值改的是数据，需要落一次草稿（render 只负责画）。
       persistDraft();
       render();
+      playFocusSlide(1);
       flashFocus(next ? `第 ${setIndex + 1} 组已记录 · 休息 ${advice.minutes}` : "全部组已记录");
     });
     // 上/下一个动作：不离开这一屏就能换动作，落到该动作第一个没记录的组。
@@ -737,6 +758,7 @@ function mount(container, options) {
       carryWeight(scope, to);
       rememberFocus(to.exercise, to.set);
       render();
+      playFocusSlide(delta);
     }));
     container.querySelector("[data-focus-cancel]")?.addEventListener("click", abandonSession);
     // 左右滑动切组 / 切动作：与上/下一个动作按钮是同一条推进线，步长小一档。
