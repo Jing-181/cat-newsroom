@@ -189,6 +189,40 @@ function mount(container, options) {
     return false;
   }
 
+  // 这一组还空着，就把上次练这个动作同一组序的数字填进去。
+  // 只补空字段，不覆盖已经输入的；点「完成这组」时才真正采用。
+  // 为什么不当成数据直接写：次数一写，这组就变成「已记录」，进度虚高，没练的组也会被存进历史。
+  function applySuggestion(scope) {
+    if (!scope?.set) return false;
+    const previous = Workout.previousPerformance(records, scope.exercise.exercise_id)?.sets?.[scope.setIndex];
+    if (!previous) return false;
+    let filled = false;
+    ["weight_kg", "reps", "duration_min", "distance_km"].forEach(field => {
+      if (!(field in scope.set) || Number(scope.set[field] || 0) !== 0) return;
+      if (!Number(previous[field] || 0)) return;
+      scope.set[field] = previous[field];
+      filled = true;
+    });
+    return filled;
+  }
+
+  // 左右滑动：按「动作内所有组」排成一条线前后走，越过本动作末组就进下一个动作。
+  // 与「下一个动作」按钮不同：这里是逐组移动，回看上一组也用它。
+  function stepFocus(delta) {
+    const scope = focusScope();
+    if (!scope) return;
+    const order = [];
+    session.exercises.forEach((exercise, exerciseIndex) => {
+      (exercise.sets || []).forEach((set, setIndex) => order.push({ exercise: exerciseIndex, set: setIndex }));
+    });
+    const here = order.findIndex(item => item.exercise === scope.exerciseIndex && item.set === scope.setIndex);
+    if (here < 0) return;
+    const next = order[Math.min(order.length - 1, Math.max(0, here + delta))];
+    if (!next || (next.exercise === scope.exerciseIndex && next.set === scope.setIndex)) return;
+    rememberFocus(next.exercise, next.set);
+    render();
+  }
+
   function persistDraft() {
     if (session) localStorage.setItem(DRAFT_KEY, JSON.stringify(session));
     else localStorage.removeItem(DRAFT_KEY);
@@ -631,6 +665,8 @@ function mount(container, options) {
       const field = button.dataset.focusStep;
       // 和总览里的步进器同一套下限：自重可负（助力），次数至少 1
       const assistable = Workout.allowsAssist(exercise);
+      // 这一格还没填：先从上次的数字起步，不用从 0 一下一下加到上次的量。
+      if (!Number(set[field] || 0)) applySuggestion(scope);
       const minimum = field === "reps" ? 1 : (field === "weight_kg" && assistable ? -200 : 0);
       const next = Math.max(minimum, Number(set[field] || 0) + Number(button.dataset.delta));
       set[field] = Math.round(next * 10) / 10;
@@ -643,6 +679,7 @@ function mount(container, options) {
     }));
     container.querySelectorAll("[data-focus-field]").forEach(input => input.addEventListener("input", () => {
       input.classList.toggle("is-empty", input.value === "");
+      input.classList.remove("is-suggest");
       writeFocusField(input.dataset.focusField, input.value);
     }));
     // 上次这组：点一下填进去，已经填了的字段不覆盖
@@ -668,6 +705,10 @@ function mount(container, options) {
       if (!scope) return;
       const { set, exercise, exerciseIndex, setIndex } = scope;
       if (!Workout.setHasRecord(set)) {
+        // 屏幕上是淡色的建议值，点完成就等于确认：先落成这次的数字再判一次。
+        applySuggestion(scope);
+      }
+      if (!Workout.setHasRecord(set)) {
         flashFocus("这一组还没填数字");
         return;
       }
@@ -677,6 +718,8 @@ function mount(container, options) {
       carryWeight(scope, next);
       if (next) rememberFocus(next.exercise, next.set);
       else focusPoint = null;
+      // 采用建议值改的是数据，需要落一次草稿（render 只负责画）。
+      persistDraft();
       render();
       flashFocus(next ? `第 ${setIndex + 1} 组已记录 · 休息 ${advice.minutes}` : "全部组已记录");
     });
@@ -696,6 +739,31 @@ function mount(container, options) {
       render();
     }));
     container.querySelector("[data-focus-cancel]")?.addEventListener("click", abandonSession);
+    // 左右滑动切组 / 切动作：与上/下一个动作按钮是同一条推进线，步长小一档。
+    // 从输入框里开始的横向拖动不算：那里留给输入框自己用。
+    const focusRoot = container.querySelector("[data-focus-root]");
+    if (focusRoot) {
+      let startX = 0;
+      let startY = 0;
+      let tracking = false;
+      focusRoot.addEventListener("touchstart", event => {
+        if (event.touches.length !== 1) return;
+        tracking = !event.target.closest("input, textarea");
+        startX = event.touches[0].clientX;
+        startY = event.touches[0].clientY;
+      }, { passive: true });
+      focusRoot.addEventListener("touchend", event => {
+        if (!tracking) return;
+        tracking = false;
+        const touch = event.changedTouches[0];
+        if (!touch) return;
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        // 横向为主且足够长才算滑动，避开上下滚动与轻微拖动。
+        if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        stepFocus(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    }
     // 点动作名看要点：训练中不离开这一屏就能确认动作怎么走
     container.querySelector("[data-focus-info]")?.addEventListener("click", () => {
       const scope = focusScope();

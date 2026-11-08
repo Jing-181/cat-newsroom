@@ -86,3 +86,23 @@ test("自定义动作也照抄组数，但重量不抄", () => {
   assert.equal(custom.sets.length, 3);
   assert.deepEqual(custom.sets.map(set => set.weight_kg), [0, 0, 0]);
 });
+
+test("空白组把上次的重量与次数摆成建议值，但不写进数据、也不算已录", () => {
+  const history = [workout.createSession("chest", new Date(2026, 10, 1))];
+  workout.addExercise(history[0], "dumbbell_bench_press");
+  history[0].exercises[0].sets[0] = { weight_kg: 22.5, reps: 10, rpe: "", note: "" };
+  history[0].status = "completed";
+
+  const session = sessionWith("dumbbell_bench_press", "cable_fly_mid");
+  const html = workoutView.editorHtml(session, "chest", history, { focus: true, focusTarget: { exercise: 0, set: 0 } });
+  // 建议值上屏，带 is-suggest 标记（淡一档）
+  assert.match(html, /class="focus-value is-suggest"[^>]*value="22\.5"/);
+  assert.match(html, /class="focus-value is-suggest"[^>]*value="10"/);
+  assert.equal(workout.setHasRecord(session.exercises[0].sets[0]), false, "建议值不等于本次记录");
+  // 已经填好了，就不要再把同一个数字重复写一遍
+  assert.doesNotMatch(html, /data-focus-last/);
+
+  // 跨器械换动作：不带上一个动作的重量，改用这个动作自己的上次数据
+  const cable = workoutView.editorHtml(session, "chest", history, { focus: true, focusTarget: { exercise: 1, set: 0 } });
+  assert.doesNotMatch(cable, /value="22\.5"/);
+});

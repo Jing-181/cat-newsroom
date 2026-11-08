@@ -165,12 +165,17 @@ function lastPerformanceHtml(previous, exercise) {
 // 它不替代完整编辑页：右上的「总览」随时退回去改历史组、删组、看动作说明。
 // 屏幕是深墨底，跟开场那滴墨是同一个语言：墨不是过场，是训练时的常驻背景。
 
-function focusField({ label, field, unit, value, step, min, assistable, title }) {
-  const shown = value === 0 || value === "" ? "" : value;
+function focusField({ label, field, unit, value, step, min, assistable, title, suggest }) {
+  const typed = value === 0 || value === "" ? "" : value;
+  // 没输入时把上次的数字摆出来，颜色淡一档：它是建议，不是这次的记录，
+  // 点「完成这组」才写进数据。这样换动作时不用重输，也不会把没练的组算成已录。
+  const suggested = typed === "" && suggest != null && Number(suggest) ? suggest : "";
+  const shown = typed === "" ? suggested : typed;
+  const stateClass = shown === "" ? " is-empty" : (typed === "" ? " is-suggest" : "");
   return `<div class="focus-field">
       <span class="focus-label">${label}</span>
       <button type="button" class="focus-step" data-focus-step="${field}" data-delta="-${step}" aria-label="减少${label}">−</button>
-      <input class="focus-value${shown === "" ? " is-empty" : ""}" type="number" min="${min}" step="${step}" inputmode="decimal" value="${escapeHtml(shown)}" placeholder="0" data-focus-field="${field}" aria-label="${label}"${title ? ` title="${escapeHtml(title)}"` : ""}>
+      <input class="focus-value${stateClass}" type="number" min="${min}" step="${step}" inputmode="decimal" value="${escapeHtml(shown)}" placeholder="0" data-focus-field="${field}" aria-label="${label}"${title ? ` title="${escapeHtml(title)}"` : ""}>
       <span class="focus-unit">${unit}</span>
       <button type="button" class="focus-step" data-focus-step="${field}" data-delta="${step}" aria-label="增加${label}">+</button>
     </div>`;
@@ -200,15 +205,18 @@ function focusHtml(session, selectedDay, target, history = []) {
   const previous = Workout.previousPerformance(history, exercise.exercise_id);
   const previousSet = previous?.sets?.[target.set];
   const previousText = previousSet ? Workout.formatSetCompact(previousSet, exercise.equipment) : "";
+  // 空白组已经把上次的数字填进去了（淡色）：这一行不再重复数字，只交代它从哪来。
+  const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
 
   const fields = cardio
-    ? focusField({ label: "时长", field: "duration_min", unit: "分", value: set.duration_min || 0, step: 1, min: 0 }) +
-      focusField({ label: "距离", field: "distance_km", unit: "km", value: set.distance_km || 0, step: 0.5, min: 0 })
+    ? focusField({ label: "时长", field: "duration_min", unit: "分", value: set.duration_min || 0, step: 1, min: 0, suggest: previousSet?.duration_min }) +
+      focusField({ label: "距离", field: "distance_km", unit: "km", value: set.distance_km || 0, step: 0.5, min: 0, suggest: previousSet?.distance_km })
     : focusField({
       label: "重量", field: "weight_kg", unit: "kg", value: set.weight_kg || 0, step: 2.5,
       min: assistable ? -200 : 0, assistable,
       title: assistable ? "0 = 纯自重，负数 = 助力" : "",
-    }) + focusField({ label: "次数", field: "reps", unit: "次", value: set.reps || 0, step: 1, min: 1 });
+      suggest: previousSet?.weight_kg,
+    }) + focusField({ label: "次数", field: "reps", unit: "次", value: set.reps || 0, step: 1, min: 1, suggest: previousSet?.reps });
 
   const dots = exercise.sets.map((item, index) => {
     const done = Workout.setHasRecord(item);
@@ -240,7 +248,9 @@ function focusHtml(session, selectedDay, target, history = []) {
       ${nav}
       <div class="focus-dots" aria-hidden="true">${dots}</div>
       <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
-      ${previousText ? `<p class="focus-last">上次这组 <button type="button" data-focus-last>${escapeHtml(previousText)}</button></p>` : `<p class="focus-last is-first">这个动作首次记录</p>`}
+      ${previousText ? (suggestionOn
+        ? `<p class="focus-last is-filled">上次这组的数字已填入，直接完成或改数字</p>`
+        : `<p class="focus-last">上次这组 <button type="button" data-focus-last>${escapeHtml(previousText)}</button></p>`) : `<p class="focus-last is-first">这个动作首次记录</p>`}
       <div class="focus-coach" aria-hidden="true"><svg class="move-figure" data-move-figure></svg></div>
       <p class="focus-hint">${hint}</p>
       <div class="focus-actions">${primary}</div>
