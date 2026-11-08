@@ -774,8 +774,7 @@ function mount(container, options) {
     });
     // 全部组都记完了，剩下的就是时长、状态词和保存，交给结束弹窗
     container.querySelector("[data-focus-finish]")?.addEventListener("click", openFinishDialog);
-    // 加一组：把当前动作往后延一组。当前这组还没记就留在这组先记完，
-    // 已记完才把指针带到新组——加组不等于要先跑到最后。
+    // 加组不搬注意力：提前把四组排好，下一步仍然是当前组的下一组，不是新加的那一组。
     container.querySelector("[data-focus-addset]")?.addEventListener("click", () => {
       const scope = focusScope();
       if (!scope) return;
@@ -791,7 +790,16 @@ function mount(container, options) {
           added.reps = 0;
         }
       }
-      rememberFocus(scope.exerciseIndex, hadRecord ? scope.exercise.sets.length - 1 : scope.setIndex);
+      // 当前这组还没记就留在原地；记完了就往后找第一组没记录的，不直接跳到最后一组。
+      const sets = scope.exercise.sets;
+      let nextSet = scope.setIndex;
+      if (hadRecord) {
+        nextSet = sets.length - 1;
+        for (let index = scope.setIndex + 1; index < sets.length; index += 1) {
+          if (!Workout.setHasRecord(sets[index])) { nextSet = index; break; }
+        }
+      }
+      rememberFocus(scope.exerciseIndex, nextSet);
       updateSession();
     });
     // 加动作：走已有的动作选择弹窗，加完把目标切到它的第一组
