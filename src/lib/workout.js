@@ -136,22 +136,39 @@ function previousSet(records, exerciseId) {
   return previousPerformance(records, exerciseId)?.set || null;
 }
 
-function addExercise(session, exerciseId, history = []) {
+function addExercise(session, exerciseId, history = [], template = null) {
   const source = catalog.exercises.find(item => item.id === exerciseId);
   if (!source || session.exercises.some(item => item.exercise_id === exerciseId)) return session;
-  const previous = previousPerformance(history, exerciseId);
+  // 从当前练着的动作抄组数与重量：换动作时器械没换，重量通常接着用，组数也按同一套安排。
+  // 器械不同就不抄重量（30kg 的哑铃抄到绳索上只会是个错的默认值），组数照抄。
+  const seed = template
+    ? { sets: template.sets, weight_kg: template.equipment === source.equipment ? template.weight_kg : 0 }
+    : null;
+  const sets = seedSets(source, seed || {});
   session.exercises.push({
     id: id("exercise"), exercise_id: source.id, name: source.name, body_part: source.bodyPart,
     equipment: source.equipment, angle: source.angle || "", icon: source.icon || "运",
     tips: source.tips || "控制动作节奏，保持躯干稳定；重量以动作质量为先。",
     muscles: source.muscles || source.bodyPart,
     // planned_sets 记录"这个动作这次打算练几组"，用于判断最近一次是否练满计划组数。
-    planned_sets: 1,
-    // 新动作留空，不把上次的数字直接当成已记录；上次数值由组行的灰色提示给出。
-    sets: [createSet(source)], note: "",
+    planned_sets: sets.length,
+    // 新动作的次数一律留空，不把上次的数字直接当成已记录；上次数值由组行的灰色提示给出。
+    sets, note: "",
   });
   session.updated_at = new Date().toISOString();
   return session;
+}
+
+// 新动作的组：按 template 给组数，可以带一个重量，次数一律留空。
+// 次数是"这一组练到了"的判定字段（setHasRecord），抄过来会让还没练的组直接算已录，
+// 进度虚高、"完成这组"也会跳过它们。
+function seedSets(exercise, { sets = 1, weight_kg = 0 } = {}) {
+  const count = Math.max(1, Math.min(12, Math.round(Number(sets) || 1)));
+  return Array.from({ length: count }, () => {
+    const set = createSet(exercise);
+    if (weight_kg && "weight_kg" in set) set.weight_kg = num(weight_kg, 0);
+    return set;
+  });
 }
 
 // 自定义动作：动作库没收录的动作由用户自己命名，id 由名称派生，
@@ -160,7 +177,7 @@ const CUSTOM_PREFIX = "custom_";
 const customExerciseId = name => `${CUSTOM_PREFIX}${name}`;
 const isCustomExerciseId = value => String(value || "").startsWith(CUSTOM_PREFIX);
 
-function addCustomExercise(session, name, history = []) {
+function addCustomExercise(session, name, history = [], template = null) {
   // 名称去首尾空白、内部连续空白压缩成一个空格；空名不加入。
   const trimmed = String(name || "").trim().replace(/\s+/g, " ");
   if (!trimmed || trimmed.length > 20) return session;
@@ -169,13 +186,16 @@ function addCustomExercise(session, name, history = []) {
   if (session.exercises.some(item => item.exercise_id === exerciseId)) return session;
   // 有氧恢复日的自定义动作按有氧形态记录（时长/距离），其余训练日按力量形态记录。
   const equipment = session.training_day === "cardio" ? "有氧" : "自定义";
+  // 自定义动作没有"器械是否相同"可判，组数照抄当前动作，重量不抄（名称相同不等于器械相同）。
+  const seed = template ? { sets: template.sets, weight_kg: 0 } : null;
+  const sets = seedSets({ equipment }, seed || {});
   session.exercises.push({
     id: id("exercise"), exercise_id: exerciseId, name: trimmed, body_part: "自定义",
     equipment, angle: "", icon: trimmed.slice(0, 2),
     tips: "自定义动作：按自己的动作要点控制节奏，重量以动作质量为先。",
     muscles: "自定义动作",
-    planned_sets: 1,
-    sets: [createSet({ equipment })], note: "",
+    planned_sets: sets.length,
+    sets, note: "",
   });
   session.updated_at = new Date().toISOString();
   return session;
@@ -210,6 +230,33 @@ function addSet(session, exerciseIndex, { inherit = true } = {}) {
   exercise.planned_sets = Number(exercise.planned_sets || 0) + 1;
   session.updated_at = new Date().toISOString();
   return set;
+}
+
+// 完成一组后往哪走：先把本动作后面的组记完，再往后找下一个动作，最后补前面漏掉的。
+// 返回 { exercise, set } 或 null（全部组都有记录）。
+// 顺序按动作分块，不是按组序横穿所有动作：练完一个动作再去下一个，才是健身房的习惯。
+function nextSetTarget(session, from) {
+  const exercises = session?.exercises || [];
+  const start = exercises[from?.exercise];
+  if (!start) return null;
+  const missing = (exerciseIndex, setIndex) => {
+    const set = exercises[exerciseIndex]?.sets?.[setIndex];
+    return Boolean(set) && !setHasRecord(set);
+  };
+  for (let set = Number(from.set) + 1; set < (start.sets || []).length; set += 1) {
+    if (missing(from.exercise, set)) return { exercise: from.exercise, set };
+  }
+  for (let exercise = from.exercise + 1; exercise < exercises.length; exercise += 1) {
+    for (let set = 0; set < (exercises[exercise].sets || []).length; set += 1) {
+      if (missing(exercise, set)) return { exercise, set };
+    }
+  }
+  for (let exercise = 0; exercise < from.exercise; exercise += 1) {
+    for (let set = 0; set < (exercises[exercise].sets || []).length; set += 1) {
+      if (missing(exercise, set)) return { exercise, set };
+    }
+  }
+  return null;
 }
 
 // 删组时同步下调计划组数，避免"删掉没练的组"之后仍被判为未练满。
@@ -564,7 +611,7 @@ const Workout = {
   catalog, REST_ADVICE, restAdvice,
   isSession, isCardio, isBodyweight, allowsAssist, setHasRecord, recordedSets, createSet,
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
-  addSet, removeSet,
+  addSet, removeSet, nextSetTarget,
   calculateStats, summary,
   todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,
@@ -577,7 +624,7 @@ export {
   catalog, REST_ADVICE, restAdvice,
   isSession, isCardio, isBodyweight, allowsAssist, setHasRecord, recordedSets, createSet,
   createSession, previousPerformance, previousSet, addExercise, addCustomExercise, customExercises, isCustomExerciseId,
-  addSet, removeSet,
+  addSet, removeSet, nextSetTarget,
   calculateStats, summary,
   todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,

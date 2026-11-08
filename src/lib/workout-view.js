@@ -216,6 +216,13 @@ function focusHtml(session, selectedDay, target, history = []) {
     return `<i class="focus-dot${done ? " is-done" : ""}${now}"></i>`;
   }).join("");
 
+  // 动作之间的切换：逐组屏原来只有「总览」一条出口，换个动作要先开弹窗、再点某一组。
+  // 现在当前动作名下面直接给上/下一个，训练中换动作不用离开这一屏。
+  const totalExercises = session.exercises.length;
+  const nav = totalExercises > 1
+    ? `<div class="focus-nav"><button type="button" class="focus-nav-btn" data-focus-move-exercise="-1"${target.exercise === 0 ? " disabled" : ""}>‹ 上一个</button><span class="focus-nav-pos">动作 ${target.exercise + 1} / ${totalExercises}</span><button type="button" class="focus-nav-btn" data-focus-move-exercise="1"${target.exercise === totalExercises - 1 ? " disabled" : ""}>下一个 ›</button></div>`
+    : "";
+
   const tail = target.exercise === session.exercises.length - 1
     ? (remainingExercises >= 0 ? "最后一个动作" : "")
     : `后面还有 ${remainingExercises} 个动作`;
@@ -230,8 +237,9 @@ function focusHtml(session, selectedDay, target, history = []) {
   return `<section class="workout-app workout-focus" data-focus-root>
       <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-timer" data-focus-timer>00:00</span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
       <div class="focus-head"><h2><button type="button" class="focus-name" data-focus-info>${escapeHtml(exercise.name)}</button></h2><p>${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)} · ${recorded}/${totalSets} 组</p></div>
+      ${nav}
       <div class="focus-dots" aria-hidden="true">${dots}</div>
-      <div class="focus-fields">${fields}</div>
+      <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
       ${previousText ? `<p class="focus-last">上次这组 <button type="button" data-focus-last>${escapeHtml(previousText)}</button></p>` : `<p class="focus-last is-first">这个动作首次记录</p>`}
       <div class="focus-coach" aria-hidden="true"><svg class="move-figure" data-move-figure></svg></div>
       <p class="focus-hint">${hint}</p>

@@ -85,9 +85,10 @@ function mount(container, options) {
   const expandedDone = new Set();
   // 结束训练区的展开态：同上，只存内存。训练结束或离开这条训练就回到收起。
   let completionOpen = false;
-  // 逐组模式：训练中默认开，一屏只记当前这一组；focusPick 是从总览里点进来的那一组。
+  // 逐组模式：训练中默认开，一屏只记当前这一组。
+  // 指针记的是「动作实例 id + 组序」，不是数组下标：删动作、重排之后下标会悄悄指向别人。
   let focusMode = false;
-  let focusPick = null;
+  let focusPoint = null;
   let flashTimer = null;
   // 逐组屏上的两个活物：秒表和图解小人。它们绑在 DOM 上，重渲染前要先拆掉
   let focusTimerId = 0;
@@ -105,15 +106,17 @@ function mount(container, options) {
     expandedDone.clear();
     completionOpen = false;
     focusMode = false;
-    focusPick = null;
+    focusPoint = null;
   }
 
-  // 当前该记哪一组：先看总览里指定过的，再找全场第一组没记录的。
+  // 当前该记哪一组：先看指针落在哪，再找全场第一组没记录的。
   // 都记完了就停在最后一个动作的最后一组，留着可以改。
   function currentFocusTarget() {
     if (!session || !session.exercises.length) return null;
-    const picked = focusPick && session.exercises[focusPick.exercise]?.sets?.[focusPick.set];
-    if (picked) return focusPick;
+    const pinnedIndex = focusPoint ? session.exercises.findIndex(item => item.id === focusPoint.exerciseId) : -1;
+    if (session.exercises[pinnedIndex]?.sets?.[focusPoint?.setIndex]) {
+      return { exercise: pinnedIndex, set: focusPoint.setIndex };
+    }
     for (let index = 0; index < session.exercises.length; index += 1) {
       const sets = session.exercises[index].sets || [];
       const empty = sets.findIndex(set => !Workout.setHasRecord(set));
@@ -124,18 +127,66 @@ function mount(container, options) {
     return sets.length ? { exercise: last, set: sets.length - 1 } : null;
   }
 
-  // 完成一组之后往哪走：先往后找，再看有没有前面漏掉的；都填完了返回 null。
-  function nextFocusTarget(from) {
-    const order = [];
-    session.exercises.forEach((exercise, exerciseIndex) => {
-      (exercise.sets || []).forEach((set, setIndex) => order.push({ exercise: exerciseIndex, set: setIndex }));
-    });
-    const here = order.findIndex(item => item.exercise === from.exercise && item.set === from.set);
-    const missing = item => !Workout.setHasRecord(session.exercises[item.exercise].sets[item.set]);
-    for (let index = here + 1; index < order.length; index += 1) {
-      if (missing(order[index])) return order[index];
+  // 把指针落到某个动作的某一组。动作级指针＝这个动作，组级指针＝这一组。
+  function rememberFocus(exerciseIndex, setIndex) {
+    const exercise = session?.exercises?.[exerciseIndex];
+    if (exercise) focusPoint = { exerciseId: exercise.id, setIndex: Number(setIndex) };
+  }
+
+  // 逐组屏上正在显示的那一组。输入、步进、"完成这组"全按它写，不再每次从数据反推：
+  // 反推的指针会在填了次数之后自己滑到下一组，屏幕和数据从此对不上。
+  function focusScope() {
+    const scope = container.querySelector("[data-focus-scope]");
+    const exerciseIndex = session?.exercises?.findIndex(item => item.id === scope?.dataset.focusEx) ?? -1;
+    const exercise = session?.exercises?.[exerciseIndex];
+    const setIndex = Number(scope?.dataset.focusSet);
+    const set = exercise?.sets?.[setIndex];
+    return set ? { exerciseIndex, setIndex, exercise, set } : null;
+  }
+
+  // 完成一组之后的下一个位置：本动作内往后 → 下一个动作 → 前面漏掉的；
+  // 全部记完就清掉指针（currentFocusTarget 会落到最后一个动作的最后一组）。
+  // 下一组接着用上一组的重量（次数不跟：次数填了才算又记了一组）。
+  // 换动作时器械类型相同才带，不同就当换器械，不把 30kg 从哑铃搬到绳索上。
+  function carryWeight(from, to) {
+    if (!to) return;
+    const targetExercise = session.exercises[to.exercise];
+    const targetSet = targetExercise?.sets?.[to.set];
+    if (!targetSet || !("weight_kg" in targetSet)) return;
+    if (to.exercise !== from.exerciseIndex && targetExercise.equipment !== from.exercise.equipment) return;
+    if (Number(targetSet.weight_kg || 0) !== 0) return;
+    const weight = Number(from.set.weight_kg || 0);
+    if (weight) targetSet.weight_kg = weight;
+  }
+
+  // 加动作时抄当前动作的组数与重量。器械不同时由数据层丢掉重量，只留组数。
+  // 重量取当前正在记的那一组（它已由 seedFocusWeight 填好），不取最后一组：
+  // 加满四组时最后一组往往还空着，拿它抄等于把 0 当重量。
+  function currentTemplate() {
+    const scope = focusScope() || currentFocusTarget();
+    const exercise = session?.exercises?.[scope?.exerciseIndex ?? scope?.exercise];
+    if (!exercise?.sets?.length) return null;
+    const anchor = scope?.setIndex ?? exercise.sets.length - 1;
+    let weight = 0;
+    for (let index = anchor; index >= 0 && !weight; index -= 1) weight = Number(exercise.sets[index]?.weight_kg || 0);
+    return { sets: exercise.sets.length, weight_kg: weight, equipment: exercise.equipment };
+  }
+
+  // 同动作里下一组默认用上一组的重量。
+  // 完成一组、切回来、刷新恢复都走这里：手上不用每次把重量重输一遍，只填次数。
+  function seedFocusWeight() {
+    const target = currentFocusTarget();
+    const exercise = session?.exercises?.[target?.exercise];
+    const set = exercise?.sets?.[target?.set];
+    if (!set || Workout.setHasRecord(set) || !("weight_kg" in set)) return false;
+    if (Number(set.weight_kg || 0) !== 0) return false;
+    for (let index = target.set - 1; index >= 0; index -= 1) {
+      const previous = exercise.sets[index];
+      if (!Workout.setHasRecord(previous) || !Number(previous.weight_kg || 0)) continue;
+      set.weight_kg = previous.weight_kg;
+      return true;
     }
-    return order.find(missing) || null;
+    return false;
   }
 
   function persistDraft() {
@@ -392,7 +443,7 @@ function mount(container, options) {
       dialog.querySelectorAll("[data-focus-jump]").forEach(button => button.addEventListener("click", () => {
         const [exercise, set] = String(button.dataset.focusJump).split("-").map(Number);
         focusMode = true;
-        focusPick = { exercise, set };
+        rememberFocus(exercise, set);
         dialog.close();
         render();
       }));
@@ -407,7 +458,7 @@ function mount(container, options) {
         const exercise = session?.exercises?.[index];
         if (!exercise) return;
         session.exercises.splice(index, 1);
-        focusPick = null;
+        focusPoint = null;
         persistDraft();
         paint();
       }));
@@ -500,7 +551,7 @@ function mount(container, options) {
         const name = (dialog.querySelector("#workout-exercise-search")?.value || "").trim();
         if (!name) return;
         const before = session.exercises.length;
-        Workout.addCustomExercise(session, name, records);
+        Workout.addCustomExercise(session, name, records, currentTemplate());
         if (session.exercises.length === before) return;
         updateSession({ rerender: false });
         keyword = "";
@@ -509,7 +560,7 @@ function mount(container, options) {
         focusLastExercise();
       });
       dialog.querySelectorAll("[data-add-exercise]").forEach(button => button.addEventListener("click", () => {
-        Workout.addExercise(session, button.dataset.addExercise, records);
+        Workout.addExercise(session, button.dataset.addExercise, records, currentTemplate());
         Trace.track("workout_exercise_add", { source: "library", index: session.exercises.length - 1 });
         focusLastExercise();
         updateSession({ rerender: false });
@@ -562,21 +613,21 @@ function mount(container, options) {
     container.querySelector("[data-focus-overview-open]")?.addEventListener("click", openOverviewDialog);
     container.querySelector("[data-focus-enter]")?.addEventListener("click", () => {
       focusMode = true;
-      focusPick = null;
+      focusPoint = null;
       render();
     });
+    // 逐组屏上的每一次输入都写「屏幕上正在显示的那一组」，不按数据反推：
+    // 反推会在这一组刚变成有记录的一瞬间把指针滑到下一组，屏幕和实际写入从此对不上。
     const writeFocusField = (field, value) => {
-      const target = currentFocusTarget();
-      const set = session?.exercises?.[target?.exercise]?.sets?.[target?.set];
-      if (!set) return;
-      set[field] = value === "" ? "" : Number(value);
+      const scope = focusScope();
+      if (!scope) return;
+      scope.set[field] = value === "" ? "" : Number(value);
       updateSession({ rerender: false });
     };
     container.querySelectorAll("[data-focus-step]").forEach(button => button.addEventListener("click", () => {
-      const target = currentFocusTarget();
-      const exercise = session?.exercises?.[target?.exercise];
-      const set = exercise?.sets?.[target?.set];
-      if (!set) return;
+      const scope = focusScope();
+      if (!scope) return;
+      const { set, exercise } = scope;
       const field = button.dataset.focusStep;
       // 和总览里的步进器同一套下限：自重可负（助力），次数至少 1
       const assistable = Workout.allowsAssist(exercise);
@@ -596,11 +647,10 @@ function mount(container, options) {
     }));
     // 上次这组：点一下填进去，已经填了的字段不覆盖
     container.querySelector("[data-focus-last]")?.addEventListener("click", () => {
-      const target = currentFocusTarget();
-      const exercise = session?.exercises?.[target?.exercise];
-      const set = exercise?.sets?.[target?.set];
-      if (!set) return;
-      const previousSet = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[target.set];
+      const scope = focusScope();
+      if (!scope) return;
+      const { set, exercise, setIndex } = scope;
+      const previousSet = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[setIndex];
       if (!previousSet) return;
       ["weight_kg", "reps", "duration_min", "distance_km"].forEach(field => {
         if (!(field in previousSet) || Number(set[field] || 0) > 0) return;
@@ -614,38 +664,55 @@ function mount(container, options) {
       updateSession({ rerender: false });
     });
     container.querySelector("[data-focus-done]")?.addEventListener("click", () => {
-      const target = currentFocusTarget();
-      const exercise = session?.exercises?.[target?.exercise];
-      const set = exercise?.sets?.[target?.set];
-      if (!set) return;
+      const scope = focusScope();
+      if (!scope) return;
+      const { set, exercise, exerciseIndex, setIndex } = scope;
       if (!Workout.setHasRecord(set)) {
         flashFocus("这一组还没填数字");
         return;
       }
       const advice = Workout.restAdvice(exercise);
-      const next = nextFocusTarget(target);
-      focusPick = next;
+      const next = Workout.nextSetTarget(session, { exercise: exerciseIndex, set: setIndex });
+      // 先把重量带到下一组，再移动指针：下一组直接接着用这个重量，只填次数就又是一组。
+      carryWeight(scope, next);
+      if (next) rememberFocus(next.exercise, next.set);
+      else focusPoint = null;
       render();
-      flashFocus(next ? `第 ${target.set + 1} 组已记录 · 休息 ${advice.minutes} 分钟` : "全部组已记录");
+      flashFocus(next ? `第 ${setIndex + 1} 组已记录 · 休息 ${advice.minutes}` : "全部组已记录");
     });
+    // 上/下一个动作：不离开这一屏就能换动作，落到该动作第一个没记录的组。
+    container.querySelectorAll("[data-focus-move-exercise]").forEach(button => button.addEventListener("click", () => {
+      const scope = focusScope();
+      if (!scope) return;
+      const delta = Number(button.dataset.focusMoveExercise);
+      const exerciseIndex = Math.min(session.exercises.length - 1, Math.max(0, scope.exerciseIndex + delta));
+      const exercise = session.exercises[exerciseIndex];
+      if (!exercise?.sets?.length) return;
+      const pending = exercise.sets.findIndex(next => !Workout.setHasRecord(next));
+      const to = { exercise: exerciseIndex, set: pending >= 0 ? pending : exercise.sets.length - 1 };
+      // 同一套器械换动作时把重量带过去，与「完成这组」自动前进是同一条规则。
+      carryWeight(scope, to);
+      rememberFocus(to.exercise, to.set);
+      render();
+    }));
     container.querySelector("[data-focus-cancel]")?.addEventListener("click", abandonSession);
     // 点动作名看要点：训练中不离开这一屏就能确认动作怎么走
     container.querySelector("[data-focus-info]")?.addEventListener("click", () => {
-      const target = currentFocusTarget();
-      const exercise = session?.exercises?.[target?.exercise];
-      if (exercise) openExerciseInfo(exercise);
+      const scope = focusScope();
+      if (scope) openExerciseInfo(scope.exercise);
     });
     container.querySelector("[data-focus-fullscreen]")?.addEventListener("click", () => {
       applyFullscreen(!document.documentElement.classList.contains("workout-fullscreen"));
     });
     // 全部组都记完了，剩下的就是时长、状态词和保存，交给结束弹窗
     container.querySelector("[data-focus-finish]")?.addEventListener("click", openFinishDialog);
-    // 加一组：把当前动作往后延一组，注意力仍停在这个动作上
+    // 加一组：把当前动作往后延一组。当前这组还没记就留在这组先记完，
+    // 已记完才把指针带到新组——加组不等于要先跑到最后。
     container.querySelector("[data-focus-addset]")?.addEventListener("click", () => {
-      const target = currentFocusTarget();
-      if (!target) return;
-      const exercise = session.exercises[target.exercise];
-      const added = Workout.addSet(session, target.exercise);
+      const scope = focusScope();
+      if (!scope) return;
+      const hadRecord = Workout.setHasRecord(scope.set);
+      const added = Workout.addSet(session, scope.exerciseIndex);
       // addSet 会继承上一组的数值，但那组还没练：把「有没有记录」的判定字段清掉，
       // 否则新加的一组一出生就算已录，主按钮会直接跳成「结束训练」。
       if (added) {
@@ -656,7 +723,7 @@ function mount(container, options) {
           added.reps = 0;
         }
       }
-      focusPick = { exercise: target.exercise, set: exercise.sets.length - 1 };
+      rememberFocus(scope.exerciseIndex, hadRecord ? scope.exercise.sets.length - 1 : scope.setIndex);
       updateSession();
     });
     // 加动作：走已有的动作选择弹窗，加完把目标切到它的第一组
@@ -664,7 +731,7 @@ function mount(container, options) {
     container.querySelector("#workout-add-floating")?.addEventListener("click", openExerciseLibrary);
     container.querySelector("[data-open-library]")?.addEventListener("click", openExerciseLibrary);
     container.querySelectorAll("[data-quick-add]").forEach(button => button.addEventListener("click", () => {
-      Workout.addExercise(session, button.dataset.quickAdd, records);
+      Workout.addExercise(session, button.dataset.quickAdd, records, currentTemplate());
       Trace.track("workout_exercise_add", { source: "quick", index: session.exercises.length - 1 });
       focusLastExercise();
       updateSession();
@@ -680,12 +747,21 @@ function mount(container, options) {
       const exerciseIndex = Number(button.dataset.setAdd);
       const exercise = session.exercises[exerciseIndex];
       if (!exercise) return;
-      Workout.addSet(session, exerciseIndex);
+      const added = Workout.addSet(session, exerciseIndex);
+      // 新组只是预填，次数留空：复制次数会让它一出生就算已录，进度虚高、"完成这组"也能跳过去。
+      // 逐组屏的加组也是同一套语义，两个入口不能两套判定。
+      if (added) {
+        if ("duration_min" in added || "distance_km" in added) {
+          added.duration_min = 0;
+          added.distance_km = 0;
+        } else {
+          added.reps = 0;
+        }
+      }
       // 在 A 上加组就是在 A 上操作：别的动作回到收起默认。
       collapseOtherExercises(exercise.id);
       openSets[exercise.id] = exercise.sets.length - 1;
-      // 新组继承上一组数值，刚加完这个动作就又变成“全部有记录”。
-      // 如果它当时是收小态，这里主动铺开，否则新加的那组没有地方可改。
+      // 新组在卡上要有地方可改：加完主动铺开，不能被收小态吞掉。
       expandedDone.add(exercise.id);
       Trace.track("workout_set_add", { ex_index: exerciseIndex, set_index: exercise.sets.length - 1 });
       updateSession();
@@ -1005,6 +1081,8 @@ function mount(container, options) {
 
   function render() {
     if (session) selectedDay = session.training_day;
+    // 指针落到的那一组若还空着，先按同动作上一组的重量预填（只改内存，立刻落草稿）。
+    if (session && focusMode && seedFocusWeight()) persistDraft();
     // uiState.previous 由渲染层自行计算上次表现；openSets 与 expandedDone 是这里的交互态。
     // 重渲染前记下每张卡的高度：填完最后一组自动收小、点了别处收起，都不该是硬跳。
     // 只在同一条训练内、同 id 的卡之间对高，换训练时 id 全变，自然不做动画。
