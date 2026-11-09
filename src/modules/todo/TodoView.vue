@@ -13,6 +13,8 @@ const currentOwner = () => window.getCurrentUser?.()?.id || null;
 let draftOwner = currentOwner();
 function checkOwner() {
   if (currentOwner() === draftOwner) return true;
+  // 首次身份恢复不丢弃刚输入的本机草稿；已知账号切换仍清空。
+  if (draftOwner === null && currentOwner()) { draftOwner = currentOwner(); return true; }
   draftOwner = currentOwner();
   drafts.value = Object.create(null); extras.value = []; newGroup.value = ""; folded.value = new Set();
   return false;
@@ -21,19 +23,21 @@ const newGroup = ref("");
 const extras = ref([]);
 const folded = ref(new Set());
 const composing = ref(false);
-const records = computed(() => { revision.value; return getData().todo || []; });
+// store 数组非响应式；返回新快照，避免 Vue 以同一引用跳过分组重算。
+const records = computed(() => { revision.value; return [...(getData().todo || [])]; });
 const groups = computed(() => taskGroups(records.value, extras.value).map(g => ({ ...g, items: g.items.filter(x => matchesTask(x, query.value)) })).filter(g => !query.value.trim() || g.items.length));
 let unsubscribe;
 onMounted(() => { unsubscribe = subscribe(() => { checkOwner(); revision.value++; }); });
 onBeforeUnmount(() => unsubscribe?.());
 function changed(item) { persist("todo", item); }
 function add(group) {
-  if (!checkOwner() || composing.value) return;
+  if (!checkOwner()) { Toast.show("账号已切换，请在当前账号重新输入"); return; }
+  if (composing.value) return;
   const item = createTask(drafts.value[group], group);
   if (!item) return;
   const list = getData().todo ||= [];
   list.unshift(item);
-  try { changed(item); drafts.value[group] = ""; }
+  try { changed(item); drafts.value[group] = ""; query.value = ""; }
   catch { list.splice(list.indexOf(item), 1); Toast.show("保存失败，内容已保留，请重试"); }
 }
 function addGroup() {
@@ -113,7 +117,7 @@ function toggle(item) {
       </header>
       <div v-show="!folded.has(group.name)">
         <div v-for="item in group.items.filter(x => !x.done)" :key="item.id" class="task-line">
-          <input type="checkbox" :checked="item.done" :aria-label="`完成 ${item.title}`" @change="toggle(item)">
+          <label class="task-check"><input type="checkbox" :checked="item.done" :aria-label="`完成 ${item.title}`" @change="toggle(item)"><span aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 10 3.2 3.2L15 6.5" /></svg></span></label>
           <button class="task-body" @click="openEditor('todo', item)"><span>{{ item.title }}</span><small v-if="item.note">{{ item.note }}</small><small v-if="item.image">含图片</small></button>
           <details class="task-menu"><summary aria-label="更多操作">···</summary><div><button @click="openEditor('todo', item)">编辑 / 移到分组</button><button class="danger" @click="confirmDelete('todo', item.id)">删除</button></div></details>
         </div>
@@ -124,7 +128,7 @@ function toggle(item) {
         <details v-if="group.items.some(x => x.done)" class="task-done">
           <summary>已完成 {{ group.items.filter(x => x.done).length }} 项</summary>
           <div v-for="item in group.items.filter(x => x.done)" :key="item.id" class="task-line">
-            <input type="checkbox" checked :aria-label="`恢复 ${item.title}`" @change="toggle(item)">
+            <label class="task-check"><input type="checkbox" checked :aria-label="`恢复 ${item.title}`" @change="toggle(item)"><span aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 10 3.2 3.2L15 6.5" /></svg></span></label>
             <button class="task-body" @click="openEditor('todo', item)">{{ item.title }}</button>
             <details class="task-menu"><summary aria-label="更多操作">···</summary><div><button @click="openEditor('todo', item)">编辑 / 移到分组</button><button class="danger" @click="confirmDelete('todo', item.id)">删除</button></div></details>
           </div>
@@ -144,10 +148,22 @@ function toggle(item) {
 .task-add button { flex-shrink: 0; }
 .task-group { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); margin-bottom: 16px; }
 .task-group-head { padding: 16px; display: flex; align-items: center; gap: 8px; }
-.task-group-toggle { display: flex; align-items: center; gap: 8px; border: 0; background: none; color: var(--text); font: 700 16px var(--font); cursor: pointer; width: 100%; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.task-group-toggle { display: flex; align-items: center; gap: 8px; border: 0; background: none; color: var(--text); font: 700 14px var(--font-sans); cursor: pointer; width: 100%; min-width: 0; text-align: left; overflow-wrap: anywhere; }
 .task-group-toggle small { margin-left: auto; color: var(--text-secondary); font: 12px var(--font-sans); white-space: nowrap; }
 .task-line { display: flex; gap: 12px; padding: 12px 16px; align-items: center; border-top: 1px solid var(--border); }
-.task-line > input { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.task-check { position: relative; display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; cursor: pointer; }
+.task-check input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.task-check > span { display: grid; place-items: center; width: 20px; height: 20px; border: 1.5px solid var(--border-input); border-radius: 6px; background: var(--surface-card); transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); pointer-events: none; }
+.task-check svg { width: 18px; height: 18px; fill: none; stroke: var(--surface-card); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.task-check input:checked + span { background: var(--module-1); border-color: var(--module-1); }
+.task-check input:checked + span svg { opacity: 1; }
+.task-check:hover > span { border-color: var(--module-1); }
+.task-check input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tasks-view :is(input, button, summary) { font-family: var(--font-sans); }
+.tasks-view input.shared-field { font-size: 14px; font-weight: 400; }
+.tasks-view input::placeholder { font-weight: 400; color: var(--text-tertiary); }
+.tasks-view .btn { font-size: 13px; font-weight: 500; }
+.tasks-view .header h2 { font-family: var(--font); }
 .task-body { flex: 1; min-width: 0; border: 0; padding: 4px 0; background: none; color: var(--text); text-align: left; font: 14px/1.6 var(--font-sans); overflow-wrap: anywhere; cursor: pointer; }
 .task-body small { display: block; color: var(--text-secondary); white-space: pre-wrap; max-height: 3.2em; overflow: hidden; }
 .task-inline-add { padding: 12px 16px; }

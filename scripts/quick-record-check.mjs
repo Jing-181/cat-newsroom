@@ -86,6 +86,17 @@ try {
   const tick = () => evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   const check = async (expression, message) => { if (!await evaluate(expression)) throw Error(message); };
   const click = selector => evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  const mouseClick = async selector => {
+    const point = await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.scrollIntoView({block:'center'});const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
+    await tick();
+  };
+  const evidence = async label => {
+    results.diagnostics ||= [];
+    results.diagnostics.push(await evaluate(`({label:${JSON.stringify(label)},owner:window.getCurrentUser?.()?.id||null,input:document.querySelector('.task-inline-add input')?.value,buttonDisabled:document.querySelector('.task-inline-add button')?.disabled,memory:fixture.store.getData().todo,disk:JSON.parse(localStorage.getItem(fixture.CONFIG.storageKey)).todo,rendered:[...document.querySelectorAll('.task-body')].map(e=>e.textContent),syncErrors:fixture.syncErrors.slice(),syncInputs:fixture.syncInputs.slice(),toasts:[...document.querySelectorAll('.cat-toast:not(.out)')].map(e=>e.textContent)})`));
+  };
   const fill = async (selector, text) => {
     await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.focus();el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     await send('Input.insertText', { text }); await tick();
@@ -116,6 +127,7 @@ try {
       await fill('.task-inline-add input', title); await enter();
       await check(`fixture.store.getData().todo.some(x=>x.title===${JSON.stringify(title)})`, 'Enter did not save ' + title);
       await check(`document.activeElement===originalInput && originalInput.isConnected && originalInput.value===''`, 'Input replaced, focus lost or draft not cleared');
+      await evidence('enter-add-' + title);
     }
     await check('new Set(fixture.store.getData().todo.map(x=>x.id)).size===3', 'Duplicate record IDs');
   });
@@ -221,6 +233,47 @@ try {
     });
   }
   results.finalRecordCounts = await evaluate(`Object.fromEntries(['todo','note'].map(key=>[key,fixture.store.getData()[key].length]))`);
+  results.computedIdentityProbe = await evaluate('fixture.computedIdentityProbe()');
+  await viewport(1280);
+  await evaluate(`fixture.show('todo')`);
+  await run('真实鼠标：稳定账号新增、列表渲染和持久化', async () => {
+    await evaluate(`fixture.resetTodo()`); await tick();
+    await fill('.task-inline-add input', '鼠标点击新增');
+    await mouseClick('.task-inline-add button');
+    await evidence('stable-owner-mouse');
+    await check(`fixture.store.getData().todo.length===1 && document.querySelector('.task-body')?.textContent.includes('鼠标点击新增') && document.querySelector('.task-inline-add input').value===''`, 'Real mouse add failed');
+  });
+  await run('中文 composition 提交后真实鼠标新增', async () => {
+    await fill('.task-inline-add input', '');
+    await send('Input.imeSetComposition', { text: '中文事项', selectionStart: 4, selectionEnd: 4 });
+    await evidence('composition-active');
+    await send('Input.insertText', { text: '中文事项' }); await tick();
+    await mouseClick('.task-inline-add button');
+    await evidence('composition-committed-mouse');
+    await check(`fixture.store.getData().todo.some(x=>x.title==='中文事项') && document.querySelector('.task-inline-add input').value===''`, 'Committed composition failed to save');
+    await check(`[...document.querySelectorAll('.task-body')].some(e=>e.textContent.includes('中文事项'))`, 'Composition saved but list did not render');
+  });
+  for (const notify of [false, true]) {
+    await run(`延迟账号 null→id（bump=${notify}）不吞首次鼠标新增`, async () => {
+      await evaluate(`(()=>{fixture.setOwner(null,true);fixture.resetTodo()})()`); await tick();
+      await fill('.task-inline-add input', '账号延迟恢复事项');
+      await evaluate(`fixture.setOwner('quick-record-fixture-only',${notify})`); await tick();
+      await evidence('owner-restored-before-click-' + notify);
+      await mouseClick('.task-inline-add button');
+      await evidence('owner-restored-after-click-' + notify);
+      await check(`fixture.store.getData().todo.some(x=>x.title==='账号延迟恢复事项')`, 'Owner recovery swallowed draft / first add');
+    });
+  }
+  await run('真实 clone 同步边界：新增后完成事项', async () => {
+    await evaluate(`(()=>{fixture.setOwner('quick-record-fixture-only',true);fixture.resetTodo()})()`); await tick();
+    await fill('.task-inline-add input', '同步边界事项'); await mouseClick('.task-inline-add button');
+    await evidence('new-item-before-remount');
+    await evaluate(`fixture.show('note')`); await evaluate(`fixture.show('todo')`);
+    await evidence('new-item-after-remount');
+    await mouseClick('[aria-label="完成 同步边界事项"]');
+    await evidence('toggle-with-structuredClone');
+    await check(`fixture.store.getData().todo[0].done && JSON.parse(localStorage.getItem(fixture.CONFIG.storageKey)).todo[0].done`, 'Completion failed or memory/disk diverged');
+  });
 } catch (error) {
   results.fatal = error.stack;
 } finally {

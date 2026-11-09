@@ -27,10 +27,12 @@ test('搜索覆盖标题、备注、版本名', async () => {
 test('事项新增不重建页面并防止中文输入确认误提交', () => {
   const source = read('src/modules/todo/TodoView.vue');
   assert.match(source, /@submit.prevent="add\(group.name\)"/);
-  assert.match(source, /if \(!checkOwner\(\) \|\| composing.value\) return/);
+  assert.match(source, /if \(composing.value\) return/);
+  assert.match(source, /if \(!checkOwner\(\)\)/);
   assert.match(source, /drafts.value\[group\] = ""/);
   assert.doesNotMatch(source, /innerHTML|ModuleView|resolveRecordImage/);
   assert.match(source, /subscribe\(/);
+  assert.match(source, /return \[\.\.\.\(getData\(\).todo \|\| \[\]\)\]/, 'store 原地修改后必须用新快照触发分组重算');
 });
 test('行内草稿隔离账号和原型属性，整组操作先一次性落盘', () => {
   const source = read('src/modules/todo/TodoView.vue');

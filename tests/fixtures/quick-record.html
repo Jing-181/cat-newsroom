@@ -23,9 +23,19 @@
     }
     const uploads = [];
     const syncCalls = [];
-    window.getCurrentUser = () => ({ id: 'quick-record-fixture-only', is_anonymous: false });
+    let user = { id: 'quick-record-fixture-only', is_anonymous: false };
+    const syncErrors = [];
+    const syncInputs = [];
+    let inspectProxy = () => false;
+    window.getCurrentUser = () => user;
     window.getSyncStatus = () => 'online';
-    window.syncRecord = record => syncCalls.push(record);
+    // Match production's synchronous clone boundary; never contact a real account.
+    window.syncRecord = ({ moduleKey, record }) => {
+      syncInputs.push({ moduleKey, title: record.title, isProxy: inspectProxy(record) });
+      record.updated_at = new Date().toISOString();
+      try { syncCalls.push({ moduleKey, record: structuredClone(record) }); }
+      catch (error) { syncErrors.push({ name: error.name, message: error.message, stack: error.stack }); throw error; }
+    };
     window.syncDelete = () => {};
     window.syncMetaField = () => {};
     window.markRecordDeleted = () => {};
@@ -41,14 +51,30 @@
       });
       return { url };
     };
-    const [{ createApp, ref, nextTick, h }, { default: TodoView }, { default: NoteView }, store] = await Promise.all([
+    const [{ createApp, ref, computed, isProxy, nextTick, h }, { default: TodoView }, { default: NoteView }, store] = await Promise.all([
       import('vue'),
       import('/modules/todo/TodoView.vue'),
       import('/modules/note/NoteView.vue'),
       import('/lib/store.js'),
     ]);
+    inspectProxy = isProxy;
     const view = ref('todo');
-    window.fixture = { store, uploads, syncCalls, failUpload: false, nextTick,
+    window.fixture = { store, uploads, syncCalls, syncErrors, syncInputs, CONFIG,
+      computedIdentityProbe() {
+        const run = copy => {
+          const revision = ref(0), list = [];
+          let runs = 0;
+          const records = computed(() => { revision.value; return copy ? list.slice() : list; });
+          const groups = computed(() => { runs++; return records.value.filter(Boolean); });
+          const before = groups.value.length;
+          list.unshift({ title: 'identity probe' }); revision.value++;
+          return { before, after: groups.value.length, runs, actual: list.length };
+        };
+        return { sameReference: run(false), freshReference: run(true) };
+      },
+      failUpload: false, nextTick,
+      setOwner(id, notify = false) { user = id ? { id, is_anonymous: false } : null; if (notify) store.bump(); },
+      resetTodo() { store.getData().todo = []; store.save(); store.bump(); },
       async show(key) { view.value = key; await nextTick(); },
     };
     createApp({ setup: () => () => [
