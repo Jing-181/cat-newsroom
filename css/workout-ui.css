@@ -798,10 +798,36 @@ button.set-hint:hover { color:var(--module-4); }
 .focus-nav-btn:disabled { opacity:.26; cursor:default; }
 .focus-nav-btn:not(:disabled):active { background:rgba(240,232,213,.1); }
 .focus-nav-pos { font-size:10.5px; letter-spacing:.1em; color:rgba(240,232,213,.42); font-variant-numeric:tabular-nums; }
-.focus-dots { display:flex; gap:6px; margin-top:16px; }
+.focus-dots { display:flex; align-items:center; gap:6px; margin-top:16px; }
 .focus-dot { width:18px; height:3px; border-radius:2px; background:rgba(240,232,213,.18); }
 .focus-dot.is-done { background:#e6b877; }
-.focus-dot.is-now { background:rgba(240,232,213,.72); }
+/* 当前这一条比其它高一点：跟已完成的盒色分开，「记到第几组」不用再看底部的字 */
+.focus-dot.is-now { height:5px; background:rgba(240,232,213,.85); }
+
+/* 当前组一行：第 N / M 组 + 进度点 + 本组停留。
+   以前 N 只在底部小字里，训练中扫一眼得先找到它；现在和进度点排在同一行，靠动作名和下面两个数字最近。 */
+.focus-setbar { display:flex; align-items:center; gap:12px; margin-top:16px; }
+.focus-setbar .focus-dots { flex:1; min-width:0; margin-top:0; overflow:hidden; }
+.focus-setbar .focus-dot { flex:1 1 18px; max-width:18px; min-width:0; }
+.focus-group-menu { display:flex; align-items:center; gap:8px; flex:0 0 auto; min-height:36px; padding:0; border:0; background:none; color:var(--ink-text); cursor:pointer; touch-action:pan-y; user-select:none; -webkit-touch-callout:none; }
+.focus-group-menu:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+.focus-group-label { font-size:10px; color:var(--ink-text-mute); }
+.workout-focus .focus-head { height:95px; flex:0 0 95px; }
+.focus-head h2 { line-height:1.5; }
+.focus-name { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.focus-setpos { display:inline-block; width:10ch; font-family:var(--font-sans); }
+.focus-setpos b { display:inline-block; min-width:2ch; text-align:center; }
+.focus-dwell { min-width:13ch; text-align:right; }
+.focus-clock { min-width:8ch; }
+.workout-focus { touch-action:pan-y; }
+.workout-focus .focus-last { min-height:34px; }
+@media (max-height:700px) {
+  .workout-focus .focus-coach { min-height:0; overflow:hidden; }
+}
+.focus-setpos { flex:0 0 auto; font-size:11px; letter-spacing:.1em; color:rgba(240,232,213,.6); font-variant-numeric:tabular-nums; }
+.focus-setpos b { margin:0 3px; font-family:var(--font); font-size:18px; font-weight:400; letter-spacing:.03em; color:var(--ink-text); }
+/* 本组停留：临时计时，跟顶部的整场时长同形不同位，不写成计时器按钮 */
+.focus-dwell { flex:0 0 auto; margin-left:auto; font-size:11px; letter-spacing:.05em; color:rgba(240,232,213,.55); font-variant-numeric:tabular-nums; }
 .focus-fields { display:flex; flex-direction:column; gap:12px; margin-top:22px; }
 .focus-field { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid rgba(240,232,213,.1); border-radius:14px; background:rgba(240,232,213,.055); }
 .focus-label { flex:0 0 30px; font-size:10px; letter-spacing:.12em; color:rgba(240,232,213,.5); }
@@ -926,8 +952,11 @@ button.set-hint:hover { color:var(--module-4); }
 .workout-focus .focus-fields { margin-top:14px; gap:10px; }
 .workout-focus .focus-field { padding:8px 12px; }
 .workout-focus .focus-last { margin-top:10px; }
-.workout-focus .focus-dots { margin-top:13px; }
-.focus-timer { margin-left:auto; margin-right:10px; font-family:var(--font); font-size:11px; letter-spacing:.08em; color:rgba(240,232,213,.55); font-variant-numeric:tabular-nums; }
+.workout-focus .focus-setbar { margin-top:13px; }
+/* 顶部的整场时长：前面带一个「整场」小标签，跟下面的「本组停留」分开看 */
+.focus-clock { display:inline-flex; align-items:baseline; gap:5px; margin-left:auto; margin-right:10px; }
+.focus-clock i { font-style:normal; font-size:9.5px; letter-spacing:.16em; color:rgba(240,232,213,.38); }
+.focus-timer { font-family:var(--font); font-size:11px; font-weight:400; letter-spacing:.08em; color:rgba(240,232,213,.55); font-variant-numeric:tabular-nums; }
 
 .focus-coach { flex:1; display:grid; place-items:center; min-height:88px; margin:6px 0 2px; color:rgba(240,232,213,.52); }
 .move-figure { height:96px; width:auto; overflow:visible; }

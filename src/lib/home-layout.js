@@ -27,6 +27,14 @@ export const HOME_CARDS = [
 
 export const DEFAULT_HOME_ORDER = HOME_CARDS.map(card => card.key);
 
+// 手机首屏先给「今天能做的事」：时钟→快速记录→今日聚焦→待办→习惯，
+// 概览、每日一卡、趋势这些「看」的往后排。
+// 只在用户没有自定义排序时使用；已保存的顺序（含云端拉回来的）一律优先，不覆盖。
+export const DEFAULT_HOME_ORDER_MOBILE = [
+  "clock", "quick", "focus", "todo", "habit",
+  "overview", "daily", "pomo", "trend", "spend", "books", "goals", "report",
+];
+
 export function groupOf(key) {
   const card = HOME_CARDS.find(c => c.key === key);
   return card ? card.group : null;

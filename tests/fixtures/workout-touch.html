@@ -1,0 +1,18 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"><body><main id="fixture"></main><script type="module">
+import Workout from '/lib/workout.js';
+import UI from '/lib/workout-ui.js';
+window.fixture = { Workout, UI, saved: [], controller: null };
+window.resetFixture = (count = 4) => {
+  fixture.controller?.destroy();
+  const session = Workout.createSession('chest');
+  Workout.addExercise(session, 'dumbbell_bench_press');
+  while (session.exercises[0].sets.length < count) Workout.addSet(session, 0);
+  Workout.addExercise(session, 'cable_fly_mid');
+  session.exercises[1].name = '这是一个需要换行显示的很长很长的训练动作名称';
+  session.exercises.push({ id: 'cardio-fixture', exercise_id: 'test-cardio', name: '跑步', body_part:'全身', equipment:'有氧', sets:[{duration_min:0,distance_km:0}], planned_sets:1 });
+  localStorage.setItem(UI.DRAFT_KEY, JSON.stringify(session));
+  fixture.controller = UI.mount(document.querySelector('#fixture'), { records: [], onSave: record => fixture.saved.push(record), onDelete: () => {} });
+};
+resetFixture();
+window.ready = true;
+</script></body></html>

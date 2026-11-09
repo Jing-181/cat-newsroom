@@ -9,7 +9,7 @@ import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
 import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
 import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
-import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, groupOf } from "../../lib/home-layout.js";
+import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, DEFAULT_HOME_ORDER_MOBILE, groupOf } from "../../lib/home-layout.js";
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
 import Workout from "../../lib/workout.js";
 import { sleepingCat } from "../../lib/critters.js";
@@ -218,7 +218,9 @@ const RENDER_MAP = {
 };
 
 function render() {
-  const order = (Array.isArray(homeOrderConfig) && homeOrderConfig.length ? homeOrderConfig : DEFAULT_HOME_ORDER)
+  // 没有自定义排序时：手机用「先给能做的事」的默认顺序，桌面仍按原清单（窄屏断点与 responsive.css 一致）
+  const fallback = window.matchMedia?.("(max-width: 820px)").matches ? DEFAULT_HOME_ORDER_MOBILE : DEFAULT_HOME_ORDER;
+  const order = (Array.isArray(homeOrderConfig) && homeOrderConfig.length ? homeOrderConfig : fallback)
     .filter(key => RENDER_MAP[key]);
   // 按组分段：同组卡片包进一个 bento 网格并排，组头自动跟随
   const sections = [];
@@ -229,9 +231,11 @@ function render() {
     else last.cards.push(key);
   });
   let html = "";
+  // 一个分组只出一个组头：自定义排序把同组卡片拆到两处时，不重复印两遍组名。
+  const titled = new Set();
   sections.forEach(section => {
     const g = HOME_GROUPS[section.group];
-    if (g) html += grp(g.zh, g.en);
+    if (g && !titled.has(section.group)) { titled.add(section.group); html += grp(g.zh, g.en); }
     html += `<div class="bento">${section.cards.map(key => RENDER_MAP[key]()).join("")}</div>`;
   });
   // 首页版本信息：个人配置页可控制显示与否（默认显示）

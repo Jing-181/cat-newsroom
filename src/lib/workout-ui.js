@@ -3,6 +3,7 @@
 // ESM 模块：import WorkoutUI from "./workout-ui.js"。
 
 import Workout from "./workout.js";
+import { bindFocusGestures } from "./workout-gestures.js";
 import WorkoutCatalog from "./workout-catalog.js";
 import WorkoutPlan from "./workout-plan.js";
 import WorkoutView from "./workout-view.js";
@@ -90,9 +91,15 @@ function mount(container, options) {
   let focusMode = false;
   let focusPoint = null;
   let flashTimer = null;
+  // 本组停留：训练中的临时计时，只看「这一组已经停了多久」，不落草稿也不进记录。
+  // 记的是组身份（Workout.dwellKey）与开始时间戳：组变了才归零，改数值、加组都不打断。
+  let dwellState = "";
+  let dwellSince = 0;
   // 逐组屏上的两个活物：秒表和图解小人。它们绑在 DOM 上，重渲染前要先拆掉
   let focusTimerId = 0;
   let figureCleanup = null;
+  let gestureCleanup = null;
+  let destroyed = false;
   // 恢复的草稿也直接进逐组：这是训练时的默认工作面。只有“编辑旧记录”例外，
   // 那种场景是回头改历史，需要看到全部动作。
   if (session && !session._editing_record_id) focusMode = true;
@@ -107,6 +114,8 @@ function mount(container, options) {
     completionOpen = false;
     focusMode = false;
     focusPoint = null;
+    dwellState = "";
+    dwellSince = 0;
   }
 
   // 当前该记哪一组：先看指针落在哪，再找全场第一组没记录的。
@@ -206,29 +215,11 @@ function mount(container, options) {
     return filled;
   }
 
-  // 逐组屏换位置时的位移提示：不位移的话，切没切只能靠再看一遍动作名。
-  // 方向跟着手：左滑（下一组）从右侧进来，右滑从左侧进来。
-  // 轻微：位移 14px、150ms，只动主体三块，顶栏和底部按钮不动。
-  function playFocusSlide(direction) {
-    if (!shouldAnimate() || !direction) return;
-    const tokens = getComputedStyle(document.documentElement);
-    const seconds = parseFloat(tokens.getPropertyValue("--dur-fast")) || 0.15;
-    const easing = tokens.getPropertyValue("--ease-out").trim() || "ease-out";
-    const offset = direction > 0 ? 14 : -14;
-    [".focus-head", ".focus-dots", ".focus-fields"].forEach(selector => {
-      const node = container.querySelector(`.workout-focus ${selector}`);
-      if (!node) return;
-      node.animate(
-        [{ transform: `translateX(${offset}px)`, opacity: 0.6 }, { transform: "translateX(0)", opacity: 1 }],
-        { duration: seconds * 1000, easing, fill: "backwards" },
-      );
-    });
-  }
 
   // 逐组屏的位置变化只改屏幕上的值，不重画整屏。
   // 为什么：innerHTML 重建会把输入框一起换掉，手机上的焦点与键盘跟着收起，
   // 视口一缩一伸就是頁面在抖。这里只改文本、数值和状态类，节点本身不动。
-  // 字段集变了（力量 ↔ 有氧）或动作数变了才退回完整 render。
+  // 力量与有氧共用两个控件；动作导航结构变化才退回完整 render。
   function paintFocus(direction) {
     const root = container.querySelector(".workout-focus");
     const fields = root?.querySelector(".focus-fields");
@@ -236,11 +227,27 @@ function mount(container, options) {
     const exercise = session?.exercises?.[target?.exercise];
     if (!root || !fields || !exercise) { render(); return; }
 
-    const wanted = Workout.isCardio(exercise) ? "duration_min,distance_km" : "weight_kg,reps";
-    const currentFields = [...fields.querySelectorAll("[data-focus-field]")].map(item => item.dataset.focusField).join(",");
+    const specs = Workout.isCardio(exercise)
+      ? [["duration_min", "时长", "分", 1, 0], ["distance_km", "距离", "km", 0.5, 0]]
+      : [["weight_kg", "重量", "kg", 2.5, Workout.allowsAssist(exercise) ? -200 : 0], ["reps", "次数", "次", 1, 1]];
+    fields.querySelectorAll('.focus-field').forEach((node, index) => {
+      const [field, label, unit, step, min] = specs[index];
+      const input = node.querySelector('input');
+      input.dataset.focusField = field;
+      input.step = step;
+      input.min = min;
+      input.setAttribute('aria-label', label);
+      input.title = field === 'weight_kg' && min < 0 ? '0 = 纯自重，负数 = 助力' : '';
+      node.querySelector('.focus-label').textContent = label;
+      node.querySelector('.focus-unit').textContent = unit;
+      node.querySelectorAll('[data-focus-step]').forEach((button, i) => {
+        button.dataset.focusStep = field;
+        button.dataset.delta = (i ? 1 : -1) * step;
+        button.setAttribute('aria-label', `${i ? '增加' : '减少'}${label}`);
+      });
+    });
     const totalExercises = session.exercises.length;
     const nav = root.querySelector(".focus-nav");
-    if (currentFields !== wanted) { render(); return; }
     if (totalExercises > 1 && nav?.dataset.count !== String(totalExercises)) { render(); return; }
 
     const set = exercise.sets[target.set] || {};
@@ -260,9 +267,9 @@ function mount(container, options) {
     });
 
     const name = root.querySelector(".focus-name");
-    if (name) name.textContent = exercise.name;
+    if (name) { name.textContent = exercise.name; name.title = exercise.name; }
     const meta = root.querySelector(".focus-head p");
-    if (meta) meta.textContent = `${exercise.body_part} · ${exercise.equipment} · ${Workout.recordedSets(exercise).length}/${exercise.sets.length} 组`;
+    if (meta) meta.textContent = `${exercise.body_part} · ${exercise.equipment}`;
 
     if (nav) {
       const position = nav.querySelector(".focus-nav-pos");
@@ -278,6 +285,10 @@ function mount(container, options) {
     if (dots) {
       dots.innerHTML = exercise.sets.map((item, index) => `<i class="focus-dot${Workout.setHasRecord(item) ? " is-done" : ""}${index === target.set ? " is-now" : ""}"></i>`).join("");
     }
+    const posNode = root.querySelector("[data-focus-setpos]");
+    if (posNode) posNode.innerHTML = `第 <b>${target.set + 1}</b> / ${exercise.sets.length} 组`;
+    // 组身份变了（完成一组推进、点选、滑动）→ 从 00:00 重新算；同一组内局部更新不归零。
+    paintDwell();
 
     const last = root.querySelector(".focus-last");
     if (last) {
@@ -293,9 +304,9 @@ function mount(container, options) {
 
     const pending = session.exercises.reduce((sum, item) => sum + item.sets.filter(next => !Workout.setHasRecord(next)).length, 0);
     const remaining = totalExercises - 1 - target.exercise;
-    const tail = target.exercise === totalExercises - 1 ? "最后一个动作" : `后面还有 ${remaining} 个动作`;
+    const tail = target.exercise === totalExercises - 1 ? "这是最后一个动作" : `后面还有 ${remaining} 个动作`;
     const hint = root.querySelector(".focus-hint");
-    if (hint) hint.textContent = pending === 0 ? "全部组已记录 · 可以结束了" : `第 ${target.set + 1} / ${exercise.sets.length} 组 · ${tail}`;
+    if (hint) hint.textContent = pending === 0 ? "全部组已记录 · 可以结束了" : tail;
     const doneButton = root.querySelector("[data-focus-done]");
     const finishButton = root.querySelector("[data-focus-finish]");
     if (doneButton) doneButton.hidden = pending === 0;
@@ -309,7 +320,7 @@ function mount(container, options) {
       svg.dataset.figureFor = exercise.id;
     }
 
-    playFocusSlide(direction);
+    // 切组不位移控件；位置反馈由组号与当前标记承担。
   }
 
   // 左右滑动：按「动作内所有组」排成一条线前后走，越过本动作末组就进下一个动作。
@@ -332,6 +343,19 @@ function mount(container, options) {
   function persistDraft() {
     if (session) localStorage.setItem(DRAFT_KEY, JSON.stringify(session));
     else localStorage.removeItem(DRAFT_KEY);
+  }
+
+  // 本组停留只改屏幕上这一个数字，不重画整屏、也不碰输入框。
+  // 每秒从开始时间戳重算一次，不用累加：页面不可见时定时器被挂起或拖慢，
+  // 回来看到的仍是真实经过的时间，不丢帧也不漂。
+  function paintDwell() {
+    const node = container.querySelector("[data-focus-dwell]");
+    if (!node) return;
+    const scope = focusScope();
+    const key = Workout.dwellKey(scope?.exercise, scope?.setIndex);
+    if (key !== dwellState) { dwellState = key; dwellSince = Date.now(); }
+    const elapsed = dwellSince ? Math.floor((Date.now() - dwellSince) / 1000) : 0;
+    node.textContent = `本组停留 ${Workout.formatDwell(elapsed)}`;
   }
 
   function updateSession({ rerender = true } = {}) {
@@ -378,6 +402,8 @@ function mount(container, options) {
           const minutes = Math.floor((total % 3600) / 60);
           const seconds = total % 60;
           timerEl.textContent = `${hours ? `${hours}:${String(minutes).padStart(2, "0")}` : String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+          // 同一条秒表顺手把「本组停留」重算一次：只多一个节点写入，不再开第二个定时器。
+          paintDwell();
         };
         tick();
         focusTimerId = setInterval(tick, 1000);
@@ -724,6 +750,43 @@ function mount(container, options) {
     dialog.addEventListener("close", render, { once: true });
   }
 
+  // 完整编辑页和逐组菜单共用删除路径，不改已保存的历史对象。
+  async function deleteSet(exerciseIndex, setIndex) {
+    const originalSession = session;
+    const exercise = session?.exercises?.[exerciseIndex];
+    const set = exercise?.sets?.[setIndex];
+    if (!set) return;
+    if (exercise.sets.length <= 1) {
+      await AppDialog.alert('至少保留一组；此操作不会删除整个动作。', { title: '保留最后一组' });
+      return;
+    }
+    if (Workout.setHasRecord(set) && !await AppDialog.confirm('这一组已有训练数据，确定删除？', { title: '删除当前组', danger: true, okText: '删除' })) return;
+    if (destroyed || session !== originalSession || !session.exercises.includes(exercise)) return;
+    const index = exercise.sets.indexOf(set);
+    if (index < 0 || exercise.sets.length <= 1) return;
+    const scope = focusScope();
+    Workout.removeSet(session, session.exercises.indexOf(exercise), index);
+    if (scope) {
+      const retained = scope.exercise.sets.indexOf(scope.set);
+      rememberFocus(session.exercises.indexOf(scope.exercise), retained >= 0 ? retained : Math.min(index, scope.exercise.sets.length - 1));
+    }
+    if (openSets[exercise.id] != null) openSets[exercise.id] = Math.min(openSets[exercise.id] > index ? openSets[exercise.id] - 1 : openSets[exercise.id], exercise.sets.length - 1);
+    Trace.track('workout_set_delete', { ex_index: exerciseIndex, set_index: index });
+    updateSession({ rerender: false });
+    if (focusMode) paintFocus(0); else render();
+  }
+
+  function openGroupMenu() {
+    const scope = focusScope();
+    if (!scope || destroyed) return;
+    const last = scope.exercise.sets.length <= 1;
+    const dialog = openDialog(`<div class="dialog-head"><h3>第 ${scope.setIndex + 1} 组 · 组操作</h3><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div><p>${last ? '至少保留一组，不会删除整个动作。' : '也可以长按组号打开此菜单；已有数据的组删除前会确认。'}</p><div class="dialog-actions"><button type="button" class="workout-btn danger" data-delete-current${last ? ' disabled' : ''}>删除当前组</button><button type="button" class="workout-btn" data-dialog-close>取消</button></div>`, { ink: true });
+    dialog.querySelector('[data-delete-current]').addEventListener('click', () => {
+      dialog.close();
+      deleteSet(scope.exerciseIndex, scope.setIndex);
+    });
+  }
+
   function wireEditor() {
     // 已完成动作的收小 / 展开：整卡可点，但卡内的真实控件优先（加一组、动作说明、删除都不触发折叠）。
     // 用容器级事件委派并只绑一次，重渲染不会重复叠加监听。
@@ -849,28 +912,8 @@ function mount(container, options) {
     // 左右滑动切组 / 切动作：与上/下一个动作按钮是同一条推进线，步长小一档。
     // 从输入框里开始的横向拖动不算：那里留给输入框自己用。
     const focusRoot = container.querySelector("[data-focus-root]");
-    if (focusRoot) {
-      let startX = 0;
-      let startY = 0;
-      let tracking = false;
-      focusRoot.addEventListener("touchstart", event => {
-        if (event.touches.length !== 1) return;
-        tracking = !event.target.closest("input, textarea");
-        startX = event.touches[0].clientX;
-        startY = event.touches[0].clientY;
-      }, { passive: true });
-      focusRoot.addEventListener("touchend", event => {
-        if (!tracking) return;
-        tracking = false;
-        const touch = event.changedTouches[0];
-        if (!touch) return;
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
-        // 横向为主且足够长才算滑动，避开上下滚动与轻微拖动。
-        if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-        stepFocus(dx < 0 ? 1 : -1);
-      }, { passive: true });
-    }
+    if (focusRoot) gestureCleanup = bindFocusGestures(focusRoot, { step: stepFocus, openGroup: openGroupMenu });
+    container.querySelector('[data-focus-group-menu]')?.addEventListener('click', openGroupMenu);
     // 点动作名看要点：训练中不离开这一屏就能确认动作怎么走
     container.querySelector("[data-focus-info]")?.addEventListener("click", () => {
       const scope = focusScope();
@@ -974,23 +1017,8 @@ function mount(container, options) {
       if (ex) openExerciseInfo(ex);
     }));
     // 删组：走数据层 removeSet 同步下调计划组数，并修正展开位置。
-    container.querySelectorAll("[data-set-delete]").forEach(button => button.addEventListener("click", () => {
-      const exerciseIndex = Number(button.dataset.exercise);
-      const setIndex = Number(button.dataset.set);
-      const exercise = session.exercises[exerciseIndex];
-      if (!exercise) return;
-      Workout.removeSet(session, exerciseIndex, setIndex);
-      Trace.track("workout_set_delete", { ex_index: exerciseIndex, set_index: setIndex });
-      if (openSets[exercise.id] != null) {
-        if (openSets[exercise.id] === setIndex) openSets[exercise.id] = Math.min(setIndex, Math.max(0, exercise.sets.length - 1));
-        else if (openSets[exercise.id] > setIndex) openSets[exercise.id] -= 1;
-      }
-      // 一组不剩：整个动作也不再保留。
-      if (!exercise.sets.length) {
-        session.exercises.splice(exerciseIndex, 1);
-        delete openSets[exercise.id];
-      }
-      updateSession();
+    container.querySelectorAll('[data-set-delete]').forEach(button => button.addEventListener('click', () => {
+      deleteSet(Number(button.dataset.exercise), Number(button.dataset.set));
     }));
     // 输入即写入草稿，避免切换动作时丢失最后一次修改；展开状态只由点击决定，输入不触发收起。
     container.querySelectorAll("[data-set-field]").forEach(input => input.addEventListener("input", () => {
@@ -1265,9 +1293,16 @@ function mount(container, options) {
   }
 
   function render() {
+    if (destroyed) return;
+    gestureCleanup?.();
+    gestureCleanup = null;
     if (session) selectedDay = session.training_day;
     // 指针落到的那一组若还空着，先按同动作上一组的重量预填（只改内存，立刻落草稿）。
-    if (session && focusMode && seedFocusWeight()) persistDraft();
+    if (session && focusMode) {
+      const target = currentFocusTarget();
+      if (target) rememberFocus(target.exercise, target.set);
+      if (seedFocusWeight()) persistDraft();
+    }
     // uiState.previous 由渲染层自行计算上次表现；openSets 与 expandedDone 是这里的交互态。
     // 重渲染前记下每张卡的高度：填完最后一组自动收小、点了别处收起，都不该是硬跳。
     // 只在同一条训练内、同 id 的卡之间对高，换训练时 id 全变，自然不做动画。
@@ -1421,7 +1456,15 @@ function mount(container, options) {
       }
     });
   }
-  return { render, getSession:() => session };
+  // 离开训练页时停掉秒表与图解：这两个活物绑在 DOM 上，节点被卸载后定时器还在每秒空跑。
+  function destroy() {
+    destroyed = true;
+    gestureCleanup?.();
+    gestureCleanup = null;
+    clearTimeout(flashTimer);
+    stopFocusExtras();
+  }
+  return { render, getSession:() => session, destroy };
 }
 
 const WorkoutUI = {

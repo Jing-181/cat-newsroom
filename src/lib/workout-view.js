@@ -198,7 +198,6 @@ function focusHtml(session, selectedDay, target, history = []) {
   const set = exercise.sets[target.set] || {};
   const cardio = isCardio(exercise);
   const assistable = !cardio && Workout.allowsAssist(exercise);
-  const recorded = Workout.recordedSets(exercise).length;
   const totalSets = exercise.sets.length;
   const pending = session.exercises.reduce((sum, item) => sum + item.sets.filter(next => !Workout.setHasRecord(next)).length, 0);
   const remainingExercises = session.exercises.length - 1 - target.exercise;
@@ -224,6 +223,11 @@ function focusHtml(session, selectedDay, target, history = []) {
     return `<i class="focus-dot${done ? " is-done" : ""}${now}"></i>`;
   }).join("");
 
+  // 当前组：第 N / M 组与下面的进度点是同一条信息的两半，排在一行；右侧是本组停留的临时计时。
+  // 以前 N 只在底部小字和几条细横里，训练中一眼扫不到现在记到第几组。
+  // 本组停留只作参考（算间歇），不写进记录；页面不可见时按真实时间算（由 tick 里的时间戳决定）。
+  const setBar = `<div class="focus-setbar"><button type="button" class="focus-group-menu" data-focus-group-menu aria-label="组操作（也可长按组号）" aria-haspopup="dialog"><span class="focus-setpos" data-focus-setpos>第 <b>${target.set + 1}</b> / ${totalSets} 组</span><span class="focus-group-label">组操作 ···</span></button><div class="focus-dots" aria-hidden="true">${dots}</div><span class="focus-dwell" data-focus-dwell>本组停留 00:00</span></div>`;
+
   // 动作之间的切换：逐组屏原来只有「总览」一条出口，换个动作要先开弹窗、再点某一组。
   // 现在当前动作名下面直接给上/下一个，训练中换动作不用离开这一屏。
   const totalExercises = session.exercises.length;
@@ -232,11 +236,12 @@ function focusHtml(session, selectedDay, target, history = []) {
     : "";
 
   const tail = target.exercise === session.exercises.length - 1
-    ? (remainingExercises >= 0 ? "最后一个动作" : "")
+    ? (remainingExercises >= 0 ? "这是最后一个动作" : "")
     : `后面还有 ${remainingExercises} 个动作`;
+  // 底部提示只说「接下来去哪」；第几组已经挪到上面那一行，两处不重复。
   const hint = pending === 0
     ? "全部组已记录 · 可以结束了"
-    : `第 ${target.set + 1} / ${totalSets} 组${tail ? ` · ${tail}` : ""}`;
+    : tail;
 
   // 两个主按钮都在 DOM 里，只切 hidden：逐屏局部更新时不必重画按钮、也不丢监听。
   const primary = `<button type="button" class="focus-primary" data-focus-done${pending === 0 ? " hidden" : ""}>完成这组</button><button type="button" class="focus-primary is-finish" data-focus-finish${pending === 0 ? "" : " hidden"}>结束训练</button>`;
@@ -246,10 +251,10 @@ function focusHtml(session, selectedDay, target, history = []) {
   const lastText = !previousText ? "这个动作首次记录" : (suggestionOn ? "上次这组的数字已填入，直接完成或改数字" : "上次这组");
 
   return `<section class="workout-app workout-focus" data-focus-root>
-      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-timer" data-focus-timer>00:00</span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
-      <div class="focus-head"><h2><button type="button" class="focus-name" data-focus-info>${escapeHtml(exercise.name)}</button></h2><p>${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)} · ${recorded}/${totalSets} 组</p></div>
+      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-clock"><i>整场</i><b class="focus-timer" data-focus-timer>00:00</b></span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
+      <div class="focus-head"><h2><button type="button" class="focus-name" data-focus-info>${escapeHtml(exercise.name)}</button></h2><p>${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)}</p></div>
       ${nav}
-      <div class="focus-dots" aria-hidden="true">${dots}</div>
+      ${setBar}
       <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
       ${previousText ? (suggestionOn
         ? `<p class="focus-last is-filled"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`

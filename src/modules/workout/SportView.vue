@@ -8,17 +8,21 @@ import Trace from "../../lib/trace.js";
 
 const MODULE_KEY = "sport"; // 与主站 CONFIG.modules 的 sport 键一致
 const rootRef = ref(null);
+let controller = null;
 
 // 挂载共享训练控制器（复用现有 WorkoutUI，不改运动模型）
 // 记录数组直接用仓库里的那一份：WorkoutUI 就地增删改，落盘与同步统一走 store.js
 function mountUI() {
   if (!rootRef.value) return;
+  // 重新挂载前先停掉上一次的秒表与图解定时器
+  controller?.destroy();
+  controller = null;
   rootRef.value.innerHTML = "";
   const data = getData();
   if (!Array.isArray(data.sport)) data.sport = [];
   // 进页记一次：进页 → 开练的流失就在这里分叉（不记内容，只看有没有草稿）
   Trace.track("workout_page_open", { has_draft: !!WorkoutUI.hasDraft() });
-  WorkoutUI.mount(rootRef.value, {
+  controller = WorkoutUI.mount(rootRef.value, {
     records: data.sport,
     onSave: record => persist(MODULE_KEY, record),
     onDelete: record => remove(MODULE_KEY, record.id),
@@ -33,7 +37,11 @@ onMounted(() => {
   mountUI();
   window.addEventListener("storage", onStorage);
 });
-onBeforeUnmount(() => window.removeEventListener("storage", onStorage));
+onBeforeUnmount(() => {
+  controller?.destroy();
+  controller = null;
+  window.removeEventListener("storage", onStorage);
+});
 </script>
 
 <template>

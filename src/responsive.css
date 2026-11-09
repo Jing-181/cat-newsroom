@@ -57,24 +57,38 @@
   /* 首页 Bento 单列重排 */
   .bento { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .b3, .b4, .b5, .b6, .b7, .b8, .b12 { grid-column: span 1; }
-  .ov2-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .rings { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ov2-body { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  /* 今日概览的四个环：以前是 2×2，每个环下面还各带三行字，单这一块就占掉近一屏。
+     手机上改成一行四个：环缩到 54px，文字只留「百分比 / 名称 / 细项」，四个都在，入口一个不少。 */
+  .rings { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+  .ring { gap: 3px; padding: 4px 2px; }
+  .ring .dial { max-width: 54px; }
+  .ring .dial .mid svg { width: 13px; height: 13px; }
+  .ring .pct { font-size: 15px; }
+  .ring .lbl { font-size: 11.5px; }
+  .ring .sub { font-size: 10.5px; }
   /* 卡片收窄内边距与头部间距，单列下信息更紧凑、少占用一屏 */
   .tile { padding: 15px 16px; }
   .tile-h { margin-bottom: 11px; }
-  .sec-grp { margin: 22px 0 10px; }
+  .sec-grp { margin: 18px 0 9px; }
   /* 大时钟卡：压缩高度，数字字号略收，避免深色大块占满整屏 */
   .clock-card { min-height: 146px; padding: 18px 20px; }
   .clock-card .hi { font-size: 20px; }
   .clock-card .clk { font-size: 34px; }
   .clock-card .sub { max-width: none; }
-  /* 今日概览：统计侧栏数值收紧，环形区留出呼吸 */
-  .ov2-side { padding: 16px; }
-  .ov2-stat { padding: 10px 2px; }
-  .ov2-stat .s-v { font-size: 21px; }
-  .ov2-stat .s-ic { width: 36px; height: 36px; }
-  /* 每日一卡正文字号加大一行，移动端读起来更舒服 */
-  .daily-card .dc-content { font-size: 16px; line-height: 1.8; }
+  /* 今日概览右侧的深色统计：以前是三行竖排（图标 + 大数字 + 两行说明），比环形还高。
+     手机上并成一行三格，值在上、标签在下，图标让位给数字。 */
+  .ov2-side { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; padding: 12px 6px; }
+  .ov2-stat { flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 9px; }
+  .ov2-stat + .ov2-stat { border-top: 0; border-left: 1px solid var(--ink-line); }
+  .ov2-stat .s-ic { display: none; }
+  .ov2-stat .s-v { font-size: 18px; }
+  .ov2-stat .s-l { margin-top: 0; font-size: 10.5px; line-height: 1.35; }
+  /* 每日一卡：正文收一档行高，长文案不再把下面几张卡推出一屏 */
+  .daily-card .dc-content { font-size: 15px; line-height: 1.7; }
+  /* 本周状态空态：原来 168px 的空画框，现在一行话带个小图标 */
+  .trend-empty { flex-direction: row; gap: 8px; height: auto; margin-top: 2px; padding: 14px 0; font-size: 12.5px; }
+  .trend-empty svg { width: 18px; height: 18px; flex: 0 0 auto; }
   .hero-banner { padding: 20px 18px; min-height: 160px; }
   .hero-banner .hi { font-size: 26px; }
   .pomo .ring-wrap { width: 120px; height: 120px; }

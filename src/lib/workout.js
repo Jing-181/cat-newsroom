@@ -556,6 +556,17 @@ function formatVolume(volume) {
   return number > 0 ? formatNumber(number) : "—";
 }
 
+// 本组停留的显示格式：mm:ss。它只是训练中看间歇的临时计时，不写进草稿，也不进历史。
+function formatDwell(seconds) {
+  const total = Math.max(0, Math.floor(num(seconds)));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+// 只在当前挂载内比较组对象；删除前面的组导致索引位移，不应重置同一组的停留。
+function dwellKey(exercise, setIndex) {
+  return exercise?.sets?.[setIndex] || null;
+}
+
 // 紧凑写法：20×10，自重动作显示为 自重×12，助力动作显示为 助力20×8。
 function formatSetCompact(set, equipment) {
   if (isCardio({ equipment })) {
@@ -616,7 +627,7 @@ const Workout = {
   todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,
   exerciseHistory, trackedExercises, progressDigests, progressHeadline, deltaText, formatNumber, formatVolume,
-  formatSetText, formatSetCompact, formatSetList,
+  formatSetText, formatSetCompact, formatSetList, formatDwell, dwellKey,
   cloneRecord, pruneSession, upsertSession, sortRecords,
 };
 export default Workout;
@@ -629,6 +640,6 @@ export {
   todayKey, elapsedMinutes, daysSince, weekStartKey, sessionsThisWeek, lastSessionForDay, sessionsOnDate,
   setIntensity, bestSet,
   exerciseHistory, trackedExercises, progressDigests, progressHeadline, deltaText, formatNumber, formatVolume,
-  formatSetText, formatSetCompact, formatSetList,
+  formatSetText, formatSetCompact, formatSetList, formatDwell, dwellKey,
   cloneRecord, pruneSession, upsertSession, sortRecords,
 };

@@ -106,3 +106,46 @@ test("空白组把上次的重量与次数摆成建议值，但不写进数据�
   const cable = workoutView.editorHtml(session, "chest", history, { focus: true, focusTarget: { exercise: 1, set: 0 } });
   assert.doesNotMatch(cable, /value="22\.5"/);
 });
+
+test("逐组屏把「第 N / M 组」放在动作名下面的同一行，底部不再重复一遍", () => {
+  const session = sessionWith("dumbbell_bench_press");
+  workout.addSet(session, 0);
+  const html = workoutView.editorHtml(session, "chest", [], { focus: true, focusTarget: { exercise: 0, set: 1 } });
+
+  // 组序、进度点、本组停留排在同一行：一件事只在一个地方说。
+  assert.match(html, /class="focus-setbar"/);
+  assert.match(html, /data-focus-setpos>第 <b>2<\/b> \/ \d+ 组/);
+  assert.match(html, /data-focus-dwell>本组停留 00:00/);
+  assert.match(html, /focus-setbar[\s\S]*?class="focus-dots"/);
+  // 底部提示只说下一步去哪，不再写第三遍「第 2 / 3 组」。
+  assert.doesNotMatch(html, /focus-hint">第 /);
+  // 动作名下面那行只留部位与器械，不再叠一个「已录/总组数」。
+  assert.match(html, /class="focus-head">[\s\S]*?<p>胸 · 哑铃<\/p>/);
+});
+
+test("本组停留只认组身份：改数值、加组都不归零，换组换动作才归零", () => {
+  const session = sessionWith("dumbbell_bench_press", "cable_fly_mid");
+  const first = session.exercises[0];
+  const key = workout.dwellKey(first, 0);
+
+  // 同一组里加组（总组数变了）与改重量次数：当前组没变，计时不该重来。
+  workout.addSet(session, 0);
+  first.sets[0].weight_kg = 42.5;
+  first.sets[0].reps = 9;
+  assert.equal(workout.dwellKey(first, 0), key);
+  // 换组、换动作才是新的一段停留。
+  assert.notEqual(workout.dwellKey(first, 1), key);
+  assert.notEqual(workout.dwellKey(session.exercises[1], 0), key);
+  const retained = workout.dwellKey(first, 1);
+  workout.removeSet(session, 0, 0);
+  assert.equal(workout.dwellKey(first, 0), retained, '删前组后仍是同一个组对象');
+  assert.equal(workout.dwellKey(null, 0), null);
+});
+
+test("本组停留按 mm:ss 显示，负数和空值归零", () => {
+  assert.equal(workout.formatDwell(0), "00:00");
+  assert.equal(workout.formatDwell(9), "00:09");
+  assert.equal(workout.formatDwell(72), "01:12");
+  assert.equal(workout.formatDwell(-5), "00:00");
+  assert.equal(workout.formatDwell(undefined), "00:00");
+});
