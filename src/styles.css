@@ -8,6 +8,7 @@
 @import "../css/critters.css";
 @import "./desktop.css";
 @import "./responsive.css";
+@import "../css/quick-editor.css";
 
 /* 页面基底 */
 html, body { background: var(--page-bg); color: var(--text); font-family: var(--font); touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }

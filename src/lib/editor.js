@@ -111,8 +111,199 @@ function newItem(m) {
   return item;
 }
 
+/* Quick entry stays separate so hot and the other module contracts remain unchanged. */
+export function quickEditorOwner() {
+  try {
+    const id = window.getCurrentUser?.()?.id;
+    return typeof id === "string" && id ? id : null;
+  } catch (_) { return null; }
+}
+
+export function quickDraftKey(key, owner) {
+  return owner && (key === "note" || key === "todo")
+    ? `cat-newsroom-quick-draft-v1:${encodeURIComponent(owner)}:${key}` : null;
+}
+
+export function readQuickDraft(key, owner) {
+  const storageKey = quickDraftKey(key, owner);
+  if (!storageKey) return null;
+  try {
+    const draft = JSON.parse(localStorage.getItem(storageKey));
+    return draft?.version === 1 && draft.owner === owner && draft.record &&
+      typeof draft.record === "object" && !Array.isArray(draft.record) ? draft.record : null;
+  } catch (_) { return null; }
+}
+
+export function writeQuickDraft(key, owner, record) {
+  const storageKey = quickDraftKey(key, owner);
+  if (!storageKey) return false;
+  localStorage.setItem(storageKey, JSON.stringify({ version: 1, owner, record }));
+  return true;
+}
+
+export function quickRecord(key, base, values) {
+  const record = { ...base, image: (values.image || "").trim() };
+  if (key === "note") {
+    record.content = (values.content || "").trim();
+    record.date = base.date || isoToday();
+    // Legacy title/mood/layout/preset are deliberately retained, never manufactured.
+    if (!record.content && !record.image) throw new Error("写点内容或添加一张照片再保存");
+  } else {
+    record.title = (values.title || "").trim();
+    if (!record.title) throw new Error("先写下要做的任务");
+    record.group = (values.group || "").trim().slice(0, 80);
+    record.note = (values.note || "").trim();
+    record.priority = values.priority || base.priority || "P1";
+  }
+  return record;
+}
+
+let activeQuickEditor = null;
+function openQuickEditor(key, item) {
+  // Do not create competing editors/draft writers while an upload is in flight.
+  if (activeQuickEditor) {
+    if (activeQuickEditor.busy()) { Toast.show("照片正在上传，请稍候再切换编辑器"); return; }
+    const previous = activeQuickEditor;
+    previous.close();
+    if (previous.isOpen()) return;
+  }
+  const m = modOf(key), editing = !!item, owner = quickEditorOwner();
+  const restored = !editing && readQuickDraft(key, owner);
+  const d = { ...(item || restored || (key === "note"
+    ? { id: Date.now(), content: "", date: isoToday() }
+    : { id: Date.now(), title: "", group: "", note: "", priority: "P1", done: false })) };
+  const groups = [...new Set((getData().todo || []).map(r => String(r.group || "").trim()).filter(Boolean))];
+  const media = `<div class="field quick-photo"><label for="q-image">照片（可选）</label>
+    <img id="q-preview" alt="照片预览" hidden>
+    <div class="quick-photo-actions"><button type="button" class="btn ghost" id="q-upload">${icon("camera", 14)} 添加照片</button>
+    <button type="button" class="btn ghost" id="q-remove">移除照片</button><input id="q-file" type="file" accept="image/*" hidden></div>
+    <details><summary>使用图片地址</summary><input id="q-image" value="${attr(d.image || "")}" placeholder="https://…" aria-label="图片地址"></details>
+    <p class="sub">可上传照片，也可在编辑器中直接粘贴图片。</p><p id="q-upload-status" role="status" aria-live="polite"></p></div>`;
+  const fields = key === "note"
+    ? `<div class="field"><label for="q-content">内容</label><textarea id="q-content" placeholder="此刻想记下什么？">${esc(d.content || "")}</textarea></div>${media}`
+    : `<div class="field"><label for="q-title">任务</label><input id="q-title" value="${attr(d.title || "")}" placeholder="要做什么？"></div>
+       <div class="field"><label for="q-group">版本 / 分组（可选）</label><input id="q-group" list="q-groups" value="${attr(d.group || "")}" placeholder="输入或选择已有分组"><datalist id="q-groups">${groups.map(g => `<option value="${attr(g)}"></option>`).join("")}</datalist></div>
+       <details class="modal-fold"><summary>备注、照片与更多选项</summary><div class="field"><label for="q-note">备注（可选）</label><textarea id="q-note">${esc(d.note || "")}</textarea></div>${media}
+       <div class="field"><label for="q-priority">优先级</label><select id="q-priority">${(m.priorities || []).map(p => `<option value="${attr(p.key)}" ${p.key === d.priority ? "selected" : ""}>${esc(p.label)}</option>`).join("")}</select></div></details>`;
+  const overlay = document.createElement("div");
+  overlay.className = `overlay editor-overlay quick-editor quick-editor-${key}`;
+  overlay.innerHTML = `<div class="modal editor-modal"><div class="modal-head"><h3>${editing ? "编辑" : "新建"} · ${key === "note" ? "随记" : "事项"}</h3></div>
+    <div class="modal-body">${fields}<p id="q-draft-status" class="sub" role="status"></p><p id="q-error" class="quick-error" role="alert"></p></div>
+    <div class="modal-actions">${editing ? '<button class="link-danger" id="q-delete">删除</button>' : ""}<div class="spacer"></div><button class="btn ghost" id="q-close">${editing ? "取消" : "暂存关闭"}</button><button class="btn" id="q-save">保存</button></div></div>`;
+  document.body.appendChild(overlay);
+  const el = id => overlay.querySelector(`#q-${id}`);
+  const values = () => Object.fromEntries(["title", "group", "note", "priority", "content", "image"].map(k => [k, el(k)?.value]));
+  let dirty = false, saved = false, uploading = false, pendingFile = null, draftSafe = false;
+  const identityOK = () => quickEditorOwner() === owner;
+  const draft = () => {
+    if (editing || saved) return;
+    try {
+      // Owner is captured at open; never reassign an old draft to a new login.
+      const record = { ...d };
+      for (const [k, v] of Object.entries(values())) if (v !== undefined) record[k] = v;
+      draftSafe = writeQuickDraft(key, owner, record);
+      el("draft-status").textContent = draftSafe ? "草稿已保存在此账号的本机空间" : "身份尚未就绪，无法安全保存草稿，请勿刷新或关闭页面";
+    } catch (_) {
+      draftSafe = false;
+      el("draft-status").textContent = "本机草稿保存失败，请保留窗口并重试保存";
+    }
+  };
+  const preview = () => {
+    const url = el("image").value.trim();
+    el("preview").hidden = !url;
+    if (url) el("preview").src = url; else el("preview").removeAttribute("src");
+    el("remove").hidden = !url && !pendingFile;
+  };
+  const layer = bindLayer({ element: overlay, confirmDiscard: true,
+    isDirty: () => uploading || (dirty && (editing || !draftSafe)),
+    initialFocus: key === "note" ? "#q-content" : "#q-title",
+    onClose: () => { draft(); if (activeQuickEditor?.element === overlay && !uploading) activeQuickEditor = null; },
+  });
+  activeQuickEditor = { element: overlay, busy: () => uploading, isOpen: () => layer.isOpen(), close: () => layer.requestClose() };
+  overlay.addEventListener("input", () => { dirty = true; preview(); draft(); });
+  overlay.addEventListener("change", () => { dirty = true; draft(); });
+  el("close").onclick = () => layer.requestClose();
+  const upload = async picked => {
+    if (uploading) return;
+    if (!identityOK()) { el("error").textContent = "账号已变化，请关闭后在当前账号重新打开"; return; }
+    pendingFile = picked; uploading = true; dirty = true;
+    el("save").disabled = true; el("upload").disabled = true; el("remove").disabled = true;
+    el("image").disabled = true;
+    el("upload-status").textContent = "照片上传中…";
+    try {
+      if (typeof window.uploadCardImage !== "function") throw new Error("上传服务尚未就绪，请稍后重试");
+      const result = await window.uploadCardImage(picked, { moduleKey: key, recordId: d.id });
+      if (!result?.url) throw new Error("上传未返回图片地址，请重试");
+      // Even after closing or switching accounts, write only the original owner's draft.
+      el("image").value = result.url; pendingFile = null;
+      el("upload-status").textContent = "照片已上传";
+      draft();
+    } catch (error) {
+      el("upload-status").textContent = `${error.message || "图片上传失败"}。内容已保留，点击重试上传；关闭后需重新选择未上传的照片。`;
+    } finally {
+      uploading = false; el("save").disabled = false; el("upload").disabled = false;
+      el("remove").disabled = false; el("image").disabled = false;
+      el("upload").textContent = pendingFile ? "重试上传" : "添加 / 更换照片";
+      el("file").value = ""; preview();
+      if (!layer.isOpen() && activeQuickEditor?.element === overlay) activeQuickEditor = null;
+    }
+  };
+  el("upload").onclick = () => pendingFile ? upload(pendingFile) : el("file").click();
+  el("file").onchange = () => { const file = el("file").files?.[0]; if (file) upload(file); };
+  overlay.addEventListener("paste", event => {
+    const image = [...(event.clipboardData?.items || [])].find(x => x.type.startsWith("image/"))?.getAsFile();
+    if (image && !uploading) { event.preventDefault(); upload(image); }
+  });
+  el("remove").onclick = () => {
+    pendingFile = null; el("image").value = ""; dirty = true;
+    el("upload-status").textContent = ""; el("upload").textContent = "添加照片";
+    preview(); draft();
+  };
+  if (editing) el("delete").onclick = async () => {
+    if (uploading || !identityOK()) { el("error").textContent = "请等待上传完成，并确认仍在原账号"; return; }
+    if (await confirmDelete(key, d.id)) { saved = true; layer.forceClose(); }
+  };
+  el("save").onclick = async () => {
+    if (uploading) return;
+    el("save").disabled = true; el("error").textContent = "";
+    let records, previous;
+    try {
+      if (!identityOK()) throw new Error("账号已变化，草稿仍属于原账号；请切回原账号后重新打开");
+      if (pendingFile) throw new Error("照片尚未上传成功，请重试上传或移除照片后保存");
+      const record = quickRecord(key, d, values());
+      records = getData()[key] = getData()[key] || [];
+      previous = records.slice();
+      if (editing) {
+        const index = records.findIndex(r => r.id === d.id);
+        if (index < 0) throw new Error("原记录已不存在，请保留内容并重新新建");
+        records[index] = record;
+      } else {
+        RecordList.placeNewAtTop(records, record); records.unshift(record);
+      }
+      persist(key, record);
+      saved = true; dirty = false;
+      if (!editing && owner) {
+        try { localStorage.removeItem(quickDraftKey(key, owner)); }
+        catch (_) { Toast.show("记录已保存，但旧草稿清理失败"); }
+      }
+      layer.forceClose();
+      Trace.track("record_saved", { module: key, mode: editing ? "edit" : "create", field_count: 0 });
+    } catch (error) {
+      if (records && previous && !saved) records.splice(0, records.length, ...previous);
+      el("error").textContent = error.message || "保存失败，内容已保留，请重试";
+      draft();
+    } finally { el("save").disabled = false; }
+  };
+  preview();
+  if (!editing) {
+    el("draft-status").textContent = restored ? "已恢复此账号上次未保存的草稿" : owner ? "输入后会自动保存本机草稿" : "身份尚未就绪，无法安全保存草稿，请勿刷新或关闭页面";
+  }
+  return overlay;
+}
+
 /* ---------- EDITOR MODAL (per type) ---------- */
 export function openEditor(key, item) {
+  if (key === "note" || key === "todo") return openQuickEditor(key, item);
   const m = modOf(key); const editing = !!item; const d = item || newItem(m);
   let fields = "";
   if (m.type === "todo") {
@@ -215,7 +406,8 @@ export function openEditor(key, item) {
 /* ---------- delete with undo ---------- */
 // 直接删除并弹出「已删除 · 撤销」轻提示，不再弹确认框；撤销恢复本地并重新推送同步
 export async function confirmDelete(key, id) {
-  const ok = await AppDialog.confirm("删除后 5 秒内可撤销。", {
+  const owner = quickEditorOwner();
+  const ok = key === "todo" || key === "note" || await AppDialog.confirm("删除后 5 秒内可撤销。", {
     title: "删除这条记录？", danger: true, okText: "删除", cancelText: "保留",
   });
   if (!ok) return;
@@ -223,17 +415,57 @@ export async function confirmDelete(key, id) {
   const index = all.findIndex(i => i.id == id);
   if (index < 0) return;
   const [removed] = all.splice(index, 1);
-  save(); bump();
-  if (typeof window.markRecordDeleted === "function") window.markRecordDeleted(key, id);
+  try { save(); }
+  catch (_) {
+    all.splice(index, 0, removed);
+    bump();
+    Toast.show("删除失败，记录已保留，请重试");
+    return false;
+  }
+  bump();
+  // Local persistence is the commit point. A sync failure must not undo it.
+  const syncAfterSave = (operation, message) => {
+    try { Promise.resolve(operation()).catch(() => Toast.show(message)); }
+    catch (_) { Toast.show(message); }
+  };
+  if (typeof window.markRecordDeleted === "function") {
+    syncAfterSave(() => window.markRecordDeleted(key, id), "本机已删除，云端同步失败，请稍后重试同步");
+  }
   const title = (removed.title || "这条记录").slice(0, 14);
+  let undone = false;
   const undo = () => {
-    const list = getData()[key] || [];
+    if (undone) return;
+    if ((key === "todo" || key === "note") && quickEditorOwner() !== owner) {
+      Toast.show("账号已变化，请切回原账号后恢复记录");
+      return;
+    }
+    const hadList = Object.prototype.hasOwnProperty.call(getData(), key);
+    const previousList = getData()[key];
+    const list = getData()[key] = previousList || [];
     const position = Math.min(index, list.length);
+    const hadTimestamp = Object.prototype.hasOwnProperty.call(removed, "updated_at");
+    const timestamp = removed.updated_at;
     removed.updated_at = new Date().toISOString();
     list.splice(position, 0, removed);
-    save(); bump();
+    try { save(); }
+    catch (_) {
+      list.splice(position, 1);
+      if (hadTimestamp) removed.updated_at = timestamp;
+      else delete removed.updated_at;
+      if (hadList) getData()[key] = previousList;
+      else delete getData()[key];
+      bump();
+      Toast.show("撤销保存失败，请重试恢复", { action: { label: "重试恢复", onClick: undo }, duration: 10000 });
+      return false;
+    }
+    undone = true;
+    bump();
     // record 型操作 upsert 时 deleted_at 置 null，可覆盖之前的删除标记
-    if (typeof window.syncRecord === "function") window.syncRecord({ moduleKey: key, record: removed });
+    if (typeof window.syncRecord === "function") {
+      syncAfterSave(() => window.syncRecord({ moduleKey: key, record: removed }), "记录已恢复到本机，云端同步失败，请稍后重试同步");
+    }
+    return true;
   };
   Toast.show(`已删除「${title}」`, { action: { label: "撤销", onClick: undo }, duration: 5000 });
+  return true;
 }

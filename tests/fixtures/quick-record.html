@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>事项 / 随记 · 隔离回归</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body { margin: 0; }
+    #fixture { padding: 16px; }
+    .fixture-nav { display: flex; gap: 8px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <main id="fixture"></main>
+  <script type="module">
+    // Only this dedicated, disposable Chrome profile owns the storage below.
+    // Do not import main.js, authentication, sync bootstrap or production accounts.
+    const { CONFIG } = await import('/lib/config.js');
+    if (!localStorage.getItem('quick-record-fixture-initialized')) {
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify(Object.fromEntries(CONFIG.modules.map(m => [m.key, []]))));
+      localStorage.setItem('quick-record-fixture-initialized', '1');
+    }
+    const uploads = [];
+    const syncCalls = [];
+    window.getCurrentUser = () => ({ id: 'quick-record-fixture-only', is_anonymous: false });
+    window.getSyncStatus = () => 'online';
+    window.syncRecord = record => syncCalls.push(record);
+    window.syncDelete = () => {};
+    window.syncMetaField = () => {};
+    window.markRecordDeleted = () => {};
+    window.updateAuthUI = () => {};
+    window.uploadCardImage = async (file, options) => {
+      uploads.push({ name: file.name, type: file.type, size: file.size, options });
+      if (window.fixture.failUpload) throw new Error('fixture upload failed');
+      const url = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      return { url };
+    };
+    const [{ createApp, ref, nextTick, h }, { default: TodoView }, { default: NoteView }, store] = await Promise.all([
+      import('vue'),
+      import('/modules/todo/TodoView.vue'),
+      import('/modules/note/NoteView.vue'),
+      import('/lib/store.js'),
+    ]);
+    const view = ref('todo');
+    window.fixture = { store, uploads, syncCalls, failUpload: false, nextTick,
+      async show(key) { view.value = key; await nextTick(); },
+    };
+    createApp({ setup: () => () => [
+      h('nav', { class: 'fixture-nav' }, ['todo', 'note'].map(key =>
+        h('button', { class: 'btn ghost', onClick: () => { view.value = key; } }, key === 'todo' ? '事项' : '随记'))),
+      h(view.value === 'todo' ? TodoView : NoteView),
+    ] }).mount('#fixture');
+    await nextTick();
+    window.ready = true;
+  </script>
+</body>
+</html>

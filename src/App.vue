@@ -3,6 +3,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import { CONFIG } from "./lib/config.js";
 import { icon } from "./lib/icons.js";
+import { COLLAPSED_MODULE_KEYS, isPrimaryModule } from "./lib/home-layout.js";
 import { dateStr } from "./lib/utils.js";
 import { getData, save, bump, renderAfterWorkoutDialog } from "./lib/store.js";
 import { ensurePomodoroController } from "./lib/pomodoro.js";
@@ -31,8 +32,11 @@ const VIEWS = {
   settings: SettingsView,
 };
 
+const primaryModules = CONFIG.modules.filter(m => isPrimaryModule(m.key));
+const collapsedModules = CONFIG.modules.filter(m => COLLAPSED_MODULE_KEYS.includes(m.key));
 const saved = DeviceMode.restoreView();
-const view = ref(VIEWS[saved] ? saved : "home");
+// 旧版停留在记账时回到首页；保留 MoneyView 及其数据契约。
+const view = ref(VIEWS[saved] && saved !== "money" ? saved : "home");
 const current = computed(() => VIEWS[view.value] || HomeView);
 
 // 切模块：原生 View Transitions 管快照与换页时机，WAAPI 在新快照上做墨迹圆形揭示。
@@ -274,7 +278,11 @@ async function onAvatarChange(e) {
       <nav class="nav">
         <a class="navi" :class="{ active: view === 'home' }" @click="go('home', $event)"><span v-html="icon('home', 19)"></span>首页</a>
         <div class="nav-sep">功能模块</div>
-        <a v-for="m in CONFIG.modules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
+        <a v-for="m in primaryModules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
+        <details>
+          <summary class="navi">更多模块</summary>
+          <a v-for="m in collapsedModules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
+        </details>
         <div class="nav-sep">统计</div>
         <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight', $event)"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
         <div class="nav-sep">配置</div>

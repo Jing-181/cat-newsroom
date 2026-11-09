@@ -89,8 +89,8 @@ test("CONFIG 保留全部 7 个业务模块与主站一致", () => {
   }
 });
 
-test("6 个通用模块各自是独立组件并接入通用引擎", () => {
-  for (const key of ["todo", "checkin", "read", "money", "note", "hot"]) {
+test("低频模块继续接入通用引擎，事项与随记采用专用视图", () => {
+  for (const key of ["checkin", "read", "money", "hot"]) {
     const name = `${key[0].toUpperCase()}${key.slice(1)}View.vue`;
     const component = read(`src/modules/${key}/${name}`);
     assert.match(component, /import ModuleView from "\.\.\/\.\.\/components\/ModuleView\.vue"/);

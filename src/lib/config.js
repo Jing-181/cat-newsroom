@@ -24,7 +24,7 @@ export const CONFIG = {
   owner: "猫咪生活报",                  // 侧栏顶部标题
   slogan: "Cat Life Daily",
   // 应用版本：首页可显示，个人配置页可控制显示与否（发布新功能时手动 bump）
-  APP_VERSION: "2.17.1",
+  APP_VERSION: "2.18.0",
 
   // 每日一句（一周七天各一句，按星期轮换：周一→周日）
   quotes: [
@@ -39,7 +39,7 @@ export const CONFIG = {
 
   // 今日概览环形（value 为 0-100 的完成度，calc 返回 {value, sub}）
   overview: [
-    { key: "todo", label: "待办事项", icon: "list", color: "var(--accent)",
+    { key: "todo", label: "事项", icon: "list", color: "var(--accent)",
       calc: d => { const it = d.todo || []; const done = it.filter(x => x.done).length; return { value: it.length ? Math.round(done / it.length * 100) : 0, sub: `${done}/${it.length} 项` }; } },
     { key: "checkin", label: "打卡", icon: "leaf", color: "var(--module-1)",
       calc: d => { const it = d.checkin || []; const t = today(); const done = it.filter(x => x.log && x.log[t]).length; return { value: it.length ? Math.round(done / it.length * 100) : 0, sub: `${done}/${it.length} 项` }; } },
@@ -59,12 +59,13 @@ export const CONFIG = {
     { label: "记运动", icon: "activity", module: "sport", tint: "#f5ead0", color: "var(--module-3)" },
     { label: "记打卡", icon: "check", module: "checkin", tint: "#e8efd8", color: "var(--module-1)" },
     { label: "记一笔", icon: "wallet", module: "money", tint: "#f0e6d0", color: "var(--module-4)" },
-    { label: "写日记", icon: "pen", module: "note", tint: "#dfeae2", color: "var(--module-5)" },
+    { label: "记事项", icon: "list", module: "todo", tint: "#f5e8cf", color: "var(--accent)" },
+    { label: "写随记", icon: "pen", module: "note", tint: "#dfeae2", color: "var(--module-5)" },
   ],
 
   // ============ 模块定义 ============
   modules: [
-    { key: "todo", name: "待办事项", icon: "list", tint: "#f5e8cf", color: "var(--accent)", type: "todo", desc: "待办清单与进度追踪",
+    { key: "todo", name: "事项", icon: "list", tint: "#f5e8cf", color: "var(--accent)", type: "todo", desc: "按版本安排，随手记下要做的事",
       priorities: [{ key: "P0", label: "重要", color: "#f0dccd", text: "#b8482e" }, { key: "P1", label: "一般", color: "#f5e8cf", text: "#c47128" }, { key: "P2", label: "随手", color: "#e8efd8", text: "#5c7a3e" }],
       seed: [{ id: 11, title: "给猫主子换水换粮", priority: "P0", done: false, note: "记得检查自动喂食器余量" },
              { id: 12, title: "整理本周工作纪要", priority: "P1", done: false, note: "" },
@@ -125,7 +126,7 @@ export const CONFIG = {
       seed: [{ id: 51, title: "猫粮 5kg", type: "expense", amount: 168, category: "猫物", date: isoToday() },
              { id: 52, title: "午餐", type: "expense", amount: 32, category: "餐饮", date: isoToday() },
              { id: 53, title: "稿费", type: "income", amount: 800, category: "工资", date: isoToday() }] },
-    { key: "note", name: "猫咪日记", icon: "pen", tint: "#dfeae2", color: "var(--module-5)", type: "note", desc: "日常记录·灵感·心情",
+    { key: "note", name: "随记", icon: "pen", tint: "#dfeae2", color: "var(--module-5)", type: "note", desc: "一张照片，或几句话",
       moods: ["开心", "平静", "低落", "焦虑", "疲惫"],
       seed: [{ id: 61, title: "今天的小确幸", content: "橘座又趴在键盘上不让我打字了，但这次它把头枕在我手腕上打呼噜，心都化了。", mood: "开心", date: isoToday() }] },
     { key: "hot", name: "今日收藏", icon: "flame", tint: "#f0dccd", color: "var(--danger)", type: "note", desc: "好文收藏·稍后阅读·灵感剪报",

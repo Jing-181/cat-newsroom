@@ -1,5 +1,5 @@
 <script setup>
-// 首页 Bento 仪表盘：今日概览/习惯追踪/待办/番茄钟/趋势/开销/在读/训练周复盘（与主站逻辑一致）
+// 首页 Bento 仪表盘：事项/专注/状态/训练；旧卡片实现保留但不进入展示清单。
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG, modOf } from "../../lib/config.js";
 import { icon, esc } from "../../lib/icons.js";
@@ -9,7 +9,7 @@ import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
 import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
 import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
-import { HOME_GROUPS, HOME_CARDS, DEFAULT_HOME_ORDER, DEFAULT_HOME_ORDER_MOBILE, groupOf } from "../../lib/home-layout.js";
+import { HOME_GROUPS, DEFAULT_HOME_ORDER, DEFAULT_HOME_ORDER_MOBILE, groupOf, isPrimaryModule, visibleHomeOrder } from "../../lib/home-layout.js";
 import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
 import Workout from "../../lib/workout.js";
 import { sleepingCat } from "../../lib/critters.js";
@@ -27,7 +27,7 @@ function data() { return getData(); }
 /* 今日聚焦：跨模块置顶任务（就地交互，不跳转） */
 function focusTileHTML() {
   const pins = [];
-  CONFIG.modules.forEach(m => (data()[m.key] || []).forEach(x => { if (x.pinned) pins.push({ m, x }); }));
+  CONFIG.modules.filter(m => isPrimaryModule(m.key)).forEach(m => (data()[m.key] || []).forEach(x => { if (x.pinned) pins.push({ m, x }); }));
   const chk = icon("check", 13, 2.6);
   const sub = (m, x) => {
     if (m.type === "checkin") return `${m.name} · 连续 ${streak(x.log)} 天`;
@@ -44,36 +44,32 @@ function focusTileHTML() {
       <span class="fic" style="color:${m.color}">${icon(m.icon, 16)}</span>
       <div class="ft js-pin-open" data-mkey="${m.key}" data-id="${x.id}"><div class="fn ${(m.type === "todo" && x.done) ? "done" : ""}">${esc(x.title)}</div><div class="fm">${sub(m, x)}</div></div>
       ${ctl(m, x)}</div>`).join("")
-    : `<div class="focus-empty">在任意模块点击 <span style="display:inline-flex;color:var(--module-3);vertical-align:-2px">${icon("star", 13)}</span> 即可把要事置顶到这里。</div>`;
+    : `<div class="focus-empty">在常用模块点击 <span style="display:inline-flex;color:var(--module-3);vertical-align:-2px">${icon("star", 13)}</span> 即可把要事置顶到这里。</div>`;
   return `<div class="tile b4"><div class="tile-h"><span class="tic">${icon("star", 16)}</span><div class="tt"><span class="en">TODAY'S FOCUS</span><span class="zh">今日聚焦</span></div><span class="r">${pins.length} 项</span></div>
     <div class="focus-list">${rows}</div></div>`;
 }
 
 /* 快速记录 */
 function quickTileHTML() {
-  const quick = CONFIG.quickAdd.map(q => `<button class="qbtn" data-quick="${q.module}"><span class="e" style="background:${q.tint};color:${q.color}">${icon(q.icon, 20)}<i class="qplus">${icon("plus", 10, 3)}</i></span><span class="l">${q.label}</span></button>`).join("");
+  const quick = CONFIG.quickAdd.filter(q => isPrimaryModule(q.module)).map(q => `<button class="qbtn" data-quick="${q.module}"><span class="e" style="background:${q.tint};color:${q.color}">${icon(q.icon, 20)}<i class="qplus">${icon("plus", 10, 3)}</i></span><span class="l">${q.label}</span></button>`).join("");
   return `<div class="tile b4"><div class="tile-h"><span class="tic">${icon("plus", 16, 2.2)}</span><div class="tt"><span class="en">QUICK ADD</span><span class="zh">快速记录</span></div></div>
     <div class="quick-grid" style="flex:1;align-content:start">${quick}</div></div>`;
 }
 
 /* 今日概览（环形 + 深色统计侧栏） */
 function overviewTileHTML() {
-  const rings = CONFIG.overview.map(o => { const r = o.calc(data());
+  const rings = CONFIG.overview.filter(o => isPrimaryModule(o.key)).map(o => { const r = o.calc(data());
     return `<div class="ring" data-open="${o.key}"><div class="dial">${ringSVG(r.value, o.color)}<span class="mid" style="color:${o.color}">${icon(o.icon, 26)}</span></div>
       <div class="pct">${r.value}%</div><div class="lbl">${o.label}</div><div class="sub">${r.sub}</div></div>`; }).join("");
-  const recCount = CONFIG.modules.reduce((s, m) => s + ((data()[m.key] || []).length), 0);
-  const pinCount = CONFIG.modules.reduce((s, m) => s + ((data()[m.key] || []).filter(x => x.pinned).length), 0);
-  const money = data().money || [];
-  const inc = money.filter(x => x.type === "income").reduce((a, x) => a + +x.amount, 0);
-  const exp = money.filter(x => x.type === "expense").reduce((a, x) => a + +x.amount, 0);
-  const bal = inc - exp, balCol = bal >= 0 ? "var(--module-1)" : "var(--danger)";
+  const modules = CONFIG.modules.filter(m => isPrimaryModule(m.key));
+  const recCount = modules.reduce((s, m) => s + ((data()[m.key] || []).length), 0);
+  const pinCount = modules.reduce((s, m) => s + ((data()[m.key] || []).filter(x => x.pinned).length), 0);
   return `<div class="tile b12"><div class="tile-h"><span class="tic">${icon("target", 16)}</span><div class="tt"><span class="en">DAILY VITALS</span><span class="zh">今日概览</span></div><span class="r">${dateStr()}</span></div>
     <div class="ov2-body">
       <div class="rings">${rings}</div>
       <div class="ov2-side">
         <div class="ov2-stat" data-open="note"><span class="s-ic" style="color:var(--module-2)">${icon("chart", 17)}</span><div class="s-tx"><div class="s-v">${recCount}</div><div class="s-l">累计记录条数</div></div></div>
         <div class="ov2-stat"><span class="s-ic" style="color:var(--module-3)">${icon("star", 17)}</span><div class="s-tx"><div class="s-v">${pinCount}</div><div class="s-l">置顶要事</div></div></div>
-        <div class="ov2-stat" data-open="money"><span class="s-ic" style="color:${balCol}">${icon("wallet", 17)}</span><div class="s-tx"><div class="s-v" style="color:${balCol}">¥${bal}</div><div class="s-l">本月结余 · 收¥${inc} 支¥${exp}</div></div></div>
       </div>
     </div></div>`;
 }
@@ -96,7 +92,7 @@ function habitTileHTML() {
     <table class="habit-tb"><thead><tr><th class="hh">习惯</th>${ths}<th class="hr">完成率</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-/* 待办清单（仪表盘式，就地勾选） */
+/* 事项清单（仪表盘式，就地勾选） */
 function todoTileHTML() {
   const it = data().todo || []; const done = it.filter(x => x.done).length; const pct = it.length ? Math.round(done / it.length * 100) : 0;
   const chk = icon("check", 12, 2.8);
@@ -104,8 +100,8 @@ function todoTileHTML() {
     return `<div class="tk-row"><div class="tk-chk js-pin-chk ${x.done ? "on" : ""}" data-mkey="todo" data-id="${x.id}">${chk}</div>
       <span class="tk-name ${x.done ? "done" : ""} js-pin-open" data-mkey="todo" data-id="${x.id}">${esc(x.title)}</span>
       ${p ? `<span class="badge" style="background:${p.color};color:${p.text}"><span class="dot"></span>${p.label}</span>` : ""}</div>`; }).join("")
-    : `<div class="focus-empty">还没有待办，去「待办事项」添加吧</div>`;
-  return `<div class="tile b5"><div class="tile-h"><span class="tic">${icon("list", 16)}</span><div class="tt"><span class="en">TODO LIST</span><span class="zh">待办清单</span></div><span class="r js-open" data-open="todo">查看全部</span></div>
+    : `<div class="focus-empty">还没有事项，去「事项」添加吧</div>`;
+  return `<div class="tile b5"><div class="tile-h"><span class="tic">${icon("list", 16)}</span><div class="tt"><span class="en">TODO LIST</span><span class="zh">事项清单</span></div><span class="r js-open" data-open="todo">查看全部</span></div>
     <div class="tk-head"><span class="pct">${done}<span style="color:var(--text-secondary)">/${it.length}</span></span><span class="cnt">完成 ${pct}%</span><span class="bar"><i style="width:${pct}%"></i></span></div>
     <div class="tk-list">${list}</div></div>`;
 }
@@ -220,8 +216,7 @@ const RENDER_MAP = {
 function render() {
   // 没有自定义排序时：手机用「先给能做的事」的默认顺序，桌面仍按原清单（窄屏断点与 responsive.css 一致）
   const fallback = window.matchMedia?.("(max-width: 820px)").matches ? DEFAULT_HOME_ORDER_MOBILE : DEFAULT_HOME_ORDER;
-  const order = (Array.isArray(homeOrderConfig) && homeOrderConfig.length ? homeOrderConfig : fallback)
-    .filter(key => RENDER_MAP[key]);
+  const order = visibleHomeOrder(homeOrderConfig, fallback);
   // 按组分段：同组卡片包进一个 bento 网格并排，组头自动跟随
   const sections = [];
   order.forEach(key => {
