@@ -57,9 +57,18 @@
       import('/modules/note/NoteView.vue'),
       import('/lib/store.js'),
     ]);
+    const [{ initMobileViewport }, { default: HomeView }, { default: InsightView }] = await Promise.all([
+      import('/lib/mobile-viewport.js'), import('/modules/home/HomeView.vue'), import('/modules/insight/InsightView.vue'),
+    ]);
+    const cleanupMobileViewport = initMobileViewport();
+    window.addEventListener('pagehide', cleanupMobileViewport, { once: true });
+    window.fetchUserSettings = async () => null;
+    window.getSupabaseConfig = () => null;
+    window.saveMetaCloud = () => {};
+    const views = { todo: TodoView, note: NoteView, home: HomeView, insight: InsightView };
     inspectProxy = isProxy;
     const view = ref('todo');
-    window.fixture = { store, uploads, syncCalls, syncErrors, syncInputs, CONFIG,
+    window.fixture = { store, uploads, syncCalls, syncErrors, syncInputs, CONFIG, viewportInitialized: true, navigation: [],
       computedIdentityProbe() {
         const run = copy => {
           const revision = ref(0), list = [];
@@ -80,7 +89,7 @@
     createApp({ setup: () => () => [
       h('nav', { class: 'fixture-nav' }, ['todo', 'note'].map(key =>
         h('button', { class: 'btn ghost', onClick: () => { view.value = key; } }, key === 'todo' ? '事项' : '随记'))),
-      h(view.value === 'todo' ? TodoView : NoteView),
+      h(views[view.value], { onNavigate: key => { fixture.navigation.push(key); } }),
     ] }).mount('#fixture');
     await nextTick();
     window.ready = true;

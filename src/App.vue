@@ -15,6 +15,7 @@ import DataBackup from "./lib/data-backup.js";
 import DeviceMode from "./lib/device-mode.js";
 import { mountLeafShade } from "./lib/leaf-shade.js";
 import Trace from "./lib/trace.js";
+import { initMobileViewport } from "./lib/mobile-viewport.js";
 import HomeView from "./modules/home/HomeView.vue";
 import InsightView from "./modules/insight/InsightView.vue";
 import TodoView from "./modules/todo/TodoView.vue";
@@ -134,7 +135,9 @@ async function onSyncIndicatorClick() {
   }
 }
 
+let cleanupMobileViewport;
 onMounted(() => {
+  cleanupMobileViewport = initMobileViewport();
   ensurePomodoroController();
   // 树影层：挂在 .layout 最底下（由 mountLeafShade 自己 prepend），只负责一层气氛，不接任何交互
   // 存下 teardown，App 卸载时别把 canvas 和 visibility/resize 监听留在页面上
@@ -178,6 +181,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  cleanupMobileViewport?.();
   unmountLeafShade?.();
 });
 

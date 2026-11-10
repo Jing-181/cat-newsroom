@@ -18,9 +18,10 @@ const results = { startedAt: new Date().toISOString(), cases: [], screenshots: [
   'Real accounts, Supabase, real upload service, offline sync and cross-device synchronization',
   'Native file chooser and OS clipboard; file/paste payloads are synthetic browser File objects',
   'Real mobile soft keyboard, IME candidate UI and touch-device behavior',
-  'Full App shell navigation, home and workout pages (fixture mounts TodoView/NoteView only)',
+  'Real Safari/WebKit and iPhone hardware: CDP viewport/touch/UA simulation is Chromium only',
+  'Full App shell navigation and workout pages; Home/Insight tested only in isolated fixture',
 ] };
-const tracked = ['src/modules/todo/TodoView.vue', 'src/modules/note/NoteView.vue', 'src/lib/editor.js', 'src/lib/task-groups.js', 'css/quick-editor.css'];
+const tracked = ['src/modules/todo/TodoView.vue', 'src/modules/note/NoteView.vue', 'src/lib/editor.js', 'src/lib/task-groups.js', 'css/quick-editor.css', 'src/lib/mobile-viewport.js', 'src/lib/dialog-contract.js', 'src/lib/store.js', 'src/modules/home/HomeView.vue', 'src/modules/insight/InsightView.vue', 'src/lib/week-state.js', 'src/App.vue', 'src/responsive.css', 'src/styles.css', 'css/app-dialog.css'];
 async function hashes() {
   return Object.fromEntries(await Promise.all(tracked.map(async path => [path, createHash('sha256').update(await readFile(resolve(root, path))).digest('hex')])));
 }
@@ -100,6 +101,9 @@ try {
   const fill = async (selector, text) => {
     await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.focus();el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     await send('Input.insertText', { text }); await tick();
+    await check(`document.activeElement===document.querySelector(${JSON.stringify(selector)}) && document.querySelector(${JSON.stringify(selector)}).value===${JSON.stringify(text)}`, 'Input/focus mismatch: ' + selector);
+    results.inputSteps ||= [];
+    results.inputSteps.push(await evaluate(`({selector:${JSON.stringify(selector)},length:document.activeElement.value.length,tag:document.activeElement.tagName,fontSize:getComputedStyle(document.activeElement).fontSize,scrollY,viewportHeight:visualViewport.height,viewportScale:visualViewport.scale})`));
   };
   const enter = async () => {
     await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 });
@@ -113,8 +117,9 @@ try {
     try { await fn(); results.cases.push({ name, status: 'passed' }); }
     catch (error) { results.cases.push({ name, status: 'failed', error: error.message }); await shot('failure-' + results.cases.length).catch(() => {}); }
   };
-  const viewport = async width => {
-    await send('Emulation.setDeviceMetricsOverride', { width, height: width > 820 ? 900 : 844, deviceScaleFactor: 1, mobile: width <= 820 });
+  const viewport = async (width, height = width > 820 ? 900 : 844) => {
+    await send('Emulation.setTouchEmulationEnabled', { enabled: width <= 820, maxTouchPoints: 1 });
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width <= 820 });
     await tick();
   };
   const fixtureURL = `${origin}/quick-record.html`;
@@ -274,6 +279,74 @@ try {
     await evidence('toggle-with-structuredClone');
     await check(`fixture.store.getData().todo[0].done && JSON.parse(localStorage.getItem(fixture.CONFIG.storageKey)).todo[0].done`, 'Completion failed or memory/disk diverged');
   });
+  // Extra scenarios follow the original 28 cases; all use the actual mounted SFC/editor.
+  const geometry = label => evaluate(`({label:${JSON.stringify(label)},scrollY,bodyPosition:document.body.style.position,bodyTop:document.body.style.top,active:document.activeElement?.id||document.activeElement?.className,innerHeight,visualHeight:visualViewport.height,scale:visualViewport.scale,coarse:matchMedia('(any-pointer: coarse)').matches,cssHeight:document.documentElement.style.getPropertyValue('--mobile-viewport-height'),modal:(()=>{const r=document.querySelector('.quick-editor .modal')?.getBoundingClientRect();return r?{top:r.top,bottom:r.bottom,height:r.height}:null})()})`);
+  results.geometry = [];
+  await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
+  for (const width of [375,390,430]) {
+    await run(`${width}px iPhone模拟：逐键输入、缩短视口、关闭恢复焦点与滚动`, async () => {
+      await viewport(width); await evaluate(`fixture.show('note')`);
+      await evaluate(`(()=>{const data=fixture.store.getData();data.note=Array.from({length:18},(_,i)=>({id:'scroll-'+i,date:'2026-11-09',content:'用于滚动验证的随记 '+i+' 内容'.repeat(20)}));fixture.store.save();fixture.store.bump();})()`);await tick();
+      await evaluate(`(()=>{window.scrollTo(0,650);window.scrollTarget=document.querySelectorAll('.note-text')[4];scrollTarget.focus({preventScroll:true});window.beforeLayerScroll=scrollY;scrollTarget.click();})()`);
+      await wait(`!!document.querySelector('#q-content')`);
+      await check(`fixture.viewportInitialized && matchMedia('(any-pointer: coarse)').matches`, 'Mobile viewport runtime not initialized/coarse');
+      await check(`document.activeElement.id==='q-content'`, 'Initial focus not in editor');
+      await check(`parseFloat(getComputedStyle(document.activeElement).fontSize)>=16`, 'Mobile editor input smaller than 16px');
+      results.geometry.push(await geometry(`opened-${width}`));
+      await viewport(width,500);
+      await wait(`Math.abs(parseFloat(document.documentElement.style.getPropertyValue('--mobile-viewport-height'))-visualViewport.height)<2`);
+      await evaluate(`(()=>{const el=document.querySelector('#q-content');el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));window.inputNode=el;})()`);
+      let typed='';
+      for (const char of ['a','b','c']) {
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:char,code:'Key'+char.toUpperCase(),text:char,windowsVirtualKeyCode:char.toUpperCase().charCodeAt(0)});
+        await send('Input.dispatchKeyEvent',{type:'keyUp',key:char,code:'Key'+char.toUpperCase()});await tick();typed+=char;
+        await check(`document.activeElement===inputNode && inputNode.value===${JSON.stringify(typed)}`, 'Per-key focus/value lost');
+        results.geometry.push(await geometry(`typed-${width}-${char}`));
+      }
+      const box=await geometry(`short-viewport-${width}`);results.geometry.push(box);
+      if(box.modal.top < -1 || box.modal.bottom > box.visualHeight+1)throw Error('Modal escapes shortened viewport: '+JSON.stringify(box));
+      await shot(`iphone-sim-${width}-height500`);
+      // Save editing note, then restore original viewport size as a dismissed keyboard would.
+      await click('#q-save');await wait(`!document.querySelector('.quick-editor')`);await viewport(width);
+      await check(`document.body.style.position!== 'fixed' && Math.abs(scrollY-beforeLayerScroll)<2`, 'Close failed to restore page scroll');
+      results.geometry.push(await geometry(`saved-closed-${width}`));
+      // Cancel without modifying: opener remains alive, so focus must return to identical DOM node.
+      await evaluate(`(()=>{window.scrollTo(0,650);window.scrollTarget=document.querySelectorAll('.note-text')[4];scrollTarget.focus({preventScroll:true});window.beforeLayerScroll=scrollY;scrollTarget.click();})()`);
+      await wait(`!!document.querySelector('#q-content')`);await viewport(width,500);await click('#q-close');await wait(`!document.querySelector('.quick-editor')`);await viewport(width);
+      await check(`document.activeElement===scrollTarget && Math.abs(scrollY-beforeLayerScroll)<2`, 'Cancel lost opener identity/focus or scroll');
+      results.geometry.push(await geometry(`cancelled-closed-${width}`));await shot(`iphone-sim-${width}-restored`);
+    });
+  }
+  for(const view of ['home','insight']) {
+    await run(`${view} 本地点击与trend-only bump保留真实七格/祖先节点及焦点`,async()=>{
+      await viewport(390);
+      await evaluate(`(()=>{fixture.store.getData().__trend=undefined;})()`);
+      await evaluate(`fixture.show(${JSON.stringify(view)})`);await wait(`document.querySelectorAll('[data-trend-day]').length===7`);await tick();
+      await evaluate(`(()=>{window.trendNodes=[...document.querySelectorAll('[data-trend-day]')];window.trendGrid=trendNodes[0].parentNode;window.trendRoot=trendGrid.parentNode;trendNodes[0].scrollIntoView({block:'center'});trendNodes[0].focus({preventScroll:true});})()`);
+      for(let i=1;i<=6;i++){
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',windowsVirtualKeyCode:13});
+        await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await tick();
+        await check(`trendNodes.every((node,i)=>node===document.querySelectorAll('[data-trend-day]')[i]) && trendNodes[0].parentNode===trendGrid && trendGrid.parentNode===trendRoot && document.activeElement===trendNodes[0]`, 'Local trend click replaced node/focus');
+        await check(`trendNodes[0].getAttribute('aria-label').includes(${JSON.stringify(i===6?'未记录':i+'分')})`, 'Aria not updated');
+        if(view==='home')await check(i===6?`!!document.querySelector('[data-trend-chart] .trend-empty') && document.querySelector('[data-trend-average]').textContent===''`:`!!document.querySelector('[data-trend-chart] svg') && document.querySelector('[data-trend-average]').textContent.includes('均 ${i}分')`,'Chart/average/empty state not updated');
+      }
+      await evaluate(`(()=>{fixture.store.getData().__trend.days[1]=4;window.beforeTrendScroll=scrollY;fixture.store.bump();})()`);await tick();
+      await check(`trendNodes.every((node,i)=>node===document.querySelectorAll('[data-trend-day]')[i]) && trendGrid.parentNode===trendRoot && document.activeElement===trendNodes[0] && trendNodes[1].getAttribute('aria-label').includes('4分')`, 'Trend-only bump replaced nodes or failed to refresh');
+      // Repeat unchanged bump when chart geometry is stable, verify scroll remains exact.
+      await evaluate(`(()=>{window.beforeTrendScroll=scrollY;fixture.store.bump();})()`);await tick();
+      await check(`Math.abs(scrollY-beforeTrendScroll)<2`, 'Unchanged bump moved scroll');
+      await shot(`${view}-trend-stable`);
+    });
+  }
+  await run('首页快捷随记保持Home节点，运动仍发navigate',async()=>{
+    await evaluate(`fixture.show('home')`);await tick();
+    await evaluate(`(()=>{window.homeQuick=document.querySelector('[data-quick="note"]');window.homeGrid=document.querySelector('.ws-grid');homeQuick.focus({preventScroll:true});fixture.navigation.length=0;homeQuick.click();})()`);
+    await wait(`!!document.querySelector('#q-content')`);
+    await check(`fixture.navigation.length===0 && homeQuick.isConnected && homeGrid===document.querySelector('.ws-grid')`,'Quick note navigated or replaced home');
+    await click('#q-close');await wait(`!document.querySelector('.quick-editor')`);
+    await check(`document.activeElement===homeQuick`,'Quick-note close lost opener focus');
+    await click('[data-quick="sport"]');await check(`fixture.navigation.join(',')==='sport'`,'Sport quick entry no longer navigates');
+  });
 } catch (error) {
   results.fatal = error.stack;
 } finally {
@@ -287,5 +360,5 @@ try {
   if (chrome && chrome.exitCode === null) { const exited = once(chrome, 'exit'); chrome.kill(); await exited; }
   await server?.close();
   await rm(profile, { recursive: true, force: true });
-  if (results.fatal || results.summary.failed || results.summary.runtimeErrors) process.exitCode = 1;
+  if (results.fatal || results.summary.failed || results.summary.runtimeErrors || results.sourcesChangedDuringRun.length) process.exitCode = 1;
 }

@@ -49,18 +49,13 @@ export function bump() {
   listeners.forEach(fn => { try { fn(); } catch (_) { /* 单个订阅者出错不影响其余 */ } });
 }
 
-// 同步去重：远端回环时跳过（与主站 pendingSyncRecords 一致）
-const pendingSyncRecords = new Map();
+// 远端竞态保护在同步层合并前完成；store 不再用定时器隐藏回环。
 export function persist(moduleKey, record, { render: shouldRender = true } = {}) {
   // 用户动过这条样板记录就不再算演示数据，标识跟着去掉（同步层另有内容比对兜底）
   if (record && typeof record === "object" && Object.prototype.hasOwnProperty.call(record, SEED_FLAG)) delete record[SEED_FLAG];
+  if (moduleKey && record) record.updated_at = new Date().toISOString();
   save();
-  if (moduleKey && record) {
-    const key = `${moduleKey}:${record.id}`;
-    pendingSyncRecords.set(key, Date.now());
-    setTimeout(() => pendingSyncRecords.delete(key), 3000);
-    if (typeof window.syncRecord === "function") window.syncRecord({ moduleKey, record });
-  }
+  if (moduleKey && record && typeof window.syncRecord === "function") window.syncRecord({ moduleKey, record });
   if (shouldRender) bump();
 }
 
@@ -110,13 +105,9 @@ document.addEventListener("close", event => {
   if (event.target?.id === "workout-dialog" && deferredSyncRender) renderAfterWorkoutDialog();
 }, true);
 
-export function applyCloud(cloudData) {
-  if (typeof window.mergeDataWithCloud === "function") window.mergeDataWithCloud(cloudData);
+export function applyCloud() {
   renderAfterWorkoutDialog();
 }
-export function applyRemote(change) {
-  const row = change?.newRow || change?.oldRow;
-  const key = row?.module_key && row?.data?.id != null ? `${row.module_key}:${row.data.id}` : "";
-  if (key && pendingSyncRecords.has(key)) { if (typeof window.updateAuthUI === "function") window.updateAuthUI(); return; }
+export function applyRemote() {
   renderAfterWorkoutDialog();
 }

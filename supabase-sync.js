@@ -17,13 +17,31 @@ let currentUser = null;
 let onSyncReady = null;
 let onRemoteUpdate = null;
 let syncChannel = null;
-let processingOutbox = false;
+let processingOutbox = null;
+let fullSyncWorker = null;
+const accountGuards = new Map();
+function raceGuard(accountId = currentUser?.id) {
+  if (!accountGuards.has(accountId)) accountGuards.set(accountId, SyncCore.createRaceGuard());
+  return accountGuards.get(accountId);
+}
+function accountOutbox(accountId) {
+  let outbox = readOutbox();
+  const owner = localAccountOwner || localStorage.getItem(LAST_ACCOUNT_KEY);
+  if (owner && outbox.some(op => !op.accountId)) {
+    outbox = outbox.map(op => op.accountId ? op : { ...op, accountId: owner });
+    writeOutbox(outbox);
+  }
+  return outbox.filter(op => op.accountId === accountId);
+}
+function activeAccount(accountId) { return currentUser?.id === accountId; }
 let deferOutboxProcessing = false;
 let retryTimer = null;
 let lastSyncAt = null;
 let pageInitSyncDone = false;
 let explicitSignOut = false;
 let authStateUnsubscribe = null;
+// Ownership of the currently loaded local snapshot survives auth callbacks.
+let localAccountOwner = localStorage.getItem(LAST_ACCOUNT_KEY) || null;
 
 const isoNow = () => new Date().toISOString();
 const operationId = () => `op-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -72,8 +90,11 @@ function writeOutbox(outbox) {
 }
 
 function queueOperation(operation) {
-  const next = SyncCore.enqueue(readOutbox(), { operationId: operation.operationId || operationId(), createdAt: isoNow(), ...operation });
+  const accountId = currentUser?.id || localStorage.getItem(LAST_ACCOUNT_KEY) || null;
+  const queued = { operationId: operation.operationId || operationId(), createdAt: isoNow(), ...operation, accountId };
+  const next = SyncCore.enqueue(readOutbox(), queued);
   writeOutbox(next);
+  raceGuard(accountId).pending(queued);
   if (syncStatus === "online" && !deferOutboxProcessing) processOutbox();
   return next.at(-1);
 }
@@ -142,28 +163,30 @@ async function initSupabase() {
   }
 }
 
-async function fetchAllCloudData() {
-  if (!sb || !currentUser) return null;
+async function fetchAllCloudData(accountId = currentUser?.id) {
+  if (!sb || !accountId) return null;
   const { data: records, error } = await sb.from("workbench_records")
-    .select("module_key,id,data,updated_at,deleted_at").eq("user_id", currentUser.id);
+    .select("module_key,id,data,updated_at,deleted_at").eq("user_id", accountId);
   if (error) throw error;
-  const result = {};
+  const result = { __rows: records || [] };
   CONFIG.modules.forEach(module => { result[module.key] = []; });
   (records || []).forEach(row => {
     if (row.deleted_at) {
-      (result.__deleted ||= []).push({ module_key: row.module_key, record_id: row.id, deleted_at: row.deleted_at });
+      (result.__deleted ||= []).push({ module_key: row.module_key, record_id: row.id, deleted_at: row.deleted_at, updated_at: row.updated_at });
       return;
     }
-    const value = { ...(row.data || {}), id: row.data?.id ?? row.id, updated_at: row.data?.updated_at || row.updated_at };
+    const value = { ...(row.data || {}), id: row.data?.id ?? row.id, updated_at: row.updated_at || row.data?.updated_at };
     (result[row.module_key] ||= []).push(value);
   });
   const { data: meta, error: metaError } = await sb.from("workbench_meta")
-    .select("avatar,pomo_stats,trend_data").eq("user_id", currentUser.id).maybeSingle();
+    .select("avatar,pomo_stats,trend_data,home_order,updated_at").eq("user_id", accountId).maybeSingle();
+  result.__metaRow = meta;
   if (metaError) throw metaError;
   if (meta) {
     result.__avatar = meta.avatar || "";
     result.__pomo = meta.pomo_stats || { count: 0, min: 0 };
     result.__trend = meta.trend_data || [];
+    result.__homeOrder = meta.home_order;
   }
   return result;
 }
@@ -193,26 +216,87 @@ function replaceLocalWithCloud(cloudData, pendingOperations = []) {
   localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
 }
 
-async function runFullSync(options = {}) {
-  const reason = options.reason;
-  if (!new Set(["page_init", "manual"]).has(reason)) throw new Error("不允许的全量同步原因");
-  if (reason === "page_init" && pageInitSyncDone) return null;
-  if (!sb || !currentUser) return null;
-  if (reason === "page_init") pageInitSyncDone = true;
-  try {
-    await processOutbox();
-    const pendingOperations = readOutbox();
-    const cloudData = await fetchAllCloudData();
-    if (!cloudData) return null;
-    if (currentUser.is_anonymous) mergeDataWithCloud(cloudData);
-    else replaceLocalWithCloud(cloudData, pendingOperations);
-    lastSyncAt = isoNow(); syncStatus = "online"; updateSyncIndicator();
-    if (onSyncReady) onSyncReady(cloudData);
-    return cloudData;
-  } catch (error) {
-    console.error("[sync] 全量同步失败:", error);
-    syncStatus = "error"; updateSyncIndicator(); return null;
+function visibleData(value) {
+  return JSON.stringify(value, (key, item) => key === 'updated_at' ? undefined : item);
+}
+
+// Only this layer mutates cloud data; store callbacks render the merged result.
+function reconcileCloud(cloud, accountId, snapshot) {
+  if (!activeAccount(accountId) || !cloud) return false;
+  const local = getLocalData();
+  if (!local) return false;
+  const before = JSON.stringify(local);
+  const visibleBefore = visibleData(local);
+  const guard = raceGuard(accountId);
+  accountOutbox(accountId).forEach(op => guard.pending(op));
+  if (readOutbox().some(op => !op.accountId)) return false;
+  guard.beginReadMerge(snapshot);
+  const next = structuredClone(local);
+  if (!currentUser.is_anonymous) CONFIG.modules.forEach(m => { next[m.key] = []; });
+  for (const row of cloud.__rows || []) {
+    const key = SyncCore.entityKey({ moduleKey: row.module_key, recordId: row.id });
+    if (guard.accept(key, row, null, snapshot)) {
+      SyncCore.applyRecord(next, row.module_key, { ...row, __accepted: true });
+    } else {
+      const previous = (local[row.module_key] || []).find(item => String(item.id) === String(row.id));
+      if (previous) SyncCore.applyPending(next, [{ type: 'record', moduleKey: row.module_key, record: previous }]);
+    }
   }
+  const present = new Set((cloud.__rows || []).map(row => SyncCore.entityKey({ moduleKey: row.module_key, recordId: row.id })));
+  for (const key of guard.recordKeys()) if (!present.has(key)) guard.confirmMissing(key, snapshot);
+  const meta = cloud.__metaRow;
+  if (meta) for (const [field, column] of Object.entries(META_FIELDS)) {
+    if (Object.prototype.hasOwnProperty.call(meta, column) && guard.accept(`meta:${field}`, meta, meta[column], snapshot)) {
+      SyncCore.applyMeta(next, { [column]: meta[column] });
+    }
+  }
+  SyncCore.applyPending(next, guard.protectedOperations(snapshot));
+  // An older fetch must not erase entities changed/confirmed while it was in flight.
+  for (const module of CONFIG.modules) for (const item of local[module.key] || []) {
+    if (guard.preserve(SyncCore.entityKey({ moduleKey: module.key, recordId: item.id }), snapshot)) {
+      SyncCore.applyPending(next, [{ type: 'record', moduleKey: module.key, record: item }]);
+    }
+  }
+  if (JSON.stringify(next) === before) return false;
+  Object.assign(local, next);
+  localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
+  return visibleData(local) !== visibleBefore;
+}
+
+function runFullSync(options = {}) {
+  const reason = options.reason;
+  if (!new Set(["page_init", "manual"]).has(reason)) return Promise.reject(new Error("不允许的全量同步原因"));
+  const accountId = currentUser?.id;
+  if (fullSyncWorker?.accountId === accountId) return fullSyncWorker.promise;
+  if (reason === "page_init" && pageInitSyncDone) return Promise.resolve(null);
+  if (!sb || !accountId) return Promise.resolve(null);
+  if (reason === "page_init") pageInitSyncDone = true;
+  const worker = { accountId };
+  worker.promise = (async () => {
+    try {
+      await processOutbox();
+      if (!activeAccount(accountId)) return null;
+      const guard = raceGuard(accountId);
+      accountOutbox(accountId).forEach(op => guard.pending(op));
+      if (readOutbox().some(op => !op.accountId)) {
+        console.warn('[sync] 旧队列归属未知，暂停全量覆盖；请确认原账号后重试');
+        syncStatus = 'error'; updateSyncIndicator(); return null;
+      }
+      const snapshot = guard.snapshot();
+      const cloudData = await fetchAllCloudData(accountId);
+      if (!activeAccount(accountId)) return null;
+      const changed = reconcileCloud(cloudData, accountId, snapshot);
+      lastSyncAt = isoNow(); syncStatus = "online"; updateSyncIndicator();
+      if (changed && onSyncReady) onSyncReady(cloudData);
+      return cloudData;
+    } catch (error) {
+      console.error("[sync] 全量同步失败:", error);
+      if (activeAccount(accountId)) { syncStatus = "error"; updateSyncIndicator(); }
+      return null;
+    } finally { if (fullSyncWorker === worker) fullSyncWorker = null; }
+  })();
+  fullSyncWorker = worker;
+  return worker.promise;
 }
 
 // 一次性清理：把已经混进账号的演示数据（内容与样板模板完全一致的行）删掉。
@@ -245,26 +329,24 @@ async function purgeDemoRecords(options = {}) {
   return { commit: true, removed: targets.length, targets };
 }
 
-async function executeOperation(operation) {
-  if (operation.type === "record") {
-    const record = operation.record;
-    const row = { id: String(record.id), user_id: currentUser.id, module_key: operation.moduleKey, data: record, updated_at: record.updated_at || isoNow(), deleted_at: null };
-    const { error } = await sb.from("workbench_records").upsert(row, { onConflict: "user_id,id" });
-    if (error) throw error;
-    return;
-  }
-  if (operation.type === "delete") {
-    const row = { id: String(operation.recordId), user_id: currentUser.id, module_key: operation.moduleKey, data: {}, updated_at: operation.deletedAt, deleted_at: operation.deletedAt };
-    const { error } = await sb.from("workbench_records").upsert(row, { onConflict: "user_id,id" });
-    if (error) throw error;
-    return;
-  }
-  if (operation.type === "meta") {
+async function executeOperation(operation, accountId) {
+  let table, row, conflict;
+  if (operation.type === 'record' || operation.type === 'delete') {
+    const deleted = operation.type === 'delete';
+    row = { id: String(deleted ? operation.recordId : operation.record.id), user_id: accountId,
+      module_key: operation.moduleKey, data: deleted ? {} : operation.record,
+      updated_at: deleted ? operation.deletedAt : operation.record.updated_at || isoNow(),
+      deleted_at: deleted ? operation.deletedAt : null };
+    table = 'workbench_records'; conflict = 'user_id,id';
+  } else {
     const column = META_FIELDS[operation.field];
     if (!column) throw new Error(`未知元数据字段: ${operation.field}`);
-    const { error } = await sb.from("workbench_meta").upsert({ user_id: currentUser.id, [column]: operation.value, updated_at: isoNow() }, { onConflict: "user_id" });
-    if (error) throw error;
+    row = { user_id: accountId, [column]: operation.value, updated_at: isoNow() };
+    table = 'workbench_meta'; conflict = 'user_id';
   }
+  const { data: result, error } = await sb.from(table).upsert(row, { onConflict: conflict }).select().single();
+  if (error) throw error;
+  return result;
 }
 
 // 从 outbox 里剔掉演示数据的上传操作（修复前排队的老样板数据没有 __seed 标识，靠内容比对识别）
@@ -276,33 +358,59 @@ function dropDemoOperations(outbox) {
   });
 }
 
-async function processOutbox() {
-  if (!sb || !currentUser || syncStatus !== "online" || processingOutbox) return false;
-  processingOutbox = true;
-  try {
-    let outbox = readOutbox();
-    while (outbox.length) {
-      const cleaned = dropDemoOperations(outbox);
-      if (cleaned.length !== outbox.length) {
-        outbox = cleaned;
-        writeOutbox(outbox);
-        if (!outbox.length) break;
+function processOutbox() {
+  const accountId = currentUser?.id;
+  if (processingOutbox?.accountId === accountId) return processingOutbox.promise;
+  if (!sb || !accountId || syncStatus !== 'online') return Promise.resolve(false);
+  const worker = { accountId };
+  worker.promise = (async () => {
+    // Defer execution one microtask so callers always observe the shared worker.
+    await Promise.resolve();
+    try {
+      while (activeAccount(accountId)) {
+        const all = readOutbox();
+        // Legacy unowned operations are deliberately not adopted into another account.
+        const owned = accountOutbox(accountId);
+        const cleaned = dropDemoOperations(owned);
+        if (cleaned.length !== owned.length) {
+          const removed = new Set(owned.filter(op => !cleaned.includes(op)).map(op => op.operationId));
+          writeOutbox(all.filter(op => !removed.has(op.operationId)));
+        }
+        const operation = cleaned[0];
+        if (!operation) break;
+        const guard = raceGuard(accountId);
+        guard.pending(operation);
+        const row = await executeOperation(operation, accountId);
+        guard.acknowledge(operation, row);
+        writeOutbox(readOutbox().filter(item => item.operationId !== operation.operationId));
+        if (!activeAccount(accountId)) break;
+        // RETURNING is the authoritative post-trigger row for this exact write.
+        // Feed only its entity/field: unrelated meta fields may already be newer locally.
+        if (row?.updated_at) {
+          const confirmed = operation.type === 'meta'
+            ? { user_id: accountId, updated_at: row.updated_at, [META_FIELDS[operation.field]]: row[META_FIELDS[operation.field]] }
+            : row;
+          applyRealtimeChange({ table: operation.type === 'meta' ? 'workbench_meta' : 'workbench_records', eventType: 'UPDATE', newRow: confirmed }, accountId);
+        } else {
+          // Old clients / missing RETURNING: one deferred authority read after draining.
+          clearTimeout(retryTimer);
+          retryTimer = setTimeout(() => { if (activeAccount(accountId)) runFullSync({ reason: 'manual' }); }, 0);
+        }
       }
-      const current = outbox[0];
-      await executeOperation(current);
-      outbox = readOutbox().filter(item => item.operationId !== current.operationId);
-      writeOutbox(outbox);
-    }
-    lastSyncAt = isoNow(); updateSyncIndicator(); return true;
-  } catch (error) {
-    console.error("[sync] 原子操作失败:", error);
-    syncStatus = "error"; updateSyncIndicator();
-    clearTimeout(retryTimer);
-    retryTimer = setTimeout(() => { syncStatus = "online"; updateSyncIndicator(); processOutbox(); }, 5000);
-    return false;
-  } finally {
-    processingOutbox = false;
-  }
+      if (activeAccount(accountId)) { lastSyncAt = isoNow(); updateSyncIndicator(); }
+      return true;
+    } catch (error) {
+      console.error('[sync] 原子操作失败:', error);
+      if (activeAccount(accountId)) {
+        syncStatus = 'error'; updateSyncIndicator();
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => { if (activeAccount(accountId)) { syncStatus = 'online'; processOutbox(); } }, 5000);
+      }
+      return false;
+    } finally { if (processingOutbox === worker) processingOutbox = null; }
+  })();
+  processingOutbox = worker;
+  return worker.promise;
 }
 
 function syncRecord(input, recordId) {
@@ -313,7 +421,7 @@ function syncRecord(input, recordId) {
   if (!record) return null;
   // 样板记录不上云（用户改过 / 新加的记录内容与样板不同，照常同步）
   if (isDemoRecord(moduleKey, record)) return null;
-  record.updated_at = isoNow();
+  record.updated_at ||= isoNow();
   return queueOperation({ type: "record", moduleKey, record: stripSeedFlag(structuredClone(record)) });
 }
 
@@ -339,23 +447,42 @@ function saveMetaCloud(field, value) {
   return syncMetaField(field, resolved);
 }
 
-function applyRealtimeChange(change) {
+function applyRealtimeChange(change, accountId = currentUser?.id) {
   const local = getLocalData();
-  if (!local) return;
-  SyncCore.applyRealtime(local, change);
+  if (!local || !activeAccount(accountId)) return;
+  const row = change.eventType === 'DELETE' ? change.oldRow : change.newRow;
+  if (!row || (row.user_id && row.user_id !== accountId)) return;
+  const guard = raceGuard(accountId);
+  accountOutbox(accountId).forEach(op => guard.pending(op));
+  const before = JSON.stringify(local);
+  const visibleBefore = visibleData(local);
+  if (change.table === 'workbench_records') {
+    // Hard deletes carry no new server version: confirm by an authoritative read.
+    if (change.eventType === 'DELETE') { runFullSync({ reason: 'manual' }); return; }
+    const key = SyncCore.entityKey({ moduleKey: row.module_key, recordId: row.id });
+    if (guard.accept(key, row)) SyncCore.applyRecord(local, row.module_key, { ...row, __accepted: true });
+  } else if (change.table === 'workbench_meta') {
+    for (const [field, column] of Object.entries(META_FIELDS)) {
+      if (Object.prototype.hasOwnProperty.call(row, column) && guard.accept(`meta:${field}`, row, row[column])) {
+        SyncCore.applyMeta(local, { [column]: row[column] });
+      }
+    }
+  }
+  if (JSON.stringify(local) === before) return;
   localStorage.setItem(CONFIG.storageKey, JSON.stringify(local));
-  if (onRemoteUpdate) onRemoteUpdate(change);
+  if (visibleData(local) !== visibleBefore && onRemoteUpdate) onRemoteUpdate(change);
 }
 
 function setupRealtime() {
   if (!sb || !currentUser) return;
   if (syncChannel) sb.removeChannel(syncChannel);
+  const accountId = currentUser.id;
   syncChannel = sb.channel(`workbench_changes_${currentUser.id}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "workbench_records", filter: `user_id=eq.${currentUser.id}` }, payload => {
-      applyRealtimeChange({ table: "workbench_records", eventType: payload.eventType, oldRow: payload.old, newRow: payload.new });
+      applyRealtimeChange({ table: "workbench_records", eventType: payload.eventType, oldRow: payload.old, newRow: payload.new }, accountId);
     })
     .on("postgres_changes", { event: "*", schema: "public", table: "workbench_meta", filter: `user_id=eq.${currentUser.id}` }, payload => {
-      applyRealtimeChange({ table: "workbench_meta", eventType: payload.eventType, oldRow: payload.old, newRow: payload.new });
+      applyRealtimeChange({ table: "workbench_meta", eventType: payload.eventType, oldRow: payload.old, newRow: payload.new }, accountId);
     }).subscribe();
 }
 
@@ -363,6 +490,12 @@ function usernameToEmail(username) { return `${String(username || "").trim()}@ca
 
 // 记住本机最近登录的正式账号，用于区分「新访客」与「会话失效的老用户」。
 function markRealAccount(userId) {
+  // Bind legacy work before auth overwrites the last-account hint.
+  const previousOwner = localAccountOwner || localStorage.getItem(LAST_ACCOUNT_KEY);
+  if (previousOwner) {
+    writeOutbox(readOutbox().map(op => op.accountId ? op : { ...op, accountId: previousOwner }));
+  }
+  if (!localAccountOwner) localAccountOwner = previousOwner || userId;
   try { localStorage.setItem(LAST_ACCOUNT_KEY, userId); } catch (_) {}
 }
 
@@ -374,7 +507,7 @@ function notifyLoginRequired() {
 
 function queueLocalAccountMigration() {
   const local = getLocalData();
-  if (!local || typeof CONFIG === "undefined") return;
+  if (!local || typeof CONFIG === "undefined" || (localAccountOwner && localAccountOwner !== currentUser?.id)) return;
   // 只把用户自己新增/改过的记录迁到新账号，样板数据留在本地
   CONFIG.modules.forEach(module => (local[module.key] || []).forEach(record => {
     if (isDemoRecord(module.key, record)) return;
@@ -390,15 +523,18 @@ function queueLocalAccountMigration() {
 async function queueMissingLocalRecords() {
   const local = getLocalData();
   if (!local || !sb || !currentUser || typeof CONFIG === "undefined") return;
+  const accountId = currentUser.id;
+  if (localAccountOwner && localAccountOwner !== accountId) return;
   const { data: rows, error } = await sb.from("workbench_records")
-    .select("id").eq("user_id", currentUser.id);
-  if (error) return;
-  const existing = new Set((rows || []).filter(row => !row.deleted_at).map(row => String(row.id)));
+    .select("id,deleted_at").eq("user_id", accountId);
+  if (error || !activeAccount(accountId)) return;
+  const existing = new Set((rows || []).map(row => String(row.id)));
   CONFIG.modules.forEach(module => (local[module.key] || []).forEach(record => {
     if (!existing.has(String(record.id))) syncRecord({ moduleKey: module.key, record });
   }));
   const { data: meta } = await sb.from("workbench_meta")
-    .select("avatar,pomo_stats,trend_data").eq("user_id", currentUser.id).maybeSingle();
+    .select("avatar,pomo_stats,trend_data").eq("user_id", accountId).maybeSingle();
+  if (!activeAccount(accountId)) return;
   if (!meta) {
     ["__avatar", "__pomo", "__trend"].forEach(field => {
       if (Object.prototype.hasOwnProperty.call(local, field)) syncMetaField({ field, value: local[field] });
@@ -440,7 +576,7 @@ async function signIn(username, password) {
 
 async function signOut() {
   explicitSignOut = true;
-  try { localStorage.removeItem(LAST_ACCOUNT_KEY); } catch (_) {}
+  // Keep the last owner so retained offline data cannot migrate into a different account.
   if (sb) await sb.auth.signOut();
   if (syncChannel) { sb.removeChannel(syncChannel); syncChannel = null; }
   window.location.reload();
@@ -504,31 +640,23 @@ async function generateWorkoutPlan(options = {}) {
   return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-workout-plan`, headers, body: options, timeoutMs: 50000 });
 }
 
-// 每日一卡：一次生成一批（count 条）存入 daily_cards，仅正式账号可调用。
-async function generateDailyCopy(options = {}) {
-  if (!currentUser || currentUser.is_anonymous) throw new Error("登录正式账号后才能生成每日一卡");
-  const token = normalizeHeaderValue(await getAccessToken(), "登录令牌");
-  const headers = { apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-  return ApiClient.requestJson({ url: `${SUPABASE_CONFIG.url}/functions/v1/generate-daily-copy`, headers, body: options, timeoutMs: 120000 });
-}
-
-// 读取当前用户每日一卡批次（不调 AI，只查表）
-async function fetchDailyCards() {
-  if (!sb || !currentUser) return null;
-  try {
-    const { data } = await sb.from("daily_cards").select("*").eq("user_id", currentUser.id).maybeSingle();
-    return data || null;
-  } catch (_) {
-    return null;
-  }
-}
-
 // 读取用户网站配置（当前：首页排序 home_order）
 async function fetchUserSettings() {
   if (!sb || !currentUser) return null;
   try {
-    const { data } = await sb.from("workbench_meta").select("home_order").eq("user_id", currentUser.id).maybeSingle();
-    return data || null;
+    const accountId = currentUser.id;
+    const guard = raceGuard(accountId);
+    accountOutbox(accountId).forEach(op => guard.pending(op));
+    const snapshot = guard.snapshot();
+    const { data: row, error } = await sb.from("workbench_meta").select("home_order,updated_at").eq("user_id", accountId).maybeSingle();
+    if (error) throw error;
+    if (!activeAccount(accountId)) return null;
+    accountOutbox(accountId).forEach(op => guard.pending(op));
+    if (!row || !guard.accept('meta:__homeOrder', row, row.home_order, snapshot)) {
+      const pending = guard.protectedOperations(snapshot).find(op => op.field === '__homeOrder');
+      return { home_order: pending ? pending.value : getLocalData()?.__homeOrder };
+    }
+    return row;
   } catch (_) {
     return null;
   }

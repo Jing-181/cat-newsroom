@@ -121,7 +121,7 @@ test("readOutbox：损坏成 {} 时返回空数组，入队不抛（否则 store
   const queued = sandbox.queueOperation({ type: "record", moduleKey: "todo", record: { id: "u1", title: "买猫砂" } });
   assert.ok(queued, "入队应成功返回操作");
   assert.deepEqual(JSON.parse(sandbox.localStorage.getItem(OUTBOX_KEY)), [
-    { operationId: queued.operationId, createdAt: queued.createdAt, type: "record", moduleKey: "todo", record: { id: "u1", title: "买猫砂" } },
+    { operationId: queued.operationId, createdAt: queued.createdAt, accountId: null, type: "record", moduleKey: "todo", record: { id: "u1", title: "买猫砂" } },
   ]);
 });
 

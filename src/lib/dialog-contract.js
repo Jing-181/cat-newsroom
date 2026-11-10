@@ -2,6 +2,7 @@
 // 四类形态各自用自己的 DOM 与 CSS，这里把 Esc、点遮罩、[data-layer-close]、
 // 调 requestClose() 四条路收到同一个出口；表单有改动时暗路先问一句。
 import AppDialog from "./app-dialog.js";
+import { lockPageScroll, focusWithoutScroll } from "./mobile-viewport.js";
 
 const stack = [];
 const EXIT_FALLBACK_MS = 400;
@@ -11,6 +12,7 @@ export function bindLayer({
   confirmDiscard = false, initialFocus,
 } = {}) {
   const previous = document.activeElement;
+  const unlock = lockPageScroll();
   let phase = "open";
   let fallback = 0;
   stack.push(element);
@@ -22,10 +24,12 @@ export function bindLayer({
     element.removeEventListener("animationend", onEnd);
     if (element.tagName === "DIALOG" && element.open) element.close();
     element.remove();
+    const wasTop = stack.at(-1) === element;
     const at = stack.lastIndexOf(element);
     if (at >= 0) stack.splice(at, 1);
     document.removeEventListener("keydown", onKeydown, true);
-    if (previous?.isConnected) previous.focus?.();
+    unlock();
+    if (wasTop) focusWithoutScroll(previous);
   }
 
   function onEnd(event) {
@@ -70,8 +74,9 @@ export function bindLayer({
     if (event.target === element) requestClose(); // 点遮罩
   });
   if (initialFocus) queueMicrotask(() => {
+    if (phase !== "open" || stack.at(-1) !== element) return;
     const target = typeof initialFocus === "string" ? element.querySelector(initialFocus) : initialFocus;
-    (target || element.querySelector("input, textarea, button"))?.focus?.();
+    focusWithoutScroll(target || element.querySelector("input, textarea, button"));
   });
 
   return { requestClose, forceClose: exit, isOpen: () => phase === "open" };

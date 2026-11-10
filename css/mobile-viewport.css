@@ -1,0 +1,33 @@
+/* Runtime geometry from mobile-viewport.js, independent of the 820px layout breakpoint. */
+@media (any-pointer: coarse) {
+  /* Only keyboard-editable fields; large workout numbers retain their 40px rule. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="hidden"]):not(.focus-value),
+  select, textarea { font-size: 16px !important; }
+
+  .overlay {
+    top: var(--mobile-viewport-top, 0px); bottom: auto;
+    height: var(--mobile-viewport-height, 100dvh); box-sizing: border-box;
+  }
+  .overlay .modal { max-height: max(0px, calc(var(--mobile-viewport-height, 100dvh) - 24px)); }
+  dialog.sheet-confirm, .workout-dialog {
+    top: var(--mobile-viewport-top, 0px);
+    bottom: calc(100% - var(--mobile-viewport-top, 0px) - var(--mobile-viewport-height, 100dvh));
+    max-height: max(0px, calc(var(--mobile-viewport-height, 100dvh) - 24px));
+    overflow-y: auto;
+  }
+  .workout-dialog.is-list {
+    height: min(760px, max(0px, calc(var(--mobile-viewport-height, 100dvh) - 24px)));
+    max-height: max(0px, calc(var(--mobile-viewport-height, 100dvh) - 24px));
+    overflow: hidden;
+  }
+  .workout-dialog.is-list .lib-scroll { min-height: 0; }
+  .workout-app.workout-focus {
+    top: var(--mobile-viewport-top, 0px); bottom: auto;
+    height: var(--mobile-viewport-height, 100dvh); min-height: 0;
+    box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* One scroll owner; don't compress controls when the keyboard takes half the screen. */
+  .workout-focus > * { flex-shrink: 0; }
+  .workout-focus .focus-coach { flex: 1 0 88px; min-height: 88px; overflow: visible; }
+}

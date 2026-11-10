@@ -7,7 +7,7 @@ import { today, dateStr, avgProgress, weekDates } from "../../lib/utils.js";
 import Workout from "../../lib/workout.js";
 import { getData, save, subscribe } from "../../lib/store.js";
 import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
-import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
+import { trendCellsHTML, wireTrendCells, refreshTrendCells, nonTrendSnapshot } from "../../lib/week-state.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
@@ -15,6 +15,12 @@ const root = ref(null);
 // 本周状态录入：7 天格子与首页趋势卡共用同一份数据（lib/week-state.js）
 function trendBlockHTML() {
   return `<div class="sec-title">本周状态</div><div class="week-state"><div class="ws-grid">${trendCellsHTML()}</div><p class="ws-tip">点日期格子记录当天状态：1 分很低、5 分很好，再点循环，点满 5 分再点可清除。首页「本周状态趋势」也会同步显示。</p></div>`;
+}
+
+let renderedNonTrend = null;
+function onStoreUpdate() {
+  if (renderedNonTrend === nonTrendSnapshot()) refreshTrendCells(root.value);
+  else render();
 }
 
 function render() {
@@ -35,6 +41,7 @@ function render() {
   root.value.innerHTML = `<div class="header"><div><h2>洞察</h2><p>各模块进展一览 · 记录—执行—统计—反馈</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
     <div class="sec-title">模块概况</div><div class="pin-list pin-list-3">${cards}</div>
     ${trendBlockHTML()}`;
+  renderedNonTrend = nonTrendSnapshot();
   root.value.querySelectorAll("[data-open]").forEach(el => el.onclick = () => emit("navigate", el.dataset.open));
   wireTrendCells(root.value);
   root.value.insertAdjacentHTML("beforeend", trainingReviewSlotHTML());
@@ -42,7 +49,7 @@ function render() {
 }
 
 let unsub = null;
-onMounted(() => { render(); unsub = subscribe(render); });
+onMounted(() => { render(); unsub = subscribe(onStoreUpdate); });
 onBeforeUnmount(() => { if (unsub) unsub(); });
 </script>
 

@@ -72,6 +72,8 @@ test("main.js 副作用导入全部领域库并暴露全局 CONFIG/同步钩子"
   assert.match(main, /window\.__onSyncReady = applyCloud/);
   assert.match(main, /window\.__onRemoteUpdate = applyRemote/);
   assert.match(main, /runFullSync\?\.\(\{ reason: "page_init" \}\)/);
+  // 每日一卡已本地化，同步入口不得重新补拉云端批次。
+  assert.doesNotMatch(main, /__reloadDailyCopy|fetchDailyCards|generateDailyCopy/);
 });
 
 test("共享数据仓库绑定全局 data 并调用同步接口", () => {

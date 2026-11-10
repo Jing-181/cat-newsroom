@@ -20,7 +20,7 @@ test("关闭契约：四条路一个出口，暗路有改动先问，快速连�
   assert.match(contract, /forceClose: exit/, "保存成功可跳过弃稿确认");
   assert.match(contract, /animationend/);
   assert.match(contract, /EXIT_FALLBACK_MS/);
-  assert.match(contract, /previous.*focus/, "关闭后焦点还位");
+  assert.match(contract, /if \(wasTop\) focusWithoutScroll\(previous\)/, "仅顶层关闭后无滚动还原焦点");
 });
 
 test("确认 / 提示：top-layer 原生 dialog，轻卡去装饰，不再和表单共用一张卡", () => {

@@ -45,6 +45,18 @@ export function visibleHomeOrder(order, fallback = DEFAULT_HOME_ORDER) {
   return filtered.length ? filtered : [...fallback];
 }
 
+// 只重排可见卡片，旧隐藏项保留在原位置，避免保存设置清掉历史偏好。
+export function mergeVisibleHomeOrder(original, selected) {
+  const visible = new Set(DEFAULT_HOME_ORDER);
+  const remaining = [...new Set(selected.filter(key => visible.has(key)))];
+  const result = [];
+  for (const key of new Set(Array.isArray(original) ? original : [])) {
+    if (!visible.has(key)) result.push(key);
+    else if (remaining.length) result.push(remaining.shift());
+  }
+  return result.concat(remaining);
+}
+
 export function groupOf(key) {
   const card = HOME_CARDS.find(c => c.key === key);
   return card ? card.group : null;

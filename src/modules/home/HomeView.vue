@@ -10,7 +10,7 @@ import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.j
 import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
 import { dailyCopySlotHTML, initDailyCopy } from "../../lib/daily-copy.js";
 import { HOME_GROUPS, DEFAULT_HOME_ORDER, DEFAULT_HOME_ORDER_MOBILE, groupOf, isPrimaryModule, visibleHomeOrder } from "../../lib/home-layout.js";
-import { trendCellsHTML, wireTrendCells } from "../../lib/week-state.js";
+import { trendCellsHTML, wireTrendCells, refreshTrendCells, nonTrendSnapshot } from "../../lib/week-state.js";
 import Workout from "../../lib/workout.js";
 import { sleepingCat } from "../../lib/critters.js";
 import WorkoutPlan from "../../lib/workout-plan.js";
@@ -123,16 +123,39 @@ function pomoTileHTML() {
 }
 
 /* 心情趋势折线（复用 trend）：支持未记录的天（null）断点；下方是紧凑状态录入条，与洞察页共用数据 */
-function trendTileHTML() {
+function trendPresentation() {
   const raw = CONFIG.trend.series(data());
   const series = Array.isArray(raw) && raw.length === 7 ? raw : [];
   const vals = series.filter(v => typeof v === "number");
   const has = vals.length > 0;
   const avg = has ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
   const body = has ? trendSVG(series) : `<div class="trend-empty">${icon("chart", 26)}<span>本周还没记录状态，点下面格子记一下</span></div>`;
+  return { has, body, average: has ? `均 ${avg}${CONFIG.trend.unit}` : "" };
+}
+
+function trendTileHTML() {
+  const { has, body, average } = trendPresentation();
   const cells = `<div class="ws-grid ws-inline">${trendCellsHTML({ compact: true })}</div>`;
-  return `<div class="tile b8"><div class="tile-h"><span class="tic">${icon("chart", 16)}</span><div class="tt"><span class="en">MOOD TREND · 近 7 天</span><span class="zh">${CONFIG.trend.title}</span></div>${has ? `<span class="r">均 ${avg}${CONFIG.trend.unit}</span>` : ""}</div>
-    ${body}${has ? `<div class="trend-x"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>` : ""}${cells}</div>`;
+  return `<div class="tile b8" data-home-trend><div class="tile-h"><span class="tic">${icon("chart", 16)}</span><div class="tt"><span class="en">MOOD TREND · 近 7 天</span><span class="zh">${CONFIG.trend.title}</span></div><span class="r" data-trend-average>${average}</span></div>
+    <div data-trend-chart>${body}</div><div class="trend-x" data-trend-axis style="visibility:${has ? "visible" : "hidden"}"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>${cells}</div>`;
+}
+
+function refreshTrend() {
+  refreshTrendCells(root.value);
+  const tile = root.value.querySelector("[data-home-trend]");
+  if (!tile) return;
+  const { has, body, average } = trendPresentation();
+  const chart = tile.querySelector("[data-trend-chart]");
+  // 无效回环不重复替换 SVG；七格按钮和卡片/滚动祖先始终保留。
+  if (chart.innerHTML !== body) chart.innerHTML = body;
+  tile.querySelector("[data-trend-average]").textContent = average;
+  tile.querySelector("[data-trend-axis]").style.visibility = has ? "visible" : "hidden";
+}
+
+let renderedNonTrend = null;
+function onStoreUpdate() {
+  if (renderedNonTrend === nonTrendSnapshot()) refreshTrend();
+  else render();
 }
 
 /* 月度开销：finance 支出按分类占比 */
@@ -238,6 +261,7 @@ function render() {
     html += `<div class="home-ver">猫咪生活报 · v${CONFIG.APP_VERSION || ""}</div>`;
   }
   root.value.innerHTML = html;
+  renderedNonTrend = nonTrendSnapshot();
   wireHome();
   initTrainingReview(root.value, { compact: true, onMore: () => go("insight") });
   initDailyCopy(root.value);
@@ -247,7 +271,7 @@ function render() {
 // 本地已保存的排序（含云端拉取后回写），无需等接口即可渲染
 function readLocalOrder() {
   const local = Array.isArray(getData().__homeOrder) && getData().__homeOrder.length ? getData().__homeOrder : null;
-  return local && local.every(key => RENDER_MAP[key]) ? local : null;
+  return local && local.every(key => typeof key === "string") ? local : null;
 }
 
 // 同步应用本地缓存顺序（进入页面第一帧就用缓存，避免闪默认顺序）
@@ -259,10 +283,11 @@ function applyCachedOrder() {
 // 拉取云端排序配置：先本地立即渲染，再后台拉云端；顺序变化才重渲染；成功回写本地缓存
 async function loadHomeOrder() {
   applyCachedOrder();
+  const initialOrder = JSON.stringify(getData().__homeOrder || []);
   try {
     const settings = await window.fetchUserSettings?.();
     const remote = settings && Array.isArray(settings.home_order) && settings.home_order.length ? settings.home_order : null;
-    if (remote && remote.every(key => RENDER_MAP[key])) {
+    if (remote && remote.every(key => typeof key === "string") && JSON.stringify(getData().__homeOrder || []) === initialOrder) {
       // 回写本地缓存，下次进页面免等待接口
       const data = getData();
       if ((data.__homeOrder || []).join(",") !== remote.join(",")) {
@@ -287,7 +312,7 @@ function updateHabitCell(cell, item, day) {
 function wireHome() {
   const scope = root.value;
   scope.querySelectorAll("[data-open]").forEach(el => el.onclick = () => go(el.dataset.open));
-  scope.querySelectorAll("[data-quick]").forEach(el => el.onclick = () => { Trace.track("quick_add_click", { module: el.dataset.quick }); go(el.dataset.quick); if (el.dataset.quick !== "sport") openEditor(el.dataset.quick, null); });
+  scope.querySelectorAll("[data-quick]").forEach(el => el.onclick = () => { Trace.track("quick_add_click", { module: el.dataset.quick }); if (el.dataset.quick === "sport") go("sport"); else openEditor(el.dataset.quick, null); });
   const find = el => (data()[el.dataset.mkey] || []).find(i => i.id == el.dataset.id);
   // 就地打卡 / 完成
   scope.querySelectorAll(".js-pin-chk").forEach(el => el.onclick = e => {
@@ -312,7 +337,7 @@ function wireHome() {
   const tg = scope.querySelector("#pomo-toggle"); if (tg) tg.onclick = () => ensurePomodoroController()?.toggle();
   const rs = scope.querySelector("#pomo-reset"); if (rs) rs.onclick = () => ensurePomodoroController()?.stop();
   // 本周状态录入（趋势卡下方紧凑条）
-  wireTrendCells(scope);
+  wireTrendCells(scope, { onUpdate: refreshTrend });
 }
 
 function startClock() {
@@ -332,7 +357,7 @@ onMounted(() => {
   applyCachedOrder();       // 缓存顺序先行，不等待接口
   render();
   ensurePomodoroController();
-  unsub = subscribe(render);
+  unsub = subscribe(onStoreUpdate);
   window.addEventListener("home-order-changed", onOrderChanged);
   loadHomeOrder();          // 后台拉云端并刷新
 });
@@ -346,3 +371,10 @@ onBeforeUnmount(() => {
 <template>
   <div ref="root"></div>
 </template>
+
+<style>
+/* 空态与折线共用高度，首次记分不把下方七格推离手指。 */
+[data-home-trend] [data-trend-chart] { height: 168px; }
+[data-home-trend] [data-trend-chart] > .trend-svg { height: 100%; margin-top: 0; }
+[data-home-trend] [data-trend-chart] > .trend-empty { height: 100%; margin-top: 0; padding: 0; }
+</style>

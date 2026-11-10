@@ -1,18 +1,17 @@
 <script setup>
-// 个人配置页：每日一卡重新生成（14 条）+ 首页卡片排序（云端同步，与主站逻辑一致）
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+// 个人配置页：本地每日一卡说明 + 首页卡片排序（云端同步）
+import { ref, computed, onMounted } from "vue";
 import { CONFIG } from "../../lib/config.js";
-import { HOME_CARDS, DEFAULT_HOME_ORDER } from "../../lib/home-layout.js";
-import { getData, save, subscribe, saveMetaField } from "../../lib/store.js";
-import { initDailyCopy, generateDailyCopyBatch, getDailyBatchInfo } from "../../lib/daily-copy.js";
+import { HOME_CARDS, DEFAULT_HOME_ORDER, visibleHomeOrder, mergeVisibleHomeOrder } from "../../lib/home-layout.js";
+import { getData, save, saveMetaField } from "../../lib/store.js";
 import AppDialog from "../../lib/app-dialog.js";
 import Toast from "../../lib/toast.js";
 import Trace from "../../lib/trace.js";
 
 const root = ref(null);
 const order = ref([]);
-const batchInfo = ref({ loading: true });
-const syncing = ref(false);
+let originalOrder = [];
+let orderEdited = false;
 const purging = ref(false);
 const versionVisible = ref(true);
 const traceEnabled = ref(Trace.isEnabled());
@@ -74,16 +73,8 @@ function toggleVersion() {
   Toast.show(versionVisible.value ? "首页将显示版本信息" : "首页版本信息已隐藏");
 }
 
-const batchInfoText = computed(() => {
-  const info = batchInfo.value;
-  if (info.loading) return "正在加载…";
-  if (!info.exists) return "还没有生成过每日一卡。";
-  if (info.status === "generating") return "正在生成中…";
-  if (info.status === "error") return `上次生成失败：${info.error || "未知错误"}`;
-  return `当前 ${info.count} 条 · 生成于 ${info.generatedAt ? new Date(info.generatedAt).toLocaleString("zh-CN") : "—"}`;
-});
-
 function move(index, dir) {
+  orderEdited = true;
   const target = index + dir;
   if (target < 0 || target >= order.value.length) return;
   const next = [...order.value];
@@ -93,16 +84,19 @@ function move(index, dir) {
 }
 
 function toCards(keys) {
-  return keys.map(key => HOME_CARDS.find(c => c.key === key)).filter(Boolean);
+  return visibleHomeOrder(keys).map(key => HOME_CARDS.find(c => c.key === key)).filter(Boolean);
 }
 
 function resetOrder() {
+  orderEdited = true;
   order.value = toCards(DEFAULT_HOME_ORDER);
   Toast.show("已恢复默认顺序，记得保存");
 }
 
 function saveOrder() {
-  saveMetaField("__homeOrder", order.value.map(c => c.key));
+  orderEdited = true;
+  originalOrder = mergeVisibleHomeOrder(originalOrder, order.value.map(c => c.key));
+  saveMetaField("__homeOrder", originalOrder);
   window.dispatchEvent(new CustomEvent("home-order-changed"));
   Toast.show("首页排序已保存");
 }
@@ -133,47 +127,22 @@ async function purgeDemo() {
 async function loadOrder() {
   // 先用本地保存的顺序立即渲染，再拉云端比对刷新，避免每次进页面等待接口
   const local = Array.isArray(getData().__homeOrder) && getData().__homeOrder.length ? getData().__homeOrder : null;
-  if (local) order.value = toCards(local);
+  originalOrder = local ? [...local] : [];
+  order.value = toCards(local || DEFAULT_HOME_ORDER);
   let remote = null;
   try {
     const settings = await window.fetchUserSettings?.();
     remote = settings && Array.isArray(settings.home_order) && settings.home_order.length ? settings.home_order : null;
   } catch (_) { /* 忽略 */ }
-  if (remote) order.value = toCards(remote);
-  else if (!local) order.value = toCards(DEFAULT_HOME_ORDER);
+  if (remote && !orderEdited) { originalOrder = [...remote]; order.value = toCards(remote); }
 }
 
-async function refreshBatch() {
-  await initDailyCopy(root.value);
-  batchInfo.value = getDailyBatchInfo();
-}
-
-async function regenerate() {
-  if (syncing.value) return;
-  const ok = await AppDialog.confirm("重新生成将调用 AI 生成 14 条新文案，消耗一次 AI 额度。确定继续？", { title: "重新生成每日一卡", okText: "生成" });
-  if (!ok) return;
-  syncing.value = true;
-  try {
-    await generateDailyCopyBatch(14, root.value);
-    batchInfo.value = getDailyBatchInfo();
-    Toast.show("已重新生成 14 条文案");
-  } catch (_) {
-    batchInfo.value = getDailyBatchInfo();
-  } finally {
-    syncing.value = false;
-  }
-}
-
-let unsub = null;
 onMounted(() => {
-  refreshBatch();
   loadOrder();
   versionVisible.value = getData().__homeVersionVisible !== false;
   traceEnabled.value = Trace.isEnabled();
   refreshTraceStats();
-  unsub = subscribe(() => refreshBatch());
 });
-onBeforeUnmount(() => { if (unsub) unsub(); });
 </script>
 
 <template>
@@ -184,12 +153,11 @@ onBeforeUnmount(() => { if (unsub) unsub(); });
     <div class="setting-card">
       <div class="set-row">
         <div class="set-tx">
-          <div class="set-name">当前文案批次</div>
-          <div class="set-desc">{{ batchInfoText }}</div>
+          <div class="set-name">本地月度小笺</div>
+          <div class="set-desc">按设备本地日期显示当天的原创短句，无需登录或联网。</div>
         </div>
-        <button class="btn" :disabled="syncing" @click="regenerate">{{ syncing ? "生成中…" : "重新生成 14 条" }}</button>
       </div>
-      <div class="set-note">生成后首页每日一卡立即更新，新一批按天顺序循环轮换。</div>
+      <div class="set-note">首页可在当月内容中「换一条」，跨天重置。未配置的月份显示固定小笺。</div>
     </div>
 
     <div class="sec-title">首页模块排序</div>

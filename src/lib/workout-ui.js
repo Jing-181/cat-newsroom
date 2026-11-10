@@ -8,6 +8,7 @@ import WorkoutCatalog from "./workout-catalog.js";
 import WorkoutPlan from "./workout-plan.js";
 import WorkoutView from "./workout-view.js";
 import AppDialog from "./app-dialog.js";
+import { lockPageScroll, focusWithoutScroll } from "./mobile-viewport.js";
 import Toast from "./toast.js";
 import { playInkSweep, encourageFor } from "./ink-sweep.js";
 import { mountMoveFigure, kindForName } from "./move-figure.js";
@@ -562,17 +563,32 @@ function mount(container, options) {
 
   // ink=true：训练期弹窗（动作库、总览、结束）拿深墨皮，跟逐组屏同一套语言。
   // 历史详情、动作进展、训练计划这些是翻旧账用的，仍然纸面。
+  let cleanupDialog = null;
   function openDialog(html, { ink = false, list = false } = {}) {
+    cleanupDialog?.();
     const dialog = container.querySelector("#workout-dialog");
     dialog.classList.toggle("is-ink", Boolean(ink));
     // list：头部与搜索框固定，只有列表滚。不设的话整张弹窗一起滚，搜索时会跟着跑
     dialog.classList.toggle("is-list", Boolean(list));
     dialog.querySelector("#workout-dialog-content").innerHTML = html;
-    dialog.showModal();
+    const previous = document.activeElement;
+    const unlock = lockPageScroll();
+    const onBackdrop = event => { if (event.target === dialog) dialog.close(); };
+    const cleanup = () => {
+      dialog.removeEventListener("close", cleanup);
+      dialog.removeEventListener("click", onBackdrop);
+      unlock();
+      focusWithoutScroll(previous);
+      if (cleanupDialog === cleanup) cleanupDialog = null;
+    };
+    cleanupDialog = cleanup;
+    dialog.addEventListener("close", cleanup, { once: true });
+    dialog.addEventListener("click", onBackdrop);
+    try { dialog.showModal(); } catch (error) { cleanup(); throw error; }
+    focusWithoutScroll(dialog.querySelector("[data-dialog-close], button"));
     if (shouldAnimate()) dialog.animate([{ opacity:0, transform:"translateY(10px)" }, { opacity:1, transform:"translateY(0)" }], { duration:180, easing:"ease-out" });
     dialog.querySelectorAll("[data-dialog-close]").forEach(button => button.addEventListener("click", () => dialog.close()));
-    // 仅点击遮罩区域关闭，弹窗内容区交互不受影响。
-    dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
+    // 遮罩与 close 监听由本次生命周期统一清理。
     return dialog;
   }
 
@@ -1316,6 +1332,7 @@ function mount(container, options) {
     const completionBefore = container.querySelector(".workout-completion")?.getBoundingClientRect().height || 0;
     // 逐组屏的秒表与小人绑在旧 DOM 上，重建之前先停掉，否则会漏掉一个 interval
     stopFocusExtras();
+    cleanupDialog?.(); // DOM 替换不会保证派发原生 close 事件
     container.innerHTML = session
       ? WorkoutView.editorHtml(session, selectedDay, records, uiState)
       : WorkoutView.idleHtml(selectedDay, records);
@@ -1458,6 +1475,7 @@ function mount(container, options) {
   }
   // 离开训练页时停掉秒表与图解：这两个活物绑在 DOM 上，节点被卸载后定时器还在每秒空跑。
   function destroy() {
+    cleanupDialog?.();
     destroyed = true;
     gestureCleanup?.();
     gestureCleanup = null;
