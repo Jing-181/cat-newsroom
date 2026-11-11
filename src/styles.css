@@ -14,6 +14,17 @@
 /* 页面基底 */
 html, body { background: var(--page-bg); color: var(--text); font-family: var(--font); touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
+/* 路由导航保持控件外观；不影响正文和动作参考链接。 */
+.sidebar a.navi,
+.sidebar a.navi:is(:link, :visited, :hover, :active),
+.m-tabs a,
+.m-tabs a:is(:link, :visited, :hover, :active),
+.main a.shared-btn,
+.main a.shared-btn:is(:link, :visited, :hover, :active) { text-decoration: none; }
+.sidebar a.navi:focus-visible,
+.m-tabs a:focus-visible,
+.main a.shared-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* 全图查看器（点击卡片图片后弹出完整原图） */
 .record-image-viewer { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(10, 8, 5, .86); padding: 24px; cursor: zoom-out; }
 .record-image-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }

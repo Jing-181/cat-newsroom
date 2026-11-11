@@ -107,12 +107,12 @@ test("空白组把上次的重量与次数摆成建议值，但不写进数据�
   assert.doesNotMatch(cable, /value="22\.5"/);
 });
 
-test("逐组屏把「第 N / M 组」放在动作名下面的同一行，底部不再重复一遍", () => {
+test("逐组屏在动作名下集中组序、进度和停留，移动允许合理分行", () => {
   const session = sessionWith("dumbbell_bench_press");
   workout.addSet(session, 0);
   const html = workoutView.editorHtml(session, "chest", [], { focus: true, focusTarget: { exercise: 0, set: 1 } });
 
-  // 组序、进度点、本组停留排在同一行：一件事只在一个地方说。
+  // 组序、进度点、本组停留集中在状态栏；CSS在移动将进度点放到全宽第二行。
   assert.match(html, /class="focus-setbar"/);
   assert.match(html, /data-focus-setpos>第 <b>2<\/b> \/ \d+ 组/);
   assert.match(html, /data-focus-dwell>本组停留 00:00/);

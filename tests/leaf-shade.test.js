@@ -100,5 +100,5 @@ test("GPU 管线请求低功耗适配器，且不引入新依赖", () => {
   assert.match(gpu, /context\.unconfigure/);
   assert.doesNotMatch(gpu, /from "three|from "babylon|import .* from "https?:/);
   const pkg = JSON.parse(read("package.json"));
-  assert.deepEqual(Object.keys(pkg.dependencies), ["vue"]);
+  assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["vue", "vue-router"]);
 });

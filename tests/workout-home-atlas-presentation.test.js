@@ -34,6 +34,6 @@ test('图鉴实际模板：staticHold无播放控制，动态保留播放，来�
   const moving=await renderAtlas(false);assert.match(moving,/播放示范/);assert.doesNotMatch(moving,/静态保持示范/);
   assert.match(still,/href="https:\/\/www.strengthlog.com\/plank\/"[^>]*>动作参考/);assert.doesNotMatch(still,/ACE 动作参考|校准样片/);
   assert.match(atlas,/if \(selected.value\?\.demo.clip\?\.staticHold\) playing.value = false/);
-  const fn=atlas.match(/function select\(exercise\) \{[^}]+\}/)[0];
-  const playing={value:true},selected={value:null};new Function('playing','selected',`${fn};select({demo:{clip:{staticHold:true}}});`)(playing,selected);assert.equal(playing.value,false);
+  const start=atlas.indexOf('function select(exercise)'),end=atlas.indexOf('\nfunction closeDetail',start),fn=atlas.slice(start,end);
+  const playing={value:true},route={query:{}},calls=[],router={push:x=>calls.push(x)};new Function('playing','route','router',`${fn};select({id:'plank'});`)(playing,route,router);assert.equal(playing.value,false);assert.equal(calls[0].params.exerciseId,'plank');
 });

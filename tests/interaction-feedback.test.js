@@ -50,7 +50,7 @@ test("token 正本、全局减少动态效果与零依赖都没动", () => {
   assert.match(desktop, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(desktop, /animation-duration: \.001ms !important/);
   const pkg = JSON.parse(read("package.json"));
-  assert.deepEqual(Object.keys(pkg.dependencies), ["vue"]);
+  assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["vue", "vue-router"]);
 });
 
 test("设计系统正本写清了浮层分工", () => {

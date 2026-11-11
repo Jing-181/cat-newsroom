@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=2">
   <!-- 统一入口：跳转最新构建产物（Vue 单页应用），避免与旧版 workbench-*.html 相互跳转形成死循环 -->
   <meta http-equiv="refresh" content="0; url=./dist/index.html" />
-  <script>location.replace("./dist/index.html");</script>
+  <script>location.replace("./dist/index.html" + location.search + location.hash);</script>
 </head>
 <body>
   <noscript>

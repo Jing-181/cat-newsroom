@@ -804,7 +804,7 @@ button.set-hint:hover { color:var(--module-4); }
 /* 当前这一条比其它高一点：跟已完成的盒色分开，「记到第几组」不用再看底部的字 */
 .focus-dot.is-now { height:5px; background:rgba(240,232,213,.85); }
 
-/* 当前组一行：第 N / M 组 + 进度点 + 本组停留。
+/* 当前组状态：桌面同一行；移动将进度点独立为全宽第二行。
    以前 N 只在底部小字里，训练中扫一眼得先找到它；现在和进度点排在同一行，靠动作名和下面两个数字最近。 */
 .focus-setbar { display:flex; align-items:center; gap:12px; margin-top:16px; }
 .focus-setbar .focus-dots { flex:1; min-width:0; margin-top:0; overflow:hidden; }
@@ -851,6 +851,19 @@ button.set-hint:hover { color:var(--module-4); }
 .focus-primary { width:100%; min-height:52px; border:0; border-radius:999px; background:#e8dcc0; color:#2e2316; font:inherit; font-size:14.5px; font-weight:700; letter-spacing:.04em; cursor:pointer; touch-action:manipulation; }
 .focus-primary:active { background:#f0e6ce; }
 .focus-primary.is-finish { background:#7a8a58; color:#f4ecda; }
+
+@media (max-width:820px), (max-width:1024px) and (pointer:coarse) {
+  .workout-app.workout-focus { overflow-y:auto; }
+  .workout-focus .focus-fields, .workout-focus .focus-field, .workout-focus .focus-primary { flex-shrink:0; }
+  .workout-focus .focus-value { scroll-margin-block:80px; }
+  .focus-setbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; flex:0 0 auto; }
+  .focus-group-menu { grid-column:1; grid-row:1; min-width:0; min-height:44px; flex-wrap:wrap; column-gap:8px; row-gap:4px; }
+  .focus-setpos { width:auto; max-width:100%; }
+  .focus-group-label { white-space:normal; }
+  .focus-dwell { grid-column:2; grid-row:1; min-width:0; margin-left:0; white-space:nowrap; }
+  .focus-setbar .focus-dots { grid-column:1 / -1; grid-row:2; width:100%; min-height:8px; flex-wrap:wrap; overflow:visible; }
+  .focus-setbar .focus-dot { flex:0 0 18px; min-width:18px; }
+}
 
 @media (min-width:821px) {
   .workout-app.workout-focus { left:var(--sidebar-w, 0px); padding:44px 34px 34px; }

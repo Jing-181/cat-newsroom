@@ -3,9 +3,18 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { exercises } from '../../lib/workout-catalog.js';
 import { resolveDemo, DEMO_STATUS } from '../../lib/motion/demos.js';
 import { createDemoFigure } from '../../lib/motion/index.js';
-const query = ref(''), equipment = ref(''), status = ref('');
-const selected = ref(null), playing = ref(false), figure = ref(null);
+import { useRoute, useRouter } from 'vue-router';
+const route = useRoute(), router = useRouter();
+const queryValue = key => typeof route.query[key] === 'string' ? route.query[key] : '';
+const filter = key => computed({ get: () => queryValue(key), set: value => {
+  const query = { ...route.query, [key]: value || undefined };
+  void router.replace({ name:'exerciseAtlas', query });
+} });
+const query = filter('q'), equipment = filter('equipment'), status = filter('status');
+const playing = ref(false), figure = ref(null);
 const rows = exercises.map(exercise => ({ ...exercise, demo: resolveDemo(exercise) }));
+const selected = computed(() => rows.find(e => e.id === route.params.exerciseId) || null);
+const invalidId = computed(() => Boolean(route.params.exerciseId) && !selected.value);
 const equipmentOptions = [...new Set(exercises.map(e => e.equipment))];
 const statusLabels = { ...DEMO_STATUS, calibrated: '已接入示范 · 待视觉验收' };
 const demoLabel = demo => demo.label === DEMO_STATUS.calibrated ? statusLabels.calibrated : demo.label;
@@ -19,10 +28,9 @@ watch([selected, playing, figure], () => {
   if (selected.value?.demo.clip?.staticHold) playing.value = false;
   if (selected.value && figure.value) cleanup = createDemoFigure(figure.value, { exercise: selected.value, reduced: playing.value ? undefined : true });
 }, { flush: 'post' });
-watch(filtered, list => {
-  if (selected.value && !list.some(e => e.id === selected.value.id)) { selected.value = null; playing.value = false; }
-});
-function select(exercise) { playing.value = false; selected.value = exercise; }
+watch(() => route.params.exerciseId, () => { playing.value = false; }, { flush:'sync' });
+function select(exercise) { playing.value = false; void router.push({ name:'exerciseAtlas', params:{exerciseId:exercise.id}, query:route.query }); }
+function closeDetail() { playing.value = false; void router.push({ name:'exerciseAtlas', query:route.query }); }
 const thumbnails = new Map();
 onBeforeUnmount(() => { cleanup(); thumbnails.forEach(stop => stop()); thumbnails.clear(); });
 function staticFigure(svg, exercise) {
@@ -41,8 +49,9 @@ function staticFigure(svg, exercise) {
       <label class="shared-field">示范状态<select v-model="status"><option value="">全部状态</option><option v-for="(label, key) in statusLabels" :value="key" :key="key">{{ label }}</option></select></label>
     </div>
     <p class="atlas-note" aria-live="polite">{{ filtered.length }} 个动作 · {{ rows.filter(e => e.demo.status === 'calibrated').length }} 个已接入示范，{{ rows.filter(e => !e.demo.clip).length }} 个暂无示范。示范仅做接触与运动关系展示，仍待视觉验收。</p>
+    <div v-if="invalidId" class="shared-empty" role="status">没有这个动作的详情。<button class="shared-btn" @click="closeDetail">返回动作列表</button></div>
     <article v-if="selected" class="shared-card atlas-detail">
-      <header><h2>{{ selected.name }}</h2><button class="shared-btn" @click="selected = null; playing = false">关闭详情</button></header>
+      <header><h2>{{ selected.name }}</h2><button class="shared-btn" @click="closeDetail">关闭详情</button></header>
       <div class="atlas-detail-body">
         <div><svg ref="figure" class="atlas-player"></svg><p v-if="selected.demo.clip?.staticHold" class="atlas-note">静态保持示范</p><button v-else-if="selected.demo.clip" class="shared-btn" :aria-pressed="playing" @click="playing = !playing">{{ playing ? '停止播放' : '播放示范' }}</button></div>
         <div><p>{{ demoLabel(selected.demo) }}</p><p><b>肌群：</b>{{ selected.muscles || selected.bodyPart }}</p><p><b>器械：</b>{{ selected.equipment }}<template v-if="selected.angle"> · {{ selected.angle }}</template></p><p>{{ selected.tips }}</p>

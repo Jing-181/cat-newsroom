@@ -11,7 +11,7 @@ test("旧版 workbench 页面已退役，仅保留跳转到最新版", () => {
   for (const file of ["workbench-desktop.html", "workbench-mobile.html"]) {
     const html = read(file);
     assert.match(html, /url=\.\/index\.html/);
-    assert.match(html, /location\.replace\("\.\/index\.html"\)/);
+    assert.match(html, /location\.replace\("\.\/index\.html" \+ location\.search \+ location\.hash\)/);
     assert.doesNotMatch(html, /css\/theme\.css/, `${file} 不应再携带应用样式`);
   }
 });

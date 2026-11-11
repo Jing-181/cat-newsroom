@@ -81,5 +81,5 @@ test("四类形态各定各的：训练弹窗保持独立，样式入口引入�
 
 test("零依赖", () => {
   const pkg = JSON.parse(read("package.json"));
-  assert.deepEqual(Object.keys(pkg.dependencies), ["vue"]);
+  assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["vue", "vue-router"]);
 });

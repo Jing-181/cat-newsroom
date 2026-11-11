@@ -14,11 +14,11 @@ test("模块切换走原生 View Transitions，DOM 换页与滚动复位挂在�
   assert.match(app, /transition\.ready\.then\(/, "伪元素树就绪后才挂动画");
   assert.match(app, /transition\.finished\.finally\(/, "滚动复位放在动画之后");
   assert.match(app, /pseudoElement: "::view-transition-new\(root\)"/);
-  assert.match(app, /clipPath: \[/, "用 WAAPI 在 new 快照上做圆形揭示");
+  assert.match(app, /clipPath:\s*\[/, "用 WAAPI 在 new 快照上做圆形揭示");
   assert.match(app, /Math\.hypot\(/, "半径按最远角算，任意落点都能盖满");
   assert.match(app, /prefers-reduced-motion/, "减少动态效果时直接换页");
-  assert.match(app, /view\.value = pendingKey/, "连点时读最新 key，最终状态落在最后一次点击");
-  assert.match(app, /DeviceMode\.saveView\(pendingKey\)/);
+  assert.match(app, /view = computed\(\(\) => route\.meta\.module/, "URL为唯一导航源");
+  assert.match(app, /DeviceMode\.saveView\(view.value\)/);
   assert.match(app, /@navigate="onNavigate"/, "业务页导航入口不能断");
   assert.match(app, /unmountLeafShade\?\.\(\)/, "树影 teardown 仍要有销毁路径");
 });
@@ -47,7 +47,7 @@ test("自研 WebGPU 转场那一套已整体撤掉，不留死代码", () => {
 
 test("没有为了转场引入任何运行时依赖", () => {
   const pkg = JSON.parse(read("package.json"));
-  assert.deepEqual(Object.keys(pkg.dependencies), ["vue"]);
+  assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["vue", "vue-router"]);
   assert.deepEqual(Object.keys(pkg.devDependencies).sort(), ["@vitejs/plugin-vue", "vite"]);
 });
 

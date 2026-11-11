@@ -41,13 +41,13 @@ test('primary navigation excludes money and collapses only habits and reading', 
   assert.match(app, /v-for="m in primaryModules"/);
   assert.match(app, /<details>\s*<summary class="navi">更多模块<\/summary>\s*<a v-for="m in collapsedModules"/);
   assert.doesNotMatch(app, /<details[^>]*\bopen\b/);
-  assert.match(app, /saved !== "money"/);
+  assert.doesNotMatch(app, /restoreView\(/, '旧记忆不覆盖显式URL');
 });
 
 test('legacy views and full backup module list stay available', () => {
   for (const view of ['CheckinView', 'ReadView', 'MoneyView', 'SportView']) {
-    assert.match(app, new RegExp(`import ${view} from`));
-    assert.match(app, new RegExp(`: ${view}\\b`));
+    const routes = fs.readFileSync(new URL('../src/lib/app-router.js', import.meta.url), 'utf8');
+    assert.ok(routes.includes(`${view}.vue`), '旧模块保持可直达懒加载路由');
   }
   assert.match(app, /moduleKeys: CONFIG\.modules\.map/);
 });

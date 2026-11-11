@@ -1,6 +1,6 @@
 <script setup>
 // 应用外壳：侧栏（品牌/导航/同步区/备份/设备切换）+ 主视区（按导航切换模块组件）
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { CONFIG } from "./lib/config.js";
 import { icon } from "./lib/icons.js";
 import { COLLAPSED_MODULE_KEYS, isPrimaryModule } from "./lib/home-layout.js";
@@ -16,94 +16,46 @@ import DeviceMode from "./lib/device-mode.js";
 import { mountLeafShade } from "./lib/leaf-shade.js";
 import Trace from "./lib/trace.js";
 import { initMobileViewport } from "./lib/mobile-viewport.js";
-import HomeView from "./modules/home/HomeView.vue";
-import InsightView from "./modules/insight/InsightView.vue";
-import TodoView from "./modules/todo/TodoView.vue";
-import CheckinView from "./modules/checkin/CheckinView.vue";
-import ReadView from "./modules/read/ReadView.vue";
-import SportView from "./modules/workout/SportView.vue";
-import ExerciseAtlasView from "./modules/workout/ExerciseAtlasView.vue";
-import MoneyView from "./modules/money/MoneyView.vue";
-import NoteView from "./modules/note/NoteView.vue";
-import HotView from "./modules/hot/HotView.vue";
-import SettingsView from "./modules/settings/SettingsView.vue";
+import { useRoute, useRouter, RouterView } from 'vue-router';
+import { moduleRoutes } from './lib/app-router.js';
 
-const VIEWS = {
-  home: HomeView, insight: InsightView, todo: TodoView, checkin: CheckinView,
-  read: ReadView, sport: SportView, money: MoneyView, note: NoteView, hot: HotView,
-  settings: SettingsView, exerciseAtlas: ExerciseAtlasView,
-};
-
+const route = useRoute(), router = useRouter();
 const primaryModules = CONFIG.modules.filter(m => isPrimaryModule(m.key));
 const collapsedModules = CONFIG.modules.filter(m => COLLAPSED_MODULE_KEYS.includes(m.key));
-const saved = DeviceMode.restoreView();
-// 旧版停留在记账时回到首页；保留 MoneyView 及其数据契约。
-const view = ref(VIEWS[saved] && saved !== "money" ? saved : "home");
-const current = computed(() => VIEWS[view.value] || HomeView);
-
-// 切模块：原生 View Transitions 管快照与换页时机，WAAPI 在新快照上做墨迹圆形揭示。
-// 旧的交叉淡出让两层都半透明，中间帧会透出纸底发白；CSS 里已按 MDN 的做法
-// 关掉默认动画与混合，让新帧整块盖在旧帧之上。没有 GPU 设备、定时器和额外监听。
-const canViewTransition = () =>
-  typeof document !== "undefined" &&
-  typeof document.startViewTransition === "function" &&
-  !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-let pendingKey = null;
-let inkPoint = { x: 0, y: 0 };
+const view = computed(() => route.meta.module || 'home');
 let unmountLeafShade = null;
-
-function pointFrom(event) {
-  if (event?.clientX > 0 || event?.clientY > 0) return { x: event.clientX, y: event.clientY };
-  const rect = event?.currentTarget?.getBoundingClientRect?.();
-  return rect
-    ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-    : { x: window.innerWidth / 2, y: window.innerHeight * 0.78 };
-}
-
+let inkPoint = { x: 0, y: 0 };
+let transition;
+const canViewTransition = () => typeof document.startViewTransition === 'function' && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 function go(key, event) {
-  if (!VIEWS[key]) return;
-  pendingKey = key;
-  inkPoint = pointFrom(event);
-  const swap = () => {
-    view.value = pendingKey; // 读最新值：连续点击时浏览器会 skip 前一个转场
-    drawerOpen.value = false; // 移动端选完模块后收起抽屉
-    // 运动页的全屏开关只管那一页，切走时要撤回，不然别的页面也没导航栏
-    document.documentElement.classList.remove("workout-fullscreen");
-    DeviceMode.saveView(pendingKey);
+  if (!moduleRoutes.some(([name]) => name === key)) return;
+  inkPoint = { x: event?.clientX || window.innerWidth/2, y: event?.clientY || window.innerHeight*.78 };
+  const navigate = async () => {
+    try { await router.push({ name:key }); await nextTick(); }
+    catch { Toast.show('页面暂时无法加载，请检查网络后刷新重试'); }
   };
-  if (!canViewTransition()) {
-    swap();
-    window.scrollTo({ top: 0 });
-    return;
-  }
-  const transition = document.startViewTransition(async () => {
-    swap();
-    await nextTick(); // 等 Vue 把新 DOM 写进去，浏览器截到的才不是旧一帧
-  });
-  // ready 之后伪元素树才存在。在 new 快照上做 clip-path，旧帧保持不透明，
-  // 新帧从落点铺开盖上去，中途任何一帧都不会透出底色。
+  if (!canViewTransition()) { void navigate(); return; }
+  transition?.skipTransition();
+  transition = document.startViewTransition(navigate);
+  const activeTransition = transition;
   transition.ready.then(() => {
-    const { x, y } = inkPoint;
-    const radius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y),
-    );
-    document.documentElement.animate(
-      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-      {
-        duration: 420,
-        easing: "cubic-bezier(.22,.72,.2,1)",
-        fill: "both",
-        pseudoElement: "::view-transition-new(root)",
-      },
-    );
-  }).catch(() => { /* 被后续点击 skip 时 ready 会 reject，页面状态已落地，无需补偿 */ });
-  // 滚动放到动画之后：中途跳位置会把揭示弄成一次跳动
-  transition.finished.finally(() => window.scrollTo({ top: 0 }));
+    if (transition !== activeTransition) return;
+    const {x,y}=inkPoint;
+    const radius=Math.hypot(Math.max(x,window.innerWidth-x),Math.max(y,window.innerHeight-y));
+    document.documentElement.animate({clipPath:[`circle(0px at ${x}px ${y}px)`,`circle(${radius}px at ${x}px ${y}px)`]}, {duration:420,easing:"cubic-bezier(.22,.72,.2,1)",fill:"both",pseudoElement: "::view-transition-new(root)"});
+  }).catch(()=>{});
+  transition.finished.finally(()=>{ if (transition === activeTransition) transition=null; }).catch(()=>{});
 }
-
+function navClick(key, event) {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  event.preventDefault(); go(key,event);
+}
 function onNavigate(key) { go(key); }
+watch(() => route.fullPath, () => {
+  drawerOpen.value = false;
+  document.documentElement.classList.remove('workout-fullscreen');
+  try { DeviceMode.saveView(view.value); } catch { /* storage unavailable must not block navigation */ }
+}, { flush:'post' });
 
 const avatarInputRef = ref(null);
 const backupExportRef = ref(null);
@@ -182,6 +134,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  transition?.skipTransition();
   cleanupMobileViewport?.();
   unmountLeafShade?.();
 });
@@ -281,18 +234,18 @@ async function onAvatarChange(e) {
         <div><h1 id="brandName">{{ CONFIG.owner }}</h1><p id="brandSlogan">{{ CONFIG.slogan }}</p></div>
       </div>
       <nav class="nav">
-        <a class="navi" :class="{ active: view === 'home' }" @click="go('home', $event)"><span v-html="icon('home', 19)"></span>首页</a>
+        <a :href="router.resolve({name:'home'}).href" class="navi" :class="{ active: view === 'home' }" @click="navClick('home', $event)"><span v-html="icon('home', 19)"></span>首页</a>
         <div class="nav-sep">功能模块</div>
-        <a v-for="m in primaryModules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
-        <a href="#exercise-atlas" class="navi" :class="{ active: view === 'exerciseAtlas' }" @click.prevent="go('exerciseAtlas', $event)"><span v-html="icon('activity', 19)"></span>运动总览</a>
+        <a v-for="m in primaryModules" :key="m.key" :href="router.resolve({name:m.key}).href" class="navi" :class="{ active: view === m.key }" @click="navClick(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
+        <a :href="router.resolve({name:'exerciseAtlas'}).href" class="navi" :class="{ active: view === 'exerciseAtlas' }" @click="navClick('exerciseAtlas', $event)"><span v-html="icon('activity', 19)"></span>运动总览</a>
         <details>
           <summary class="navi">更多模块</summary>
-          <a v-for="m in collapsedModules" :key="m.key" class="navi" :class="{ active: view === m.key }" @click="go(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
+          <a v-for="m in collapsedModules" :key="m.key" :href="router.resolve({name:m.key}).href" class="navi" :class="{ active: view === m.key }" @click="navClick(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
         </details>
         <div class="nav-sep">统计</div>
-        <a class="navi" :class="{ active: view === 'insight' }" @click="go('insight', $event)"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
+        <a :href="router.resolve({name:'insight'}).href" class="navi" :class="{ active: view === 'insight' }" @click="navClick('insight', $event)"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
         <div class="nav-sep">配置</div>
-        <a class="navi" :class="{ active: view === 'settings' }" @click="go('settings', $event)"><span v-html="icon('settings', 19)"></span>个人配置</a>
+        <a :href="router.resolve({name:'settings'}).href" class="navi" :class="{ active: view === 'settings' }" @click="navClick('settings', $event)"><span v-html="icon('settings', 19)"></span>个人配置</a>
       </nav>
       <div class="sync-area" id="syncArea">
         <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
@@ -306,7 +259,7 @@ async function onAvatarChange(e) {
     <!-- 主视区：切换模块时整块重建，靠 .view-swap 的入场动画把切换变成一次淡入，而不是硬闪 -->
     <main class="main">
       <div class="view-swap" :key="view">
-        <component :is="current" :key="view" @navigate="onNavigate" />
+        <RouterView v-slot="{ Component }"><component :is="Component" :key="view" @navigate="onNavigate" /></RouterView>
       </div>
     </main>
     <!-- 移动底栏（≤820px 显示） -->

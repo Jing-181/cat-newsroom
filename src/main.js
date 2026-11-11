@@ -36,11 +36,34 @@ window.__onRemoteUpdate = applyRemote;
 import { createApp } from "vue";
 import App from "./App.vue";
 
-createApp(App).mount("#app");
+import { createAppRouter } from './lib/app-router.js';
+import { settleAuthCallback, cleanAuthCallbackUrl } from './lib/route-auth.js';
 
-// 启动 Supabase 会话恢复/匿名登录 + 首次全量同步（与主站 initSync 一致）
-(async () => {
-  const ok = await window.initSupabase?.();
+async function bootstrap() {
+  const callback = await settleAuthCallback({
+    location: window.location,
+    initialize: options => window.initSupabase?.({ authCallback:true, ...options }),
+    beforeActivate: () => history.replaceState(history.state, '', cleanAuthCallbackUrl(window.location)),
+  });
+  if (!callback.ready) {
+    // Keep callback URL intact for retry; never hand tokens/errors to router or display them.
+    const root = document.querySelector('#app');
+    const message = document.createElement('p'); message.textContent = '登录回调尚未完成。请检查网络后重试；业务记录未同步；登录会话可能已由认证服务保存。';
+    const retry = document.createElement('button'); retry.textContent = '重新加载并重试'; retry.onclick = () => window.location.reload();
+    root.replaceChildren(message,retry);
+    return;
+  }
+  const router = createAppRouter();
+  router.onError(() => { /* Caller shows generic retry message; never log URL or callback payload. */ });
+  const app = createApp(App); app.use(router);
+  try { await router.isReady(); }
+  catch {
+    const root=document.querySelector('#app'),text=document.createElement('p'),retry=document.createElement('button');
+    text.textContent='页面资源加载失败，请检查网络后刷新。';retry.textContent='刷新';retry.onclick=()=>window.location.reload();root.replaceChildren(text,retry);return;
+  }
+  app.mount('#app');
+  // Ordinary deep links/offline startup mount before any network authentication.
+  const ok = callback.callback || await window.initSupabase?.();
   if (ok) {
     const cd = await window.runFullSync?.({ reason: "page_init" });
     if (cd) {
@@ -48,4 +71,5 @@ createApp(App).mount("#app");
       if (typeof window.updateAuthUI === "function") window.updateAuthUI();
     }
   }
-})();
+}
+void bootstrap();

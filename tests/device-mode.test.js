@@ -20,6 +20,6 @@ test("手动偏好优先于自动判断", () => {
 test("旧版移动端入口已退役并跳转到最新版", () => {
   const html = fs.readFileSync(mobileShell, "utf8");
   assert.match(html, /url=\.\/index\.html/);
-  assert.match(html, /location\.replace\("\.\/index\.html"\)/);
+  assert.match(html, /location\.replace\("\.\/index\.html" \+ location\.search \+ location\.hash\)/);
   assert.doesNotMatch(html, /mobile-shell/, "旧版移动外壳已随退役移除");
 });

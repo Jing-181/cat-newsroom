@@ -99,21 +99,11 @@ function queueOperation(operation) {
   return next.at(-1);
 }
 
-async function initSupabase() {
-  if (!SUPABASE_CONFIG.url || !SUPABASE_CONFIG.anonKey) {
-    syncStatus = "offline"; updateSyncIndicator(); return false;
-  }
-  syncStatus = "connecting"; updateSyncIndicator();
-  try {
-    if (!window.supabase) await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js");
-    const clientUrl = normalizeHeaderValue(SUPABASE_CONFIG.url, "Supabase 地址");
-    const clientKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
-    sb = supabase.createClient(clientUrl, clientKey, { auth: { persistSession: true, autoRefreshToken: true } });
-    // 监听认证状态变化：会话过期/登出/切换时及时更新 currentUser，
-    // 避免用户在不知情的情况下以匿名身份记录数据（记录被写进别的账号）。
-    // initSupabase 可能被重复调用（如离线时点击同步指示器重连），先退订旧监听避免累积。
+let authInitGeneration = 0;
+function attachBusinessAuthListener(client, generation) {
     if (authStateUnsubscribe) authStateUnsubscribe();
-    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      if (generation !== authInitGeneration || sb !== client) return;
       if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !session)) {
         currentUser = null;
         syncStatus = "offline";
@@ -131,12 +121,65 @@ async function initSupabase() {
       }
     });
     authStateUnsubscribe = () => subscription.unsubscribe();
-    const { data: { session } } = await sb.auth.getSession();
+}
+
+
+async function initSupabase({ authCallback = false, signal, callbackKeys = [] } = {}) {
+  const generation = ++authInitGeneration;
+  const inactive = () => signal?.aborted || generation !== authInitGeneration;
+  if (!SUPABASE_CONFIG.url || !SUPABASE_CONFIG.anonKey) {
+    syncStatus = "offline"; updateSyncIndicator(); return false;
+  }
+  syncStatus = "connecting"; updateSyncIndicator();
+  try {
+    if (!window.supabase) await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js");
+    const clientUrl = normalizeHeaderValue(SUPABASE_CONFIG.url, "Supabase 地址");
+    const clientKey = normalizeHeaderValue(SUPABASE_CONFIG.anonKey, "Supabase 公钥");
+    const callbackHasCode = authCallback && (new URLSearchParams(window.location.search).has('code') || new URLSearchParams(window.location.hash.replace(/^#/, '')).has('code'));
+    if (inactive()) return false;
+    const client = supabase.createClient(clientUrl, clientKey, { auth: { persistSession: true, autoRefreshToken: true, ...(callbackHasCode ? { flowType: 'pkce' } : {}) } });
+    if (authCallback) {
+      // SDK may persist its own auth session; no business listener/user/outbox/realtime yet.
+      const cancel = () => { void client.auth.stopAutoRefresh?.(); };
+      signal?.addEventListener('abort', cancel, { once:true });
+      const { error } = await client.auth.initialize();
+      if (inactive() || error) { cancel(); return false; }
+      const { data: { session }, error: sessionError } = await client.auth.getSession();
+      if (inactive() || sessionError || !session || session.user?.is_anonymous) { cancel(); return false; }
+      const query = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      // PKCE must consume its code. Implicit query tokens may remain after SDK success;
+      // the gate scrubs every callbackKeys entry before activation.
+      if (query.has('code') || hash.has('code') || ['error','error_description','error_code'].some(k => query.has(k) || hash.has(k))) { cancel(); return false; }
+      if (!callbackKeys.includes('access_token') || !callbackKeys.includes('provider_refresh_token')) { cancel(); return false; }
+      let activated = false;
+      return { cancel, activate() {
+        if (inactive() || activated) return false;
+        // Defense in depth: activation cannot expose any credential parameter to routing.
+        const q = new URLSearchParams(window.location.search), h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        if (callbackKeys.some(k => q.has(k) || h.has(k))) return false;
+        activated = true; signal?.removeEventListener('abort', cancel);
+        sb = client; currentUser = session.user;
+        markRealAccount(session.user.id);
+        attachBusinessAuthListener(client, generation);
+        syncStatus = 'online'; setupRealtime(); updateSyncIndicator();
+        return true;
+      } };
+    }
+    sb = client;
+    // 监听认证状态变化：会话过期/登出/切换时及时更新 currentUser，
+    // 避免用户在不知情的情况下以匿名身份记录数据（记录被写进别的账号）。
+    // initSupabase 可能被重复调用（如离线时点击同步指示器重连），先退订旧监听避免累积。
+    attachBusinessAuthListener(client, generation);
+    const { data: { session }, error: sessionError } = await client.auth.getSession();
+    if (inactive()) return false;
+    if (sessionError) throw sessionError;
     if (session) {
       currentUser = session.user;
       if (!session.user.is_anonymous) markRealAccount(session.user.id);
     } else if (!localStorage.getItem(LAST_ACCOUNT_KEY)) {
-      const { data: anonymous, error } = await sb.auth.signInAnonymously();
+      const { data: anonymous, error } = await client.auth.signInAnonymously();
+      if (inactive()) return false;
       if (error) throw error;
       currentUser = anonymous.user;
     } else {
@@ -151,7 +194,9 @@ async function initSupabase() {
     updateSyncIndicator();
     return true;
   } catch (error) {
-    console.error("[sync] 初始化失败:", error);
+    // Callback failure/timeout never repairs business storage or activates a client.
+    if (authCallback || inactive()) return false;
+    if (!authCallback) console.error("[sync] 初始化失败:", error);
     if (/ByteString|invalid character/i.test(String(error?.message || error))) {
       // 只清理本项目损坏的持久化会话，避免误删其它 Supabase 项目的登录态。
       for (let index = localStorage.length - 1; index >= 0; index -= 1) {
