@@ -129,17 +129,13 @@ function fillExercises(day, pool, round1Compounds, round) {
   });
 }
 
+import { setHasRecord } from './workout.js';
+
 // ---- 渐进超负荷：最近一次完成记录驱动 ----
 
 // 有效记录判定：力量组以次数为准（重量可为 0，自重动作），有氧组看时长/距离。
 // 与数据层 js/workout.js#setHasRecord 保持完全一致的口径，否则"计划进阶建议"会和历史记录对不上。
-function setHasRecordValue(set) {
-  if (!set || typeof set !== "object") return false;
-  if ("duration_min" in set || "distance_km" in set) {
-    return Number(set.duration_min || 0) > 0 || Number(set.distance_km || 0) > 0;
-  }
-  return Number(set.reps || 0) > 0;
-}
+function setHasRecordValue(set) { return setHasRecord(set); }
 
 function lastCompleted(records, exerciseId) {
   const sessions = (records || [])

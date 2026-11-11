@@ -11,9 +11,10 @@ import AppDialog from "./app-dialog.js";
 import { lockPageScroll, focusWithoutScroll } from "./mobile-viewport.js";
 import Toast from "./toast.js";
 import { playInkSweep, encourageFor } from "./ink-sweep.js";
-import { mountMoveFigure, kindForName } from "./move-figure.js";
+import { createDemoFigure } from "./motion/index.js";
 // 使用记录：同步调用、无 await、不落盘（由 trace 自己合并写），失败不抛
 import Trace from "./trace.js";
+import { metricFields, fillPrevious, clearRecordFields, parseSetInput, sameFieldLayout, derivedPace, isUnfilled, inputMetricValue, metricSpec, recordUnit, treadmillGuidance } from './workout-metrics.js';
 
   const DRAFT_KEY = "cat-newsroom-workout-draft-v1";
   const FULLSCREEN_KEY = "cat-newsroom-workout-fullscreen";
@@ -164,9 +165,8 @@ function mount(container, options) {
     const targetSet = targetExercise?.sets?.[to.set];
     if (!targetSet || !("weight_kg" in targetSet)) return;
     if (to.exercise !== from.exerciseIndex && targetExercise.equipment !== from.exercise.equipment) return;
-    if (Number(targetSet.weight_kg || 0) !== 0) return;
-    const weight = Number(from.set.weight_kg || 0);
-    if (weight) targetSet.weight_kg = weight;
+    if (!isUnfilled(targetSet.weight_kg)) return;
+    if (!isUnfilled(from.set.weight_kg)) targetSet.weight_kg = from.set.weight_kg;
   }
 
   // 加动作时抄当前动作的组数与重量。器械不同时由数据层丢掉重量，只留组数。
@@ -177,8 +177,8 @@ function mount(container, options) {
     const exercise = session?.exercises?.[scope?.exerciseIndex ?? scope?.exercise];
     if (!exercise?.sets?.length) return null;
     const anchor = scope?.setIndex ?? exercise.sets.length - 1;
-    let weight = 0;
-    for (let index = anchor; index >= 0 && !weight; index -= 1) weight = Number(exercise.sets[index]?.weight_kg || 0);
+    let weight = '';
+    for (let index = anchor; index >= 0 && isUnfilled(weight); index -= 1) weight = exercise.sets[index]?.weight_kg ?? '';
     return { sets: exercise.sets.length, weight_kg: weight, equipment: exercise.equipment };
   }
 
@@ -189,10 +189,10 @@ function mount(container, options) {
     const exercise = session?.exercises?.[target?.exercise];
     const set = exercise?.sets?.[target?.set];
     if (!set || Workout.setHasRecord(set) || !("weight_kg" in set)) return false;
-    if (Number(set.weight_kg || 0) !== 0) return false;
+    if (!isUnfilled(set.weight_kg)) return false;
     for (let index = target.set - 1; index >= 0; index -= 1) {
       const previous = exercise.sets[index];
-      if (!Workout.setHasRecord(previous) || !Number(previous.weight_kg || 0)) continue;
+      if (!Workout.setHasRecord(previous) || isUnfilled(previous.weight_kg)) continue;
       set.weight_kg = previous.weight_kg;
       return true;
     }
@@ -206,14 +206,8 @@ function mount(container, options) {
     if (!scope?.set) return false;
     const previous = Workout.previousPerformance(records, scope.exercise.exercise_id)?.sets?.[scope.setIndex];
     if (!previous) return false;
-    let filled = false;
-    ["weight_kg", "reps", "duration_min", "distance_km"].forEach(field => {
-      if (!(field in scope.set) || Number(scope.set[field] || 0) !== 0) return;
-      if (!Number(previous[field] || 0)) return;
-      scope.set[field] = previous[field];
-      filled = true;
-    });
-    return filled;
+    fillPrevious(scope.set, previous);
+    return true;
   }
 
 
@@ -229,14 +223,15 @@ function mount(container, options) {
     if (!root || !fields || !exercise) { render(); return; }
 
     const specs = Workout.isCardio(exercise)
-      ? [["duration_min", "时长", "分", 1, 0], ["distance_km", "距离", "km", 0.5, 0]]
+      ? metricFields(exercise, exercise.sets[target.set]).map(({ field, label, unit, step, min }) => [field, label, unit, step, min])
       : [["weight_kg", "重量", "kg", 2.5, Workout.allowsAssist(exercise) ? -200 : 0], ["reps", "次数", "次", 1, 1]];
+    if (!sameFieldLayout([...fields.querySelectorAll('[data-focus-field]')].map(input => input.dataset.focusField), specs.map(([field]) => ({ field })))) { render(); return; }
     fields.querySelectorAll('.focus-field').forEach((node, index) => {
       const [field, label, unit, step, min] = specs[index];
       const input = node.querySelector('input');
       input.dataset.focusField = field;
-      input.step = step;
-      input.min = min;
+      input.step = metricSpec(field, exercise).integer ? 1 : 'any';
+      if (min === '') input.removeAttribute('min'); else input.min = min;
       input.setAttribute('aria-label', label);
       input.title = field === 'weight_kg' && min < 0 ? '0 = 纯自重，负数 = 助力' : '';
       node.querySelector('.focus-label').textContent = label;
@@ -248,10 +243,14 @@ function mount(container, options) {
       });
     });
     const totalExercises = session.exercises.length;
+    root.querySelector('[data-focus-addset]').textContent = `＋ 加一${recordUnit(exercise)}`;
+    root.querySelector('[data-focus-done]').textContent = `完成这${recordUnit(exercise)}`;
+    root.querySelector('.focus-group-label').textContent = `${recordUnit(exercise)}操作 ···`;
     const nav = root.querySelector(".focus-nav");
     if (totalExercises > 1 && nav?.dataset.count !== String(totalExercises)) { render(); return; }
 
     const set = exercise.sets[target.set] || {};
+    refreshMetricSummary(exercise, set);
     const previousSet = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[target.set];
     const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
 
@@ -259,10 +258,10 @@ function mount(container, options) {
     fields.dataset.focusSet = String(target.set);
     fields.querySelectorAll("[data-focus-field]").forEach(input => {
       const field = input.dataset.focusField;
-      const typed = set[field] === 0 || set[field] === "" || set[field] == null ? "" : set[field];
-      const suggest = typed === "" && previousSet && Number(previousSet[field]) ? previousSet[field] : "";
+      const typed = isUnfilled(set[field]) ? '' : set[field];
+      const suggest = typed === '' && previousSet && !isUnfilled(previousSet[field]) ? previousSet[field] : '';
       const shown = typed === "" ? suggest : typed;
-      input.value = shown;
+      input.value = inputMetricValue(field, shown, exercise);
       input.classList.toggle("is-empty", shown === "");
       input.classList.toggle("is-suggest", typed === "" && suggest !== "");
     });
@@ -287,7 +286,7 @@ function mount(container, options) {
       dots.innerHTML = exercise.sets.map((item, index) => `<i class="focus-dot${Workout.setHasRecord(item) ? " is-done" : ""}${index === target.set ? " is-now" : ""}"></i>`).join("");
     }
     const posNode = root.querySelector("[data-focus-setpos]");
-    if (posNode) posNode.innerHTML = `第 <b>${target.set + 1}</b> / ${exercise.sets.length} 组`;
+    if (posNode) posNode.innerHTML = `第 <b>${target.set + 1}</b> / ${exercise.sets.length} ${recordUnit(exercise)}`;
     // 组身份变了（完成一组推进、点选、滑动）→ 从 00:00 重新算；同一组内局部更新不归零。
     paintDwell();
 
@@ -295,18 +294,18 @@ function mount(container, options) {
     if (last) {
       last.className = `focus-last${!previousSet ? " is-first" : (suggestionOn ? " is-filled" : "")}`;
       const lastText = last.querySelector(".focus-last-text");
-      if (lastText) lastText.textContent = !previousSet ? "这个动作首次记录" : (suggestionOn ? "上次这组的数字已填入，直接完成或改数字" : "上次这组");
+      if (lastText) lastText.textContent = !previousSet ? "这个动作首次记录" : (suggestionOn ? `上次这${recordUnit(exercise)}的数字已填入，直接完成或改数字` : `上次这${recordUnit(exercise)}`);
       const lastButton = last.querySelector("[data-focus-last]");
       if (lastButton) {
         lastButton.hidden = !previousSet || suggestionOn;
-        lastButton.textContent = previousSet ? Workout.formatSetCompact(previousSet, exercise.equipment) : "";
+        lastButton.textContent = previousSet ? Workout.formatSetCompact(previousSet, exercise) : "";
       }
     }
 
     const pending = session.exercises.reduce((sum, item) => sum + item.sets.filter(next => !Workout.setHasRecord(next)).length, 0);
     const remaining = totalExercises - 1 - target.exercise;
     const tail = target.exercise === totalExercises - 1 ? "这是最后一个动作" : `后面还有 ${remaining} 个动作`;
-    const hint = root.querySelector(".focus-hint");
+    const hint = root.querySelector(".focus-hint:not([data-metric-summary])");
     if (hint) hint.textContent = pending === 0 ? "全部组已记录 · 可以结束了" : tail;
     const doneButton = root.querySelector("[data-focus-done]");
     const finishButton = root.querySelector("[data-focus-finish]");
@@ -317,7 +316,7 @@ function mount(container, options) {
     const svg = root.querySelector("[data-move-figure]");
     if (svg && svg.dataset.figureFor !== exercise.id) {
       if (figureCleanup) { figureCleanup(); figureCleanup = null; }
-      figureCleanup = mountMoveFigure(svg, { kind: kindForName(exercise.name) });
+      figureCleanup = createDemoFigure(svg, { exercise });
       svg.dataset.figureFor = exercise.id;
     }
 
@@ -341,6 +340,15 @@ function mount(container, options) {
     paintFocus(delta);
   }
 
+  function refreshMetricSummary(exercise, set) {
+    container.querySelectorAll('[data-metric-summary]').forEach(node => {
+      if (node.dataset.exercise != null && session.exercises[Number(node.dataset.exercise)] !== exercise) return;
+      if (node.dataset.set != null && exercise.sets[Number(node.dataset.set)] !== set) return;
+      const pace = derivedPace(set, exercise);
+      node.textContent = [pace ? `记录时长配速 ${pace}（非移动时间）` : '', set.pace ? `原记录配速 ${set.pace}` : '', exercise.exercise_id === 'stair_climber' ? '楼层与步数不换算；本机档位不是速度，不能跨机比较。' : '', treadmillGuidance(exercise)].filter(Boolean).join(' · ');
+    });
+  }
+
   function persistDraft() {
     if (session) localStorage.setItem(DRAFT_KEY, JSON.stringify(session));
     else localStorage.removeItem(DRAFT_KEY);
@@ -356,7 +364,7 @@ function mount(container, options) {
     const key = Workout.dwellKey(scope?.exercise, scope?.setIndex);
     if (key !== dwellState) { dwellState = key; dwellSince = Date.now(); }
     const elapsed = dwellSince ? Math.floor((Date.now() - dwellSince) / 1000) : 0;
-    node.textContent = `本组停留 ${Workout.formatDwell(elapsed)}`;
+    node.textContent = `本${recordUnit(session?.exercises?.[currentFocusTarget()?.exercise])}停留 ${Workout.formatDwell(elapsed)}`;
   }
 
   function updateSession({ rerender = true } = {}) {
@@ -385,7 +393,7 @@ function mount(container, options) {
   }
 
   // 秒表和图解：只在逐组屏出现。秒表从 started_at 算，不另外存字段；
-  // 图解按动作名选姿势，认不出的先用呼吸起伏顶着，不假装在演那个动作。
+  // 图解按 exercise_id 解析；未支持动作只显示静态占位。
   function stopFocusExtras() {
     if (focusTimerId) { clearInterval(focusTimerId); focusTimerId = 0; }
     if (figureCleanup) { figureCleanup(); figureCleanup = null; }
@@ -413,7 +421,7 @@ function mount(container, options) {
       if (svg && session) {
         const target = currentFocusTarget();
         const exercise = session.exercises[target?.exercise];
-        figureCleanup = mountMoveFigure(svg, { kind: kindForName(exercise?.name || "") });
+        figureCleanup = createDemoFigure(svg, { exercise });
         svg.dataset.figureFor = exercise?.id || "";
       }
     } catch (error) {
@@ -508,7 +516,7 @@ function mount(container, options) {
     if (!element) return;
     const done = Workout.recordedSets(exercise).length;
     const total = exercise.sets.length;
-    element.textContent = `${done}/${total} 组`;
+    element.textContent = `${done}/${total} ${recordUnit(exercise)}`;
     const allDone = done === total && done > 0;
     element.classList.toggle("all-done", allDone);
     // 不重渲染就不收卡（不在输入时把东西抽走），但卡上的状态标记得跟着数字走，
@@ -693,7 +701,7 @@ function mount(container, options) {
     // 这个动作的历史数字直接放进说明里，不用再滚到底部展开动作进展。
     const history = Workout.exerciseHistory(records, ex.exercise_id, 20);
     const last = history[0];
-    const best = Workout.bestSet(history.flatMap(item => item.sets));
+    const best = Workout.isCardio(ex) ? null : Workout.bestSet(history.flatMap(item => item.sets));
     const stats = history.length
       ? `<p class="dialog-stats"><span>共 ${history.length} 次</span><span>上次 ${esc(last.date)}</span>${best ? `<span>最好 ${esc(Workout.formatSetCompact(best, ex.equipment))}</span>` : ""}</p><button type="button" class="workout-btn compact" data-exercise-trend="${esc(ex.exercise_id)}">看进展</button>`
       : `<p class="dialog-stats is-empty">还没有这个动作的记录。</p>`;
@@ -796,7 +804,8 @@ function mount(container, options) {
     const scope = focusScope();
     if (!scope || destroyed) return;
     const last = scope.exercise.sets.length <= 1;
-    const dialog = openDialog(`<div class="dialog-head"><h3>第 ${scope.setIndex + 1} 组 · 组操作</h3><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div><p>${last ? '至少保留一组，不会删除整个动作。' : '也可以长按组号打开此菜单；已有数据的组删除前会确认。'}</p><div class="dialog-actions"><button type="button" class="workout-btn danger" data-delete-current${last ? ' disabled' : ''}>删除当前组</button><button type="button" class="workout-btn" data-dialog-close>取消</button></div>`, { ink: true });
+    const unit = recordUnit(scope.exercise);
+    const dialog = openDialog(`<div class="dialog-head"><h3>第 ${scope.setIndex + 1} ${unit} · ${unit}操作</h3><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div><p>${last ? `至少保留一${unit}，不会删除整个动作。` : `也可以长按记录号打开此菜单；已有数据的${unit}删除前会确认。`}</p><div class="dialog-actions"><button type="button" class="workout-btn danger" data-delete-current${last ? ' disabled' : ''}>删除当前${unit}</button><button type="button" class="workout-btn" data-dialog-close>取消</button></div>`, { ink: true });
     dialog.querySelector('[data-delete-current]').addEventListener('click', () => {
       dialog.close();
       deleteSet(scope.exerciseIndex, scope.setIndex);
@@ -841,7 +850,12 @@ function mount(container, options) {
     const writeFocusField = (field, value) => {
       const scope = focusScope();
       if (!scope) return;
-      scope.set[field] = value === "" ? "" : Number(value);
+      const parsed = parseSetInput(field, value, scope.exercise);
+      const input = container.querySelector(`[data-focus-field="${field}"]`);
+      input?.setCustomValidity(parsed.valid ? '' : '请输入有限数；除坡度和助力重量外不得为负，计数须为整数');
+      if (!parsed.valid) { input?.reportValidity(); return; }
+      scope.set[field] = parsed.value;
+      refreshMetricSummary(scope.exercise, scope.set);
       updateSession({ rerender: false });
     };
     container.querySelectorAll("[data-focus-step]").forEach(button => button.addEventListener("click", () => {
@@ -852,14 +866,18 @@ function mount(container, options) {
       // 和总览里的步进器同一套下限：自重可负（助力），次数至少 1
       const assistable = Workout.allowsAssist(exercise);
       // 这一格还没填：先从上次的数字起步，不用从 0 一下一下加到上次的量。
-      if (!Number(set[field] || 0)) applySuggestion(scope);
-      const minimum = field === "reps" ? 1 : (field === "weight_kg" && assistable ? -200 : 0);
-      const next = Math.max(minimum, Number(set[field] || 0) + Number(button.dataset.delta));
-      set[field] = Math.round(next * 10) / 10;
+      if (isUnfilled(set[field])) applySuggestion(scope);
+      const minimum = metricSpec(field, exercise).signed ? -Infinity : field === "reps" ? 1 : (field === "weight_kg" && assistable ? -200 : 0);
+      const next = Math.max(minimum, Number(inputMetricValue(field, set[field], exercise) || 0) + Number(button.dataset.delta));
+      const parsed = parseSetInput(field, Math.round(next * 10) / 10, exercise);
+      if (!parsed.valid) return;
+      set[field] = parsed.value;
+      refreshMetricSummary(exercise, set);
       updateSession({ rerender: false });
       const input = container.querySelector(`[data-focus-field="${field}"]`);
       if (input) {
-        input.value = set[field];
+        input.value = inputMetricValue(field, set[field], exercise);
+        input.setCustomValidity('');
         input.classList.toggle("is-empty", !Number(set[field]));
       }
     }));
@@ -875,18 +893,20 @@ function mount(container, options) {
       const { set, exercise, setIndex } = scope;
       const previousSet = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[setIndex];
       if (!previousSet) return;
-      ["weight_kg", "reps", "duration_min", "distance_km"].forEach(field => {
-        if (!(field in previousSet) || Number(set[field] || 0) > 0) return;
-        set[field] = previousSet[field];
+      fillPrevious(set, previousSet);
+      refreshMetricSummary(exercise, set);
+      Object.keys(set).forEach(field => {
         const input = container.querySelector(`[data-focus-field="${field}"]`);
         if (input) {
-          input.value = set[field];
+          input.value = inputMetricValue(field, set[field], exercise);
           input.classList.toggle("is-empty", !Number(set[field]));
         }
       });
       updateSession({ rerender: false });
     });
     container.querySelector("[data-focus-done]")?.addEventListener("click", () => {
+      const invalid = container.querySelector('input:invalid');
+      if (invalid) { invalid.reportValidity(); return; }
       const scope = focusScope();
       if (!scope) return;
       const { set, exercise, exerciseIndex, setIndex } = scope;
@@ -895,7 +915,7 @@ function mount(container, options) {
         applySuggestion(scope);
       }
       if (!Workout.setHasRecord(set)) {
-        flashFocus("这一组还没填数字");
+        flashFocus(`这一${recordUnit(exercise)}还没填时长或有效记录数字`);
         return;
       }
       const advice = Workout.restAdvice(exercise);
@@ -907,7 +927,7 @@ function mount(container, options) {
       // 采用建议值改的是数据，需要落一次草稿（render 只负责画）。
       persistDraft();
       paintFocus(1);
-      flashFocus(next ? `第 ${setIndex + 1} 组已记录 · 休息 ${advice.minutes}` : "全部组已记录");
+      flashFocus(next ? `第 ${setIndex + 1} ${recordUnit(exercise)}已记录${Workout.isCardio(exercise) ? '' : ` · 休息 ${advice.minutes}`}` : "全部组已记录");
     });
     // 上/下一个动作：不离开这一屏就能换动作，落到该动作第一个没记录的组。
     container.querySelectorAll("[data-focus-move-exercise]").forEach(button => button.addEventListener("click", () => {
@@ -948,14 +968,7 @@ function mount(container, options) {
       const added = Workout.addSet(session, scope.exerciseIndex);
       // addSet 会继承上一组的数值，但那组还没练：把「有没有记录」的判定字段清掉，
       // 否则新加的一组一出生就算已录，主按钮会直接跳成「结束训练」。
-      if (added) {
-        if ("duration_min" in added || "distance_km" in added) {
-          added.duration_min = 0;
-          added.distance_km = 0;
-        } else {
-          added.reps = 0;
-        }
-      }
+      if (added) clearRecordFields(added);
       // 当前这组还没记就留在原地；记完了就往后找第一组没记录的，不直接跳到最后一组。
       const sets = scope.exercise.sets;
       let nextSet = scope.setIndex;
@@ -994,14 +1007,7 @@ function mount(container, options) {
       const added = Workout.addSet(session, exerciseIndex);
       // 新组只是预填，次数留空：复制次数会让它一出生就算已录，进度虚高、"完成这组"也能跳过去。
       // 逐组屏的加组也是同一套语义，两个入口不能两套判定。
-      if (added) {
-        if ("duration_min" in added || "distance_km" in added) {
-          added.duration_min = 0;
-          added.distance_km = 0;
-        } else {
-          added.reps = 0;
-        }
-      }
+      if (added) clearRecordFields(added);
       // 在 A 上加组就是在 A 上操作：别的动作回到收起默认。
       collapseOtherExercises(exercise.id);
       openSets[exercise.id] = exercise.sets.length - 1;
@@ -1044,7 +1050,11 @@ function mount(container, options) {
       const set = exercise?.sets[setIndex];
       if (!set) return;
       const field = input.dataset.setField;
-      set[field] = field === "pace" ? input.value : (input.value === "" ? "" : Number(input.value));
+      const parsed = parseSetInput(field, input.value, exercise);
+      input.setCustomValidity(parsed.valid ? '' : '请输入有限数；除坡度和助力重量外不得为负，计数须为整数');
+      if (!parsed.valid) { input.reportValidity(); return; }
+      set[field] = parsed.value;
+      refreshMetricSummary(exercise, set);
       updateSession({ rerender:false });
       refreshStats();
       refreshExerciseProgress(exerciseIndex);
@@ -1078,10 +1088,7 @@ function mount(container, options) {
       if (!set) return;
       const last = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[setIndex];
       if (!last) return;
-      if (set.weight_kg != null && !Number(set.weight_kg)) set.weight_kg = last.weight_kg;
-      if (set.reps != null && !Number(set.reps)) set.reps = last.reps;
-      if (set.duration_min != null && !Number(set.duration_min)) set.duration_min = last.duration_min;
-      if (set.distance_km != null && !Number(set.distance_km)) set.distance_km = last.distance_km;
+      fillPrevious(set, last);
       // 这里会重渲染：若这一填就把动作填满了，别在手指还贴在这组时把卡收掉。
       expandedDone.add(exercise.id);
       updateSession();
@@ -1116,6 +1123,8 @@ function mount(container, options) {
   // 差别只在字段从哪个 DOM 里读（scope）。
   async function saveSession(scope = container) {
     if (!session) return;
+    const invalid = container.querySelector('input:invalid');
+    if (invalid) { invalid.reportValidity(); return; }
     if (!session.date) return AppDialog.alert("请选择训练日期。", { title:"还差一步" });
     // 没有任何一组留下数值时不构成训练记录，提示后仍允许保存（可能是纯备注）。
     const stats = Workout.calculateStats(session);

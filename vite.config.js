@@ -14,6 +14,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(process.cwd(), "src/index.html"),
+        workoutMetrics: resolve(process.cwd(), "src/preview/workout-metrics.html"),
         // 动作审查页是常驻的，要跟着构建走，不然部署后就没有了。
         // 地址是 /preview/motion.html，跟 dev server 下一致。
         motion: resolve(process.cwd(), "src/preview/motion.html"),
@@ -29,6 +30,8 @@ export default defineConfig({
           // vue 单独 vendor chunk，业务模块按模块目录独立 chunk
           if (id.includes("node_modules/vue") || id.includes("node_modules/@vue")) return "vue";
           // 共享层（lib/components）打进一个共享 chunk，业务模块 chunk 再引用它
+          // 隔离回归入口只加载纯领域/表单模块，不能被 shared 带入 store/auth 副作用。
+          if (/\/src\/lib\/(workout-metrics|workout|workout-view|workout-catalog|critters)\.js$/.test(id)) return "metrics-core";
           if (id.includes("/src/lib/") || id.includes("/src/components/")) return "shared";
           if (id.includes("/src/modules/")) return id.split("/src/modules/")[1].split("/")[0];
         },

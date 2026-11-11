@@ -54,8 +54,8 @@ test("自定义动作：id 由名称派生，同名动作在历史里连成同�
   const next = workout.createSession("legs", new Date(2026, 9, 10));
   workout.addCustomExercise(next, "器械内收", [session]);
   assert.equal(next.exercises[0].exercise_id, entry.exercise_id);
-  assert.equal(next.exercises[0].sets[0].weight_kg, 0);
-  assert.equal(next.exercises[0].sets[0].reps, 0);
+  assert.equal(next.exercises[0].sets[0].weight_kg, '');
+  assert.equal(next.exercises[0].sets[0].reps, '');
   assert.equal(workout.previousPerformance([session], entry.exercise_id).set.weight_kg, 40);
 });
 
@@ -108,7 +108,7 @@ test("训练容量按有记录的组计算，空组不计入", () => {
     { weight_kg: 20, reps: 8 },
     { weight_kg: 0, reps: 0 },
   ];
-  assert.deepEqual(workout.calculateStats(session), { exerciseCount: 1, setCount: 2, reps: 18, volume: 360 });
+  assert.deepEqual(workout.calculateStats(session), { hasStrength: true, exerciseCount: 1, setCount: 2, reps: 18, volume: 360 });
 });
 
 test("力量组以次数为准：只填了重量没练次数不算有效组", () => {
@@ -123,7 +123,7 @@ test("力量组以次数为准：只填了重量没练次数不算有效组", ()
   assert.equal(workout.setHasRecord(session.exercises[0].sets[1]), true);
   assert.equal(workout.setHasRecord(session.exercises[0].sets[2]), true);
   assert.equal(workout.setHasRecord(null), false);
-  assert.deepEqual(workout.calculateStats(session), { exerciseCount: 1, setCount: 2, reps: 22, volume: 200 });
+  assert.deepEqual(workout.calculateStats(session), { hasStrength: true, exerciseCount: 1, setCount: 2, reps: 22, volume: 200 });
 });
 
 test("有氧组按时长或距离任一项判定有效", () => {
@@ -154,16 +154,16 @@ test("新增动作留空只建一组，上次数据只做提示", () => {
   const session = workout.createSession("chest", new Date(2026, 7, 21));
   workout.addExercise(session, "dumbbell_bench_press", history);
   // 新动作留空，不把上次的数字直接当成已记录；上次数值由组行的灰色提示给出
-  assert.deepEqual(session.exercises[0].sets, [{ weight_kg: 0, reps: 0, rpe: "", note: "" }]);
+  assert.deepEqual(session.exercises[0].sets, [{ weight_kg: '', reps: '', rpe: "", note: "" }]);
   assert.equal(workout.previousPerformance(history, "dumbbell_bench_press").set.weight_kg, 24);
   assert.equal(session.exercises[0].planned_sets, 1);
   assert.equal(workout.previousPerformance(history, "dumbbell_bench_press").date, "2026-08-20");
 });
 
-test("有氧动作使用时长、距离和配速字段", () => {
+test("跑步新组时长和距离留空，不持久化派生配速", () => {
   const session = workout.createSession("cardio", new Date(2026, 7, 21));
   workout.addExercise(session, "treadmill");
-  assert.deepEqual(session.exercises[0].sets, [{ duration_min: 0, distance_km: 0, pace: "", rpe: "", note: "" }]);
+  assert.deepEqual(session.exercises[0].sets, [{ duration_min: '', distance_km: '', treadmill_speed_kmh: '', treadmill_incline_pct: '', rpe: '', note: '' }]);
   assert.equal(workout.calculateStats(session).volume, 0);
 });
 

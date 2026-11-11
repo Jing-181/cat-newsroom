@@ -3,12 +3,12 @@
 // ESM 模块：import Workout from "./workout.js"。
 
 import catalog from "./workout-catalog.js";
+import { isCardioExercise, hasCardioFields, cardioHasRecord, metricFields, inheritSet, formatCardio, cardioMetric, cardioTrendField } from './workout-metrics.js';
 
   // "有记录"的判定：力量组以次数为准，有氧组以时长/距离为准。
 // 只填了重量、次数是 0 的组（例如 20kg × 0）不算记录，避免自动继承出来的半成品进历史；
 // 重量允许为 0：自重动作（引体、俯卧撑）重量就是 0，但次数写了就是真实训练。
 // 没有任何数值的空组同样不属于训练记录，界面直接删除而不是标记状态。
-const CARDIO_EQUIPMENT = ["有氧", "恢复"];
 // 自重类动作（引体向上、双杠臂屈伸、俯卧撑）没有外加负重，但可以用弹力带或助力器械做退阶。
 // 重量写负数表示助力，0 表示纯自重，写正数则是加负重腰带。
 const ASSIST_EQUIPMENT = ["自重", "自重/器械"];
@@ -41,7 +41,7 @@ function isSession(record) {
 }
 
 function isCardio(exercise) {
-  return CARDIO_EQUIPMENT.includes(exercise?.equipment);
+  return isCardioExercise(exercise);
 }
 
 function isBodyweight(exercise) {
@@ -56,11 +56,9 @@ function allowsAssist(exercise) {
 function setHasRecord(set) {
   if (!set || typeof set !== "object") return false;
   // 有氧组（有时长/距离字段）：留了时长或距离才算一次有氧记录。
-  if ("duration_min" in set || "distance_km" in set) {
-    return Number(set.duration_min || 0) > 0 || Number(set.distance_km || 0) > 0;
-  }
+  if (hasCardioFields(set)) return cardioHasRecord(set);
   // 力量组：以次数为准，重量可以为 0（自重）。
-  return Number(set.reps || 0) > 0;
+  return Number.isFinite(Number(set.reps)) && Number(set.reps) > 0;
 }
 
 function recordedSets(exercise) {
@@ -71,17 +69,12 @@ function recordedSets(exercise) {
 // RPE / RIR 是当次体感，和重量次数不同，不跟过来：否则新记录的详情里会冒出自己没填过的数值。
 function createSet(exercise, previous = null) {
   if (isCardio(exercise)) {
-    return {
-      duration_min: num(previous?.duration_min, 0),
-      distance_km: num(previous?.distance_km, 0),
-      pace: previous?.pace || "",
-      rpe: "",
-      note: "",
-    };
+    return { ...Object.fromEntries(metricFields(exercise).map(({ field }) => [field, ''])), ...inheritSet(previous) };
   }
   return {
-    weight_kg: num(previous?.weight_kg, 0),
-    reps: num(previous?.reps, 0),
+    ...inheritSet(previous),
+    weight_kg: previous?.weight_kg ?? '',
+    reps: previous?.reps ?? '',
     rpe: "",
     note: "",
   };
@@ -142,7 +135,7 @@ function addExercise(session, exerciseId, history = [], template = null) {
   // 从当前练着的动作抄组数与重量：换动作时器械没换，重量通常接着用，组数也按同一套安排。
   // 器械不同就不抄重量（30kg 的哑铃抄到绳索上只会是个错的默认值），组数照抄。
   const seed = template
-    ? { sets: template.sets, weight_kg: template.equipment === source.equipment ? template.weight_kg : 0 }
+    ? { sets: template.sets, weight_kg: template.equipment === source.equipment ? template.weight_kg : '' }
     : null;
   const sets = seedSets(source, seed || {});
   session.exercises.push({
@@ -162,11 +155,11 @@ function addExercise(session, exerciseId, history = [], template = null) {
 // 新动作的组：按 template 给组数，可以带一个重量，次数一律留空。
 // 次数是"这一组练到了"的判定字段（setHasRecord），抄过来会让还没练的组直接算已录，
 // 进度虚高、"完成这组"也会跳过它们。
-function seedSets(exercise, { sets = 1, weight_kg = 0 } = {}) {
+function seedSets(exercise, { sets = 1, weight_kg = '' } = {}) {
   const count = Math.max(1, Math.min(12, Math.round(Number(sets) || 1)));
   return Array.from({ length: count }, () => {
     const set = createSet(exercise);
-    if (weight_kg && "weight_kg" in set) set.weight_kg = num(weight_kg, 0);
+    if (weight_kg !== '' && weight_kg != null && "weight_kg" in set) set.weight_kg = num(weight_kg, 0);
     return set;
   });
 }
@@ -187,7 +180,7 @@ function addCustomExercise(session, name, history = [], template = null) {
   // 有氧恢复日的自定义动作按有氧形态记录（时长/距离），其余训练日按力量形态记录。
   const equipment = session.training_day === "cardio" ? "有氧" : "自定义";
   // 自定义动作没有"器械是否相同"可判，组数照抄当前动作，重量不抄（名称相同不等于器械相同）。
-  const seed = template ? { sets: template.sets, weight_kg: 0 } : null;
+  const seed = template ? { sets: template.sets, weight_kg: '' } : null;
   const sets = seedSets({ equipment }, seed || {});
   session.exercises.push({
     id: id("exercise"), exercise_id: exerciseId, name: trimmed, body_part: "自定义",
@@ -317,8 +310,9 @@ function sessionsOnDate(records, date) {
 
 function calculateStats(session) {
   const sets = (session?.exercises || []).flatMap(recordedSets);
-  const strengthSets = sets.filter(set => "reps" in set || "weight_kg" in set);
+  const strengthSets = (session?.exercises || []).filter(exercise => !isCardio(exercise)).flatMap(recordedSets);
   return {
+    hasStrength: (session?.exercises || []).some(exercise => !isCardio(exercise)),
     exerciseCount: (session?.exercises || []).length,
     setCount: sets.length,
     reps: strengthSets.reduce((sum, set) => sum + Number(set.reps || 0), 0),
@@ -347,9 +341,7 @@ function restAdvice(exercise) {
 // 同一动作的器械类型固定，所以在同一动作的历史里比较是稳的。
 function setIntensity(set) {
   if (!set || typeof set !== "object") return 0;
-  if ("duration_min" in set || "distance_km" in set) {
-    return Number(set.duration_min || 0) + Number(set.distance_km || 0) * 6;
-  }
+  if (hasCardioFields(set)) return 0;
   const reps = Number(set.reps || 0);
   if (!reps) return 0;
   const weight = Number(set.weight_kg || 0);
@@ -371,7 +363,7 @@ function exerciseHistory(records, exerciseId, limit = 8) {
     if (!sets.length) continue;
     items.push({
       sessionId: session.id, date: session.date, title: session.title,
-      equipment: exercise.equipment, sets, setCount: sets.length,
+      exercise_id: exercise.exercise_id, equipment: exercise.equipment, sets, setCount: sets.length,
       volume: sets.reduce((sum, set) => sum + Math.max(0, Number(set.weight_kg || 0)) * Number(set.reps || 0), 0),
       topWeight: sets.reduce((max, set) => Math.max(max, Number(set.weight_kg || 0)), 0),
     });
@@ -420,9 +412,7 @@ function progressMetric(entry, equipment) {
   if (!best) return null;
   const text = formatSetCompact(best, equipment);
   if (isCardio({ equipment })) {
-    const duration = Number(best.duration_min || 0);
-    const distance = Number(best.distance_km || 0);
-    return { value: duration > 0 ? duration : distance * 6, unit: duration > 0 ? "分" : "km", text, weight: 0, reps: 0 };
+    return null; // 有氧由 progressDigest 先固定指标，再取同单位序列。
   }
   const weight = Number(best.weight_kg || 0);
   if (weight > 0) return { value: setIntensity(best), unit: "kg", text, weight, reps: Number(best.reps || 0) };
@@ -452,7 +442,11 @@ const PROGRESS_STATE_ORDER = { up: 0, down: 1, flat: 2, new: 3 };
 function progressDigest(records, track, limit = 6) {
   const history = exerciseHistory(records, track.exercise_id, limit);
   if (!history.length) return null;
-  const points = history.map(entry => progressMetric(entry, entry.equipment || track.equipment)).filter(Boolean);
+  const cardio = isCardio(track);
+  const field = cardio ? cardioTrendField(history[0], track) : null;
+  const points = cardio
+    ? (field ? history.map(entry => cardioMetric(entry, field)).filter(Boolean) : [])
+    : history.map(entry => progressMetric(entry, entry.equipment || track.equipment)).filter(Boolean);
   const latest = points[0];
   if (!latest) return null;
   const previous = points[1] || null;
@@ -481,8 +475,10 @@ function progressDigest(records, track, limit = 6) {
     delta,
     pct,
     state,
-    isPR: isPR && Boolean(previous),
-    streak,
+    cardio,
+    metricField: field,
+    isPR: !cardio && isPR && Boolean(previous),
+    streak: cardio ? 0 : streak,
     sessionCount: history.length,
     // 新旧正序，给迷你柱状图用
     series: points.slice().reverse().map(point => point.value),
@@ -519,7 +515,7 @@ function progressHeadline(digests) {
   const prs = digests.filter(digest => digest.isPR);
   const changed = digests.filter(digest => digest.state === "up" || digest.state === "down");
   const picks = (changed.length ? changed : digests).slice(0, prs.length ? 1 : 2);
-  const parts = picks.map(digest => `${digest.name} ${deltaText(digest)}`);
+  const parts = picks.map(digest => `${digest.name}${digest.cardio ? ' 记录变化' : ''} ${deltaText(digest)}`);
   return (prs.length ? `${prs.length} 项新纪录 · ` : "") + parts.join(" · ");
 }
 
@@ -534,12 +530,9 @@ function weightText(weight, equipment) {
 }
 
 function formatSetText(set, equipment) {
-  if (isCardio({ equipment })) {
-    const parts = [`${num(set?.duration_min)} 分钟`];
-    if (Number(set?.distance_km || 0) > 0) parts.push(`${Number(set.distance_km)} km`);
-    if (set?.pace) parts.push(String(set.pace));
-    return parts.join(" · ");
-  }
+  const exercise = typeof equipment === 'object' ? equipment : { equipment };
+  if (isCardio(exercise) && (hasCardioFields(set) || !('reps' in (set || {})))) return formatCardio(set, exercise);
+  equipment = exercise.equipment;
   return `${weightText(set?.weight_kg, equipment)} × ${num(set?.reps)}`;
 }
 
@@ -569,11 +562,9 @@ function dwellKey(exercise, setIndex) {
 
 // 紧凑写法：20×10，自重动作显示为 自重×12，助力动作显示为 助力20×8。
 function formatSetCompact(set, equipment) {
-  if (isCardio({ equipment })) {
-    const parts = [`${num(set?.duration_min)}分`];
-    if (Number(set?.distance_km || 0) > 0) parts.push(`${Number(set.distance_km)}km`);
-    return parts.join(" ");
-  }
+  const exercise = typeof equipment === 'object' ? equipment : { equipment };
+  if (isCardio(exercise) && (hasCardioFields(set) || !('reps' in (set || {})))) return formatCardio(set, exercise);
+  equipment = exercise.equipment;
   const weight = Number(set?.weight_kg || 0);
   const label = weight < 0 ? `助力${trim(-weight)}` : (weight > 0 ? trim(weight) : "自重");
   return `${label}×${num(set?.reps)}`;

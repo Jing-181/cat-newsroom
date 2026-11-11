@@ -346,31 +346,14 @@ export const CLIPS = {
   plank, hangingLegRaise, run,
 };
 
-// 动作名 → 剪辑。长正则在前（先具体后笼统），否则「俯身飞鸟」会被「推」抢走、
-// 「腿举」会被「腿屈伸」抢走这类错配会到处出现。
-// 认不出的回 idle，宁可不动也不要演错。
-const NAME_RULES = [
-  ["bench", /卧推/],
-  // 悬挂举腿和悬垂放在同一条组里，必须先于「引体」判，否则会被当成悬垂
-  ["plank", /举腿|卷腹|仰卧起坐|死虫|健腹轮|平板|支撑/],
-  ["pull-up", /引体|悬垂|悬挂/],
-  ["split-squat", /保加利亚|分腿蹲/],
-  ["leg-extension", /腿屈伸|腿弯举|腿内收|腿外展|内收|外展/],
-  ["lateral-raise", /侧平举|反向蝴蝶|夹胸|面拉|俯身飞鸟|侧举/],
-  ["pushdown", /下压|臂屈伸|过顶|双杠/],
-  ["curl", /弯举/],
-  ["run", /跑步|爬坡|跳绳|椭圆|单车|划船机|有氧|越野|游泳|爬楼|跑步机/],
-  ["squat", /深蹲|哈克|腿举|腿蹬|蹲/],
-  ["hinge", /硬拉|髋铰链|臀推|早安|髋伸|山羊/],
-  ["press", /推举|肩推|推胸|实力推|俯卧撑|推/],
-  ["row", /划船|下拉|拉/],
-];
-
-export function kindForName(name = "") {
-  for (const [kind, pattern] of NAME_RULES) {
-    if (pattern.test(name)) return kind;
-  }
-  return "idle";
+// Legacy preview API only. Product surfaces use demos.js, never this unreviewed library.
+const NAME_KINDS = {
+  '杠铃深蹲': 'squat', '杠铃卧推': 'benchPress', '引体向上': 'pullUp',
+  '保加利亚分腿蹲': 'splitSquat', '腿屈伸': 'legExtension',
+  '哑铃侧平举': 'lateralRaise', '悬挂举腿': 'hangingLegRaise',
+};
+export function kindForName(name = '') {
+  return NAME_KINDS[name] || 'idle';
 }
 
 export function clipFor(kind) {

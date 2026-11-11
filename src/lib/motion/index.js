@@ -8,7 +8,21 @@ import { createPlayer, prefersReducedMotion } from "./player.js";
 import { createSvgSkin } from "./svg-skin.js";
 import { clipFor, kindForName, CLIPS } from "./clips.js";
 
+import { resolveDemo } from './demos.js';
+import { createPlaceholder } from './demo-skin.js';
+
 const NOOP = () => {};
+
+export function createDemoFigure(svg, { exercise, reduced, speed = 1, skin, player = createPlayer, staticTime } = {}) {
+  if (!svg || typeof document === 'undefined') return NOOP;
+  const demo = resolveDemo(exercise);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `${demo.clip?.label || '动作'} · ${demo.label}`);
+  if (!demo.clip) return createPlaceholder(svg);
+  const fixedTime = Number.isFinite(staticTime);
+  const clip = fixedTime ? { ...demo.clip, stillAt: Math.max(0, Math.min(demo.clip.duration, staticTime)) } : demo.clip;
+  return createFigure(svg, { clip, reduced: fixedTime ? true : reduced, speed, skin: skin || demo.skin, player });
+}
 
 export function createFigure(svg, {
   clip,
@@ -23,7 +37,7 @@ export function createFigure(svg, {
   if (!svg || typeof document === "undefined") return NOOP;
 
   const source = clip || clipFor(kind);
-  const prepared = prepareClip(source);
+  const prepared = source.sample ? source : prepareClip(source);
   const skin = makeSkin(svg, { proportions });
   skin.resize(source.viewBox);
 
@@ -31,24 +45,34 @@ export function createFigure(svg, {
 
   // 减少动态效果时不播，但也不是留一张空白：停在这一条剪辑里最有代表性的一秒。
   const draw = time => {
-    const pose = solvePose(sampleClip(prepared, time), proportions);
+    const pose = source.sample ? source.sample(time) : solvePose(sampleClip(prepared, time), proportions);
     skin.paint(pose);
     skin.paintProp?.(source.prop, pose);
   };
 
-  if (reduced ?? prefersReducedMotion()) {
+  let player;
+  let destroyed = false;
+  const cleanup = () => {
+    if (destroyed) return;
+    destroyed = true;
+    player?.destroy();
+    skin.destroy?.();
+  };
+  if (source.staticHold || (reduced ?? prefersReducedMotion())) {
     draw(prepared.stillAt);
-    return NOOP;
+    return cleanup;
   }
 
-  const player = makePlayer({
+  draw(prepared.stillAt);
+  player = makePlayer({
     duration: prepared.duration,
     loop: prepared.loop,
-    onFrame: time => draw(time * speed),
+    speed,
+    onFrame: draw,
   });
   player.play();
 
-  return () => player.destroy();
+  return cleanup;
 }
 
 export { clipFor, kindForName, CLIPS, prepareClip, sampleClip, solvePose, PROPORTIONS };

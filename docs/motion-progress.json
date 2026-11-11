@@ -1,0 +1,1506 @@
+{
+  "schemaVersion": 1,
+  "designBaseline": "User mandate: flat stick figures doing exercise; hollow circular head only, no eyes/face/mouth; thin line torso/limbs, no capsules/double-outline volumes/shoe blocks. Q comes from fixed per-action upper/lower limb proportions. Smoothness comes from continuous coordinated joint/weight trajectories and timing, never elastic scaling, sliding supports or loaded-exercise overshoot. Original pull-up remains frozen.",
+  "catalogCount": 104,
+  "branch": "feat/focus-coach-atlas",
+  "complete": false,
+  "currentBatch": {
+    "state": "handoff",
+    "exerciseIds": [
+      "seated_hip_adduction",
+      "seated_hip_abduction",
+      "hip_thrust",
+      "single_leg_rdl"
+    ],
+    "exerciseScope": "All104 registry/progress entries audited; documentation-only closeout, no per-exercise visual state changed",
+    "scope": "wakeup16 page5 first only:targeted support/readability and singleRDL leg/torso coupling",
+    "lastAction": "Added hip-machine seat/back legs preserving hip/pad directions;thrust bench edge now passes fixed upper-back point,bar still hip+3. SingleRDL37.5 torso52.5 vs rear leg74.4 diagnosed mismatch;rear leg now torso angle+.03 while support/hip/torso trajectory unchanged;side render preserves hinge.",
+    "sourceFiles": [
+      "src/lib/motion/lower-accessory-clips.js",
+      "src/lib/motion/hinge-clips.js",
+      "src/lib/motion/candidate-skin.js",
+      "tests/motion-page5-fixes.test.js",
+      "docs/motion-page5-fixes.md",
+      "docs/motion-progress.json"
+    ],
+    "evidence": [
+      "Parent actual page5-first upper/lower96px0/12.5/25/37.5 screenshots,no second/full cycle,no fileID",
+      "npm run check450/450 pass",
+      "npm run build exit0 703ms",
+      "git diff --check exit0",
+      "104 actualSVG120Hz bounds pass"
+    ],
+    "browserStructureEvidence": {
+      "status": "browser-structure-pass",
+      "reportedBy": "parent session actual browser DOM, not this worker screenshot",
+      "pages": 13,
+      "uniqueIds": 104,
+      "catalogOrder": true,
+      "svgPerPage": 24,
+      "rowsPerPage": 8,
+      "svgHeightCssPx": 96,
+      "heightMeasurementScope": "first page measured; not all pages visually inspected",
+      "activePlayers": 0,
+      "viewport": {
+        "width": 782,
+        "height": 697
+      },
+      "documentOverflow": "all13 pages scrollWidth<=innerWidth",
+      "pagination": "passed",
+      "screenshot": "Loop wakeup3: actual96px bird-dog three-frame screenshot succeeded after wake; then navigate review page11 and scroll first article succeeded, screenshot again UnknownVizError. Observed intermittent post-navigation failure, cause unproven; no cache/process diagnosis or script-screenshot bypass."
+    },
+    "blockers": [
+      "Screenshots intermittently restored in parent session; not assumed permanently stable",
+      "Bird-dog wakeup3 and prior stretch/swim fixes have partial static review only; full cycles remain unverified",
+      "Other page12 entries only partial-static-reviewed; no full cycle pass",
+      "Remaining paginated per-action visual review and real WorkoutUI input-focus/mobile/sync interaction still unverified;host screenshot intermittently fails after navigation,reason unknown"
+    ],
+    "nextAction": "Resume page4-first screenshot when host works;page5 three supports static-fix-reviewed only,singleRDL requires240px continuous playback. Wakeup17 docs-only,no code/tests;overall incomplete.",
+    "wakeup17Evidence": {"source":"parent actual page5 first lower and second upper/lower96px dark screenshots","notSeen":"new first upper","staticFixReviewed":["seated_hip_adduction","seated_hip_abduction","hip_thrust"],"needsLargePlayback":["single_leg_rdl"],"fullVisualUpgrade":false,"codeChanged":false,"testsRerun":false,"screenshotFileId":null},
+    "wakeup15Evidence": {
+      "source": "parent actual page6 new first lower and second upper/lower96px dark screenshots",
+      "notSeen": "new first upper",
+      "staticFixReviewed": [
+        "nordic_curl",
+        "seated_calf_raise",
+        "preacher_curl"
+      ],
+      "fullVisualUpgrade": false,
+      "codeChanged": false,
+      "testsRerun": false,
+      "screenshotFileId": null
+    },
+    "wakeup13Evidence": {
+      "source": "parent actual page7 first lower and second upper/lower96px screenshots",
+      "notSeen": "new first upper",
+      "staticFixReviewed": [
+        "incline_dumbbell_curl",
+        "close_grip_bench_press",
+        "overhead_extension"
+      ],
+      "fullVisualUpgrade": false,
+      "codeChanged": false,
+      "testsRerun": false,
+      "screenshotFileId": null
+    },
+    "reviewCursor": {"page":4,"phaseGroup":"first","wakeup":17,"navigation":"passed","scrollFirstArticle":"passed","screenshot":"UnknownVizError","visualEvidence":"none for page4-first this wakeup"},
+    "wakeup11Evidence": {
+      "source": "parent actual page8 second upper96px screenshot",
+      "staticFixReviewed": [
+        "treadmill",
+        "bike"
+      ],
+      "notInScreenshot": [
+        "incline_walk"
+      ],
+      "fullVisualUpgrade": false,
+      "codeChanged": false,
+      "testsRerun": false,
+      "screenshotFileId": null
+    },
+    "concurrency": "This batch is handing off. Next worker must check active tasks, git branch and dirty files before editing; do not overwrite existing uncommitted work.",
+    "wakeup6Evidence": {
+      "kind": "docs-only-static-evidence",
+      "reviewedFixes": [
+        "smith_machine_bench_press",
+        "one_arm_dumbbell_bench_press",
+        "lat_pulldown_reverse"
+      ],
+      "notReviewed": [
+        "incline_dumbbell_fly"
+      ],
+      "partialOnly": [
+        "t_bar_row"
+      ],
+      "browser": "page10 lower screenshot succeeded; then navigate review page9 succeeded, scroll first article succeeded, screenshot UnknownVizError;cause unproven",
+      "visualCounts": {
+        "pending": 91,
+        "user_accepted": 1,
+        "fix-implemented-pending-review": 12
+      },
+      "fullVisualOutstanding": 103,
+      "tests": "not rerun; prior code-batch results unchanged",
+      "screenshotFileId": null
+    }
+  },
+  "statusSemantics": {
+    "asset": "pending | implemented (SVG generator exists, not visual acceptance)",
+    "geometry": "pending | engineering_pass (named tests only, not professional certification)",
+    "visual": "pending | needs-fix | fix-implemented-pending-review | user_accepted",
+    "integrated": "pending | current_resolver",
+    "completeRule": "Per-exercise complete requires asset implemented, geometry engineering_pass, visual user_accepted, adequate reference evidence for the declared scope, and integrated current_resolver for SAME revision. All104 must satisfy this for overall complete. Mapping coverage alone never completes the project. reference and supportType are separate dimensions."
+  },
+  "defaults": {
+    "asset": "pending",
+    "geometry": "pending",
+    "visual": "pending",
+    "integrated": "pending",
+    "complete": false,
+    "evidence": []
+  },
+  "exercises": {
+    "dumbbell_bench_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "chest-stick-v1",
+      "evidence": [
+        "tests/motion-chest.test.js",
+        "StrengthLog dumbbell chest press正文"
+      ]
+    },
+    "dumbbell_bench_press_incline": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "chest-stick-v1",
+      "evidence": [
+        "tests/motion-chest.test.js",
+        "StrengthLog dumbbell incline press正文30-45度"
+      ]
+    },
+    "machine_chest_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "StrengthLog machine chest press正文"
+      ]
+    },
+    "machine_chest_press_incline": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "catalog上斜+通用machine press参考；简化30度导向"
+      ]
+    },
+    "machine_chest_press_decline": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "catalog下斜+通用machine press参考；简化前下导向非特定厂商"
+      ]
+    },
+    "barbell_bench_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "stick-upper-body-v3-stroke",
+      "user_review": "approved_with_stroke_adjustment",
+      "user_review_quote": "目前运动效果可以，基石人物线条要在粗一点，像引体向上那样看起来更有力量",
+      "evidence": [
+        "tests/motion-candidates.test.js",
+        "src/lib/motion/candidate-clips.js: CANDIDATE_CLIPS.benchPress"
+      ],
+      "note": "New clip and skin integrated via demos.js/createDemoFigure for training and atlas by explicit user authorization; old version retained in preview. Visual inspection pending."
+    },
+    "barbell_bench_press_incline": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "chest-stick-v1",
+      "evidence": [
+        "tests/motion-chest.test.js",
+        "StrengthLog incline bench press正文"
+      ]
+    },
+    "dips": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "StrengthLog bar dip正文"
+      ]
+    },
+    "cable_fly_high": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "StrengthLog standing cable fly正文高位向下"
+      ]
+    },
+    "cable_fly_mid": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "catalog中位水平+通用cable fly正文"
+      ]
+    },
+    "cable_fly_low": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "StrengthLog standing cable fly正文低位向上"
+      ]
+    },
+    "pec_deck": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "StrengthLog pec deck正文；按catalog采用微屈手柄式，非90度肘垫式"
+      ]
+    },
+    "dumbbell_fly": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "StrengthLog dumbbell chest fly正文"
+      ]
+    },
+    "pull_up": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "user_accepted",
+      "integrated": "current_resolver",
+      "complete": true,
+      "revision": "original-demo-pullUp-frozen",
+      "evidence": [
+        "User review explicitly accepts pull-up feeling and requests it remain frozen",
+        "tests/motion-demos.test.js: fixed grips and arm lengths",
+        "src/lib/motion/demos.js: pull_up registration"
+      ],
+      "note": "Freeze original demo-clips.js pullUp and demo-skin.js. Acceptance is user aesthetic review, not professional certification or new browser verification."
+    },
+    "lat_pulldown_wide": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "back-stick-v1",
+      "evidence": [
+        "tests/motion-back.test.js",
+        "StrengthLog pronated lat pulldown正文"
+      ]
+    },
+    "lat_pulldown_close": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "back-stick-v1",
+      "evidence": [
+        "tests/motion-back.test.js",
+        "StrengthLog neutral close-grip pulldown正文"
+      ]
+    },
+    "barbell_row": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "hinge-stick-v1",
+      "evidence": [
+        "tests/motion-hinge.test.js",
+        "StrengthLog barbell row正文"
+      ]
+    },
+    "seated_cable_row": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "back-stick-v1",
+      "evidence": [
+        "tests/motion-back.test.js",
+        "StrengthLog cable close grip seated row正文"
+      ]
+    },
+    "seated_cable_row_wide": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "back-stick-v1",
+      "evidence": [
+        "tests/motion-back.test.js",
+        "StrengthLog cable wide grip seated row正文"
+      ]
+    },
+    "one_arm_dumbbell_row": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "hinge-stick-v1",
+      "evidence": [
+        "tests/motion-hinge.test.js",
+        "StrengthLog dumbbell row正文左手左膝凳面支撑"
+      ]
+    },
+    "machine_row": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog seated machine row正文"
+      ]
+    },
+    "straight_arm_pulldown": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog straight arm lat pulldown正文"
+      ]
+    },
+    "shrug": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog dumbbell shrug正文"
+      ]
+    },
+    "back_extension": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "lower-accessory-v1",
+      "evidence": [
+        "tests/motion-lower-accessories.test.js",
+        "StrengthLog back extension正文"
+      ]
+    },
+    "strict_press": {
+      "visual_evidence": "needs-fix: parent actual 96px dark screenshot shows near arm crossing center of hollow head in middle phase; world-space clearance is insufficient. No screenshot path available.",
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "fix_evidence": "static-fix-verified: parent actual96px dark three frames show previous middle-phase diagonal through head center gone; hollow head clear and full bar readable at start/top. No persisted screenshot ID. Full-cycle/other phases/240px and user acceptance still unverified. World geometry unchanged.",
+      "integrated": "current_resolver",
+      "revision": "shoulders-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-shoulders.test.js",
+        "StrengthLog overhead press verified; head avoidance path is drawing design"
+      ]
+    },
+    "dumbbell_shoulder_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "shoulders-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-shoulders.test.js",
+        "StrengthLog seated dumbbell shoulder press; seated variant explicitly chosen from catalog"
+      ]
+    },
+    "machine_shoulder_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog machine shoulder press正文"
+      ]
+    },
+    "dumbbell_lateral_raise": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "shoulders-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-shoulders.test.js",
+        "StrengthLog lateral raise; catalog fixed slight elbow bend"
+      ]
+    },
+    "cable_lateral_raise": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog cable lateral raise正文"
+      ]
+    },
+    "reverse_pec_deck": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog reverse machine fly正文"
+      ]
+    },
+    "face_pull": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog face pull正文；双支绳定长25"
+      ]
+    },
+    "cable_reverse_fly": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "functional-v1",
+      "evidence": [
+        "tests/motion-functional.test.js",
+        "catalog交叉绳+前批reverse machine fly肩外展原则；专页404"
+      ]
+    },
+    "bent_over_reverse_fly": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "shoulder-back-v1",
+      "evidence": [
+        "tests/motion-shoulder-back.test.js",
+        "StrengthLog reverse dumbbell flyes正文"
+      ]
+    },
+    "barbell_squat": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "stick-lower-body-v3-stroke",
+      "user_review": "approved_with_stroke_adjustment",
+      "user_review_quote": "目前运动效果可以，基石人物线条要在粗一点，像引体向上那样看起来更有力量",
+      "partial_visual_evidence": "Parent browser confirmed 96px squat hollow circle head/line figure/no face or volume and dark theme working; partial static check only",
+      "evidence": [
+        "tests/motion-candidates.test.js",
+        "src/lib/motion/candidate-clips.js: CANDIDATE_CLIPS.squat"
+      ],
+      "note": "New clip and skin integrated via demos.js/createDemoFigure for training and atlas by explicit user authorization; old version retained in preview. Visual inspection pending."
+    },
+    "bulgarian_split_squat": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "compound-leg-v1",
+      "evidence": [
+        "tests/motion-compound-legs.test.js",
+        "StrengthLog Bulgarian split squat正文"
+      ]
+    },
+    "walking_lunge": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "compound-leg-v1",
+      "evidence": [
+        "tests/motion-compound-legs.test.js",
+        "StrengthLog dumbbell walking lunge正文；本图自重两步跟随视角"
+      ]
+    },
+    "conventional_deadlift": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "hinge-stick-v1",
+      "evidence": [
+        "tests/motion-hinge.test.js",
+        "StrengthLog deadlift正文"
+      ]
+    },
+    "hack_squat": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "lower-accessory-v1",
+      "evidence": [
+        "tests/motion-lower-accessories.test.js",
+        "StrengthLog hack squat machine正文"
+      ]
+    },
+    "leg_press": {
+      "quality_fix": "sole-plane-v2: rendered heel/toe on moving platform, ankle offset2; tests/motion-render-contract.test.js pass; visual pending",
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "compound-leg-v1",
+      "evidence": [
+        "tests/motion-compound-legs.test.js",
+        "StrengthLog leg press正文"
+      ]
+    },
+    "romanian_deadlift": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "hinge-stick-v1",
+      "evidence": [
+        "tests/motion-hinge.test.js",
+        "StrengthLog Romanian deadlift正文"
+      ]
+    },
+    "leg_extension": {
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: return samples recognizable;partial-static-reviewed only. New first upper not seen;not full visual acceptance,no fileID/path",
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "legs-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-legs.test.js",
+        "StrengthLog leg extension: fixed knee/machine joint, controlled extension; catalog lower-shin pad"
+      ]
+    },
+    "leg_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "legs-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-legs.test.js",
+        "StrengthLog seated leg curl: aligned knee joint, downward flexion; catalog permits seated/prone, this clip explicitly seated"
+      ],
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: return samples recognizable;partial-static-reviewed only. New first upper not seen;not full visual acceptance,no fileID/path"
+    },
+    "hip_thrust": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "lower-accessory-v1",
+      "evidence": [
+        "tests/motion-lower-accessories.test.js",
+        "StrengthLog hip thrust正文"
+      ],
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: static-fix-reviewed: second-half upper-back bench support clear. New first upper not seen;not full visual acceptance,no fileID/path"
+    },
+    "calf_raise": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "legs-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-legs.test.js",
+        "ACE calf raises forefoot/heel principles; machine-platform variant from catalog, not exact ACE equipment"
+      ],
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: return samples recognizable;partial-static-reviewed only. New first upper not seen;not full visual acceptance,no fileID/path"
+    },
+    "seated_hip_adduction": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "lower-accessory-v1",
+      "evidence": [
+        "tests/motion-lower-accessories.test.js",
+        "StrengthLog hip adduction正文"
+      ],
+      "knowledge_fix": "本轮获授权修tips为大腿内侧贴垫，依据StrengthLog adduction正文；ID/字段不变",
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: static-fix-reviewed: seat/back/support frame recognizable. New first upper not seen;not full visual acceptance,no fileID/path"
+    },
+    "seated_hip_abduction": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "lower-accessory-v1",
+      "evidence": [
+        "tests/motion-lower-accessories.test.js",
+        "StrengthLog hip abduction正文"
+      ],
+      "knowledge_fix": "本轮获授权修tips为大腿外侧贴垫，依据StrengthLog abduction正文；ID/字段不变",
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: static-fix-reviewed: seat/back/support frame recognizable. New first upper not seen;not full visual acceptance,no fileID/path"
+    },
+    "lateral_lunge": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "compound-leg-v1",
+      "evidence": [
+        "tests/motion-compound-legs.test.js",
+        "StrengthLog side lunge正文；采用catalog固定宽站换边"
+      ],
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: return samples recognizable;partial-static-reviewed only. New first upper not seen;not full visual acceptance,no fileID/path"
+    },
+    "single_leg_rdl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "hinge-stick-v1",
+      "evidence": [
+        "tests/motion-hinge.test.js",
+        "StrengthLog single leg RDL正文杠铃版；哑铃选型依catalog"
+      ],
+      "visual_evidence": "wakeup17 parent actual page5 first lower + second upper/lower96px dark screenshots: after world coupling fix hip hinge still not intuitive at96px;requires240px continuous playback,do not alter geometry solely from small images. New first upper not seen;not full visual acceptance,no fileID/path"
+    },
+    "nordic_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "lower-accessory-v1",
+      "evidence": [
+        "tests/motion-lower-accessories.test.js",
+        "StrengthLog Nordic eccentric正文"
+      ],
+      "limit": "有限幅往返，未演示触地撑手恢复",
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: static-fix-reviewed: second-half ankle fixation rollers/support frame recognizable. New first upper not seen;not full acceptance,no screenshot file ID"
+    },
+    "seated_calf_raise": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "revision": "legs-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-legs.test.js",
+        "StrengthLog seated calf raise: seat/knee pad/ball of foot support"
+      ],
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: static-fix-reviewed: second-half seat,foot platform and knee pads recognizable. New first upper not seen;not full acceptance,no screenshot file ID"
+    },
+    "push_up": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "StrengthLog push-up正文"
+      ],
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: second-half elbow extension/rise recognizable;partial-static-reviewed only. New first upper not seen;not full acceptance,no screenshot file ID"
+    },
+    "plank": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "StrengthLog plank正文；staticHold无player"
+      ],
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: static pose recognizable;other viewports/full acceptance not tested,no global pass. New first upper not seen;not full acceptance,no screenshot file ID"
+    },
+    "dumbbell_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "arms-stick-v1",
+      "evidence": [
+        "tests/motion-arms.test.js",
+        "ACE barbell curl elbow/torso guidance plus catalog dumbbell-specific supinated grip; dumbbell direct external reference not independently fetched"
+      ],
+      "complete": false,
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: sampled second-half dumbbell equipment distinction recognizable;partial-static-reviewed only. New first upper not seen;not full acceptance,no screenshot file ID"
+    },
+    "hammer_curl": {
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: sampled second-half hammer-grip equipment distinction recognizable;partial-static-reviewed only. New first upper not seen;not full acceptance,no screenshot file ID",
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "arms-stick-v1",
+      "evidence": [
+        "tests/motion-arms.test.js",
+        "ACE exercise-library/10/hammer-curl verified"
+      ],
+      "complete": false
+    },
+    "barbell_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "arms-stick-v1",
+      "evidence": [
+        "tests/motion-arms.test.js",
+        "ACE exercise-library/70/bicep-curl verified"
+      ],
+      "complete": false,
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: sampled second-half single-bar equipment distinction recognizable;partial-static-reviewed only. New first upper not seen;not full acceptance,no screenshot file ID"
+    },
+    "preacher_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog barbell preacher curl正文，采用凳+杠版"
+      ],
+      "visual_evidence": "wakeup15 parent actual page6 new first lower + second upper/lower96px dark screenshots: static-fix-reviewed: sampled first/second-half inclined pad edges and supports recognizable. New first upper not seen;not full acceptance,no screenshot file ID"
+    },
+    "cable_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog cable curl with bar正文"
+      ],
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: second-half return sampled and recognizable;partial-static-reviewed only. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "incline_dumbbell_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog incline dumbbell curl正文"
+      ],
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: static-fix-reviewed: second-half backrest and legs recognizable. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "reverse_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog reverse barbell curl正文"
+      ],
+      "limit": "正反握掌面线稿不可见，同族轨迹不声称独立视觉差异",
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: second-half return sampled and recognizable;partial-static-reviewed only. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "wrist_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "固定前臂22，新增手段6绕固定腕轴；StrengthLog wrist curl正文支持哑铃变式"
+      ],
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: still requires240px continuous playback;do not exaggerate amplitude. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "close_grip_bench_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "chest-stick-v1",
+      "evidence": [
+        "tests/motion-chest.test.js",
+        "StrengthLog close grip bench press正文"
+      ],
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: static-fix-reviewed: head-side overlap improved and bench clear. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "rope_pushdown": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "arms-stick-v1",
+      "evidence": [
+        "tests/motion-arms.test.js",
+        "ACE exercise-library/185/triceps-pushdowns verified"
+      ],
+      "complete": false,
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: second-half return sampled and recognizable;partial-static-reviewed only. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "bar_pushdown": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog tricep pushdown with bar正文"
+      ],
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: second-half return sampled and recognizable;partial-static-reviewed only. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "overhead_extension": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog overhead cable triceps extension正文"
+      ],
+      "knowledge_fix": "User-authorized targeted catalog tips correction to low-pulley overhead rope extension, matching equipment/source; ID/model unchanged",
+      "visual_evidence": "wakeup13 parent actual page7 first lower + second upper/lower96px screenshots: static-fix-reviewed: sampled first/second-half head circle and upper arm separation improved. New first upper not seen this wakeup;not full-cycle acceptance,no screenshot file ID"
+    },
+    "skull_crusher": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog barbell lying triceps extension正文"
+      ],
+      "visual_evidence": "wakeup10 second phases still head/arm close at96px;needs240px and playback,no confirmed geometry defect,no change"
+    },
+    "treadmill": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "cardio-machine-v1",
+      "reference": "parent-verified-general-guidance: ClevelandClinic treadmill-or-elliptical2022-11-25; motorized belt not exact phases/dimensions",
+      "supportType": "exact",
+      "evidence": [
+        "tests/motion-cardio-machines.test.js",
+        "running belt stance and flight mechanical constraints"
+      ],
+      "visual_evidence": "wakeup11 static-fix-reviewed: parent actual page8 second upper96px screenshot shows second-half four phases belt end-frame/front posts recognizable;not full-cycle acceptance,no screenshot file ID"
+    },
+    "outdoor_run": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "reference": "parent-verified-general-guidance: ClevelandClinic running gait; coordination/individual variation, not drawing stride",
+      "supportType": "exact",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "outdoor-v1",
+      "evidence": [
+        "tests/motion-outdoor.test.js",
+        "平地交替支撑/腾空/跟随回环；未获正确外部正文"
+      ],
+      "visual_evidence": "wakeup9 actual page8 first-four-phase96px screenshot readability issue;targeted correction implemented pending parent recheck;no full cycle evidence"
+    },
+    "bike": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "cardio-machine-v1",
+      "reference": "parent-verified-general-guidance: ClevelandClinic benefits-of-cycling2022-06-06; seat/handle/pedals, no exact radii",
+      "supportType": "exact",
+      "evidence": [
+        "tests/motion-cardio-machines.test.js",
+        "fixed saddle/handle and12radius opposite cranks"
+      ],
+      "visual_evidence": "wakeup11 static-fix-reviewed: parent actual page8 second upper96px screenshot shows pedal-area duplicate clutter markedly reduced, crank and feet distinguishable;not full-cycle acceptance,no screenshot file ID"
+    },
+    "elliptical": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "cardio-machine-v1",
+      "reference": "parent-verified-general-guidance: ClevelandClinic elliptical-machine-benefits2024-10-22 and treadmill-or-elliptical2022-11-25; pedals/handles not exact phases",
+      "supportType": "exact",
+      "evidence": [
+        "tests/motion-cardio-machines.test.js",
+        "opposite elliptical pedals and contralateral handle relation"
+      ],
+      "visual_evidence": "wakeup10 static-fix-reviewed: actual first lower+second upper/lower screenshots show base/flywheel/track/steps identifiable;rower low finish improved. First upper new version not seen,not full-cycle pass"
+    },
+    "rowing_machine": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "cardio-machine-v1",
+      "evidence": [
+        "tests/motion-cardio-machines.test.js",
+        "Concept2 rowing technique正文，腿→躯干→手驱动与逆序回程"
+      ],
+      "visual_evidence": "wakeup10 static-fix-reviewed: actual first lower+second upper/lower screenshots show base/flywheel/track/steps identifiable;rower low finish improved. First upper new version not seen,not full-cycle pass",
+      "quality_fix": "fixed outlet/handle z32 vs39;arm hint rear/down;sequence untouched,exact bottom coordinates tested"
+    },
+    "stair_climber": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "cardio-machine-v1",
+      "reference": "parent-verified-general-guidance: ClevelandClinic stairmaster-benefits-and-workouts; moving steps/core/handrail balance, not exact knee/foot angles; manufacturer mechanical refs retained",
+      "supportType": "exact",
+      "evidence": [
+        "tests/motion-cardio-machines.test.js",
+        "alternating moving tread contact, minimum one foot supported"
+      ],
+      "visual_evidence": "wakeup10 static-fix-reviewed: actual first lower+second upper/lower screenshots show base/flywheel/track/steps identifiable;rower low finish improved. First upper new version not seen,not full-cycle pass"
+    },
+    "incline_walk": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "cardio-machine-v1",
+      "reference": "parent-verified-general-guidance: ClevelandClinic12-3-30-workout2021-12-30; natural arm swing,12% is example not prescription",
+      "supportType": "exact",
+      "evidence": [
+        "tests/motion-cardio-machines.test.js",
+        "12% catalog incline, no flight, sole/belt plane contact"
+      ],
+      "visual_evidence": "wakeup10 second four phases show missing belt frame or crowded bike;local fixture/layering revision implemented pending recheck"
+    },
+    "jump_rope": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "reference": "parent-verified-general-guidance: ClevelandClinic jump-rope benefits; basic timing/wrist/light landing, not exact phase values",
+      "supportType": "exact",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "outdoor-v1",
+      "evidence": [
+        "tests/motion-outdoor.test.js",
+        "单绳定长连续转动、绳低时足离地；专页404"
+      ],
+      "visual_evidence": "wakeup8 static-fix-reviewed: parent actual96px page9 75percent rope clearly above head;first group lower not seen, not full-cycle pass,no screenshot path",
+      "quality_fix": "Full-cycle diagnosed rope max83 below headtop94: hand elevation42->56,rope radius41->55; fixed length and below-airborne-feet/above-head phases tested"
+    },
+    "trail_run": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "reference": "parent-verified-coaching-guidance: RunnersConnect hill-running-form; upright uphill lean, not8% or full trail technique",
+      "supportType": "simplified",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "outdoor-v1",
+      "evidence": [
+        "tests/motion-outdoor.test.js",
+        "8%缓坡脚地接触；REI403，非复杂地形覆盖"
+      ],
+      "visual_evidence": "wakeup8 eight sampled96px frames overlap/read as one leg;render correction pending parent review",
+      "quality_fix": "render-only yaw-.75/elevation.35+correct camera tracking;world gait unchanged;knee sampled min12.6 foot7.8 torso26.6"
+    },
+    "badminton": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "reference": "pending",
+      "supportType": "simplified",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "outdoor-v1",
+      "evidence": [
+        "tests/motion-outdoor.test.js",
+        "右手无球头顶正手挥拍，仅基础挥拍变式；BadmintonBible空正文"
+      ],
+      "visual_evidence": "wakeup8 static-fix-reviewed: parent actual96px page9 four phases head/arm more separated than previous;first group lower not seen, not full-cycle pass,no screenshot path"
+    },
+    "sit_up": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "core-accessory-v1",
+      "evidence": [
+        "tests/motion-core-accessories.test.js",
+        "StrengthLog sit-up正文"
+      ],
+      "knowledge_fix": "用户授权定向修sit_up tips为脚落地较大幅起坐，与既有示范一致；依据StrengthLog sit-up正文，ID/字段不变",
+      "visual_evidence": "wakeup8 sampled poses recognizable;partial-static-reviewed only,first-group lower not reviewed"
+    },
+    "crunch": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "core-accessory-v1",
+      "evidence": [
+        "tests/motion-core-accessories.test.js",
+        "StrengthLog crunch正文；低背固定分段躯干"
+      ],
+      "visual_evidence": "wakeup8 sampled poses recognizable;partial-static-reviewed only,first-group lower not reviewed"
+    },
+    "russian_twist": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "core-accessory-v1",
+      "evidence": [
+        "tests/motion-core-accessories.test.js",
+        "StrengthLog core twist正文；双脚落地版本"
+      ],
+      "visual_evidence": "wakeup8 static-fix-reviewed: parent actual96px page9 second-half no longer appears double-headed;first group lower not seen, not full-cycle pass,no screenshot path"
+    },
+    "hanging_leg_raise": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "core-accessory-v1",
+      "evidence": [
+        "tests/motion-core-accessories.test.js",
+        "StrengthLog hanging leg raise正文；上身固定髋屈"
+      ],
+      "visual_evidence": "wakeup8 static-fix-reviewed: parent actual96px page9 second-half head/two arms clear and legs descend;first group lower not seen, not full-cycle pass,no screenshot path",
+      "quality_fix": "Original projected arm centerline min6.98<head radius8, not mere outside tangent; render yaw-.8/.2 and true depth path, world fixed hangs unchanged"
+    },
+    "cable_crunch": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "core-accessory-v1",
+      "evidence": [
+        "tests/motion-core-accessories.test.js",
+        "StrengthLog cable crunch正文；手头关系固定"
+      ],
+      "visual_evidence": "wakeup8 second-group50percent head-side arm/rope still complex;requires240px review,not proven new geometry error,no changes this batch"
+    },
+    "side_plank": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "StrengthLog side plank正文；静态前臂支撑"
+      ],
+      "visual_evidence": "Parent page10 actual96px dark three sampled phases posture/equipment recognizable;partial-static-reviewed only,no full-cycle pass"
+    },
+    "ab_wheel": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "core-accessory-v1",
+      "evidence": [
+        "tests/motion-core-accessories.test.js",
+        "StrengthLog kneeling ab wheel roll-out正文；轮转角=位移/半径"
+      ],
+      "visual_evidence": "Parent page10 actual96px dark three sampled phases posture/equipment recognizable;partial-static-reviewed only,no full-cycle pass"
+    },
+    "dumbbell_front_raise": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "revision": "shoulders-stick-v1",
+      "complete": false,
+      "evidence": [
+        "tests/motion-shoulders.test.js",
+        "StrengthLog front raise; catalog permits bilateral motion and slight elbow bend"
+      ],
+      "visual_evidence": "Parent page10 actual96px dark three sampled phases posture/equipment recognizable;partial-static-reviewed only,no full-cycle pass"
+    },
+    "incline_dumbbell_fly": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "fly-machine-v1",
+      "evidence": [
+        "tests/motion-fly.test.js",
+        "catalog30度+通用fly正文；上斜专页404"
+      ],
+      "visual_evidence": "wakeup6 only top image fragment visible, not valid fix review;still awaiting complete static/full-cycle recheck"
+    },
+    "smith_machine_bench_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "chest-stick-v1",
+      "evidence": [
+        "tests/motion-chest.test.js",
+        "StrengthLog Smith machine bench press正文；竖直导轨型号"
+      ],
+      "visual_evidence": "wakeup6 static-fix-reviewed: parent actual page10 lower-half96px dark screenshot, three frames show bench support/elbow separation/wrist position clearer than prior version;not full-cycle acceptance;no screenshot file ID"
+    },
+    "one_arm_dumbbell_bench_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "chest-stick-v1",
+      "evidence": [
+        "tests/motion-chest.test.js",
+        "catalog单臂/另一手扶腹侧；外部仅通用哑铃卧推，单臂专页404"
+      ],
+      "visual_evidence": "wakeup6 static-fix-reviewed: parent actual page10 lower-half96px dark screenshot, three frames show bench support/elbow separation/wrist position clearer than prior version;not full-cycle acceptance;no screenshot file ID"
+    },
+    "lat_pulldown_reverse": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "back-stick-v1",
+      "evidence": [
+        "tests/motion-back.test.js",
+        "StrengthLog supinated pulldown正文"
+      ],
+      "limit": "掌面不可见，反手由说明表达；肩宽握距与宽/窄版不同",
+      "visual_evidence": "wakeup6 static-fix-reviewed: parent actual page10 lower-half screenshot shows new seat support recognizable;not full-cycle acceptance;no file ID"
+    },
+    "t_bar_row": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "hinge-stick-v1",
+      "evidence": [
+        "tests/motion-hinge.test.js",
+        "StrengthLog T bar row正文固定轨迹；本图采用地面枢轴型号"
+      ],
+      "visual_evidence": "wakeup6 page10 three frames remain partial-static-reviewed only;no full-cycle acceptance"
+    },
+    "single_arm_cable_pulldown": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "back-stick-v1",
+      "evidence": [
+        "tests/motion-back.test.js",
+        "StrengthLog one-handed pulldown正文；扶机手依据catalog"
+      ],
+      "visual_evidence": "wakeup5 cable now clear but rear fixed column crosses head; fixture clipping implemented pending recheck; no screenshot file ID",
+      "quality_fix": "v2 fixed column and cable share true rear-depth clipping at yaw-.8;world pulley/handle untouched"
+    },
+    "inverted_row": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "StrengthLog inverted row正文"
+      ],
+      "visual_evidence": "wakeup5 near rack column crosses head at0/25/50%;opposite3/4+rear fixture clipping implemented pending recheck",
+      "quality_fix": "v2 render yaw-.45,shared fixture clipping;torso>26 and rack>75percent retained;world body/hand/feet unchanged"
+    },
+    "smith_machine_squat": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "compound-leg-v1",
+      "evidence": [
+        "tests/motion-compound-legs.test.js",
+        "StrengthLog Smith squat正文；脚略前按catalog"
+      ],
+      "visual_evidence": "wakeup4 parent page11 96px dark three samples: equipment/direction recognizable;partial-static-reviewed only, no full-cycle pass"
+    },
+    "single_leg_press": {
+      "quality_fix": "sole-plane-v2: active sole on platform, inactive leg unchanged; actual emitted foot-path test passes; visual pending",
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "compound-leg-v1",
+      "evidence": [
+        "tests/motion-compound-legs.test.js",
+        "单腿专页404；catalog单腿+通用腿举正文，另一脚固定休息位"
+      ],
+      "visual_evidence": "wakeup4 parent page11 96px dark three samples: equipment/direction recognizable;partial-static-reviewed only, no full-cycle pass"
+    },
+    "copenhagen_plank": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "StrengthLog Copenhagen正文；上脚踝凳面长杠杆静态版"
+      ],
+      "visual_evidence": "wakeup5 static-fix-reviewed: parent96px dark screenshot shows bench and leg support readable;not full cycle pass;no file ID",
+      "quality_fix": "Flat bench perimeter and two legs/ground replace diagonal line+one post;upper ankle support unchanged"
+    },
+    "single_leg_calf_raise": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "lower-accessory-v1",
+      "evidence": [
+        "tests/motion-lower-accessories.test.js",
+        "catalog单腿+StrengthLog standing calf足踝原则"
+      ],
+      "visual_evidence": "wakeup4 parent page11 96px dark three samples: equipment/direction recognizable;partial-static-reviewed only, no full-cycle pass"
+    },
+    "arnold_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "functional-v1",
+      "evidence": [
+        "tests/motion-functional.test.js",
+        "StrengthLog Arnold正文；掌面不可见仅轴转向"
+      ],
+      "visual_evidence": "wakeup5 static-fix-reviewed: seat/back/legs readable,25percent hands beside head improved;not full cycle pass;no file ID",
+      "quality_fix": "Seat perimeter/backrest/two legs + opt-in stronger fixtures; render-only opposite3/4 and rear-head clipping;world arms/weights unchanged"
+    },
+    "cable_hammer_curl": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "arm-accessory-v1",
+      "evidence": [
+        "tests/motion-arm-accessories.test.js",
+        "StrengthLog cable curl with rope正文"
+      ],
+      "visual_evidence": "wakeup4 parent page11 96px dark three samples: equipment/direction recognizable;partial-static-reviewed only, no full-cycle pass"
+    },
+    "single_arm_pushdown": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "functional-v1",
+      "evidence": [
+        "tests/motion-functional.test.js",
+        "ACE triceps pushdowns正文Step4单臂变式"
+      ],
+      "visual_evidence": "Parent page12 actual96px dark screenshot: sampled phases recognizable;partial-static-reviewed only, no full cycle acceptance"
+    },
+    "dead_bug": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "StrengthLog dead bugs正文；8秒对侧交替"
+      ],
+      "visual_evidence": "Parent page12 actual96px dark screenshot: sampled phases recognizable;partial-static-reviewed only, no full cycle acceptance"
+    },
+    "bird_dog": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "bodyweight-v1",
+      "evidence": [
+        "tests/motion-bodyweight.test.js",
+        "ACE bird dog正文；相位承重手膝"
+      ],
+      "visual_evidence": "Loop wakeup3 static-fix-reviewed: parent actual96px bird-dog single-page three-frame screenshot confirms kneeling posture, horizontal torso and extended leg recognizable, no longer front-standing silhouette. Specific v2 regression corrected in sampled frames; not full8sec/240px/user acceptance. No persisted screenshot file ID or path.",
+      "quality_fix": "v3 render yaw-.45 elevation.6, ground lines, true rear-depth clipping; world geometry/support unchanged; torso projection>26, full-reach hand/foot separation tests"
+    },
+    "farmer_carry": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "functional-v1",
+      "evidence": [
+        "tests/motion-functional.test.js",
+        "StrengthLog farmers walk正文；双独立负重交替小步"
+      ],
+      "visual_evidence": "Parent page12 actual96px dark screenshot: sampled phases recognizable;partial-static-reviewed only, no full cycle acceptance"
+    },
+    "pallof_press": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "functional-v1",
+      "evidence": [
+        "tests/motion-functional.test.js",
+        "StrengthLog Pallof正文；侧锚抗旋"
+      ],
+      "visual_evidence": "Parent page12 actual96px dark screenshot: sampled phases recognizable;partial-static-reviewed only, no full cycle acceptance"
+    },
+    "battle_rope": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "pending",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "functional-v1",
+      "evidence": [
+        "tests/motion-functional.test.js",
+        "ACE asynchronous waves正文；离散绳长105固定，程序波非柔体仿真"
+      ],
+      "visual_evidence": "Parent page12 actual96px dark screenshot: sampled phases recognizable;partial-static-reviewed only, no full cycle acceptance"
+    },
+    "swimming": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "reference": "parent-verified-general-guidance: Swimming.org front crawl tips/master technique; alternating arms/flutter kicks; demo omits breathing/body roll",
+      "supportType": "simplified",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "outdoor-v1",
+      "evidence": [
+        "tests/motion-outdoor.test.js",
+        "自由泳双臂交替/打腿/水面，无完整换气滚转；SwimEngland404"
+      ],
+      "visual_evidence": "static-fix-reviewed: parent current96px page12 screenshot confirms visible bent high-elbow recovery at25%; not full-cycle/user acceptance, no screenshot path claimed",
+      "quality_fix": "Variable elbow flexion up to1.5rad recovery/.7rad underwater;fixed21+21 bones;camera adjusted;breathing/roll still omitted"
+    },
+    "stretch": {
+      "asset": "implemented",
+      "geometry": "engineering_pass",
+      "visual": "fix-implemented-pending-review",
+      "reference": "parent-verified-exercise-reference: ACE152 standing dorsi-flexion calf stretch; only chosen wall calf stretch",
+      "supportType": "simplified",
+      "integrated": "current_resolver",
+      "complete": false,
+      "revision": "outdoor-v1",
+      "evidence": [
+        "tests/motion-outdoor.test.js",
+        "仅扶墙后腿小腿静态拉伸，不涵盖泡沫轴或全部恢复"
+      ],
+      "visual_evidence": "static-fix-reviewed: parent current96px page12 screenshot confirms straighter rear leg and clearer hand-wall contact; not full-cycle/user acceptance, no screenshot path claimed",
+      "quality_fix": "Rear leg exactly54 units straight;front knee bent;heel/toe z0;hands on drawn wall cross-line"
+    }
+  }
+}

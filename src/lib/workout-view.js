@@ -3,6 +3,7 @@
 // ESM 模块：import WorkoutView from "./workout-view.js"。
 
 import Workout from "./workout.js";
+import { metricFields, derivedPace, inputMetricValue, recordUnit, treadmillGuidance } from "./workout-metrics.js";
 import WorkoutCatalog from "./workout-catalog.js";
 import { pawTrail } from "./critters.js";
 
@@ -42,8 +43,8 @@ function statsHtml(stats) {
   return `<div class="workout-summary" aria-label="训练统计">
       <span><b data-workout-stat="exerciseCount">${stats.exerciseCount}</b>动作</span>
       <span><b data-workout-stat="setCount">${stats.setCount}</b>组</span>
-      <span><b data-workout-stat="reps">${stats.reps}</b>次</span>
-      <span class="workout-summary-volume${Number(stats.volume || 0) > 0 ? "" : " is-empty"}">容量 <b data-workout-stat="volume">${Workout.formatVolume(stats.volume)}</b><i>kg</i></span>
+      ${stats.hasStrength === false ? '' : `<span><b data-workout-stat="reps">${stats.reps}</b>次</span>
+      <span class="workout-summary-volume${Number(stats.volume || 0) > 0 ? "" : " is-empty"}">容量 <b data-workout-stat="volume">${Workout.formatVolume(stats.volume)}</b><i>kg</i></span>`}
     </div>`;
 }
 
@@ -73,7 +74,7 @@ function quickExerciseHtml(selectedDay, exercises) {
 function setLineCompact(set, { index, equipment }) {
   return `<div class="set-row is-collapsed">
       <div class="set-line is-readonly">
-        <span class="set-index">第 ${index + 1} 组</span>
+        <span class="set-index">第 ${index + 1} ${recordUnit(equipment)}</span>
         <b>${escapeHtml(Workout.formatSetText(set, equipment))}</b>
       </div>
     </div>`;
@@ -83,18 +84,18 @@ function setLineCompact(set, { index, equipment }) {
 function setLine(set, { index, exerciseIndex, setIndex, equipment }) {
   const text = Workout.setHasRecord(set) ? Workout.formatSetText(set, equipment) : "未录";
   return `<div class="set-row is-collapsed">
-      <button type="button" class="set-line" data-set-open="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false" aria-label="修改第 ${index + 1} 组">
-        <span class="set-index">第 ${index + 1} 组</span>
+      <button type="button" class="set-line" data-set-open="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false" aria-label="修改第 ${index + 1} ${recordUnit(equipment)}">
+        <span class="set-index">第 ${index + 1} ${recordUnit(equipment)}</span>
         <b>${escapeHtml(text)}</b>
         <span class="set-chevron" aria-hidden="true">›</span>
       </button>
-      <button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${index + 1} 组">×</button>
+      <button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${index + 1} ${recordUnit(equipment)}">×</button>
     </div>`;
 }
 
 function stepperField(label, field, set, { exerciseIndex, setIndex, down, up, min, step, placeholder, title }) {
   const hint = placeholder || (min === "0" ? "0" : "1");
-  return `<label><span>${label}</span><div class="stepper"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${down}" aria-label="减少${label}">−</button><input type="number" min="${min}" step="${step}" value="${escapeHtml(set[field] === 0 ? "" : set[field])}" placeholder="${hint}" ${title ? `title="${escapeHtml(title)}" ` : ""}inputmode="decimal" data-set-field="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="${label}"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${up}" aria-label="增加${label}">+</button></div></label>`;
+  return `<label><span>${label}</span><div class="stepper"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${down}" aria-label="减少${label}">−</button><input type="number" min="${min}" step="${step}" value="${escapeHtml(set[field])}" placeholder="${hint}" ${title ? `title="${escapeHtml(title)}" ` : ""}inputmode="decimal" data-set-field="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="${label}"><button type="button" class="stepper-btn" data-set-adjust="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" data-step="${up}" aria-label="增加${label}">+</button></div></label>`;
 }
 
 function morePanel(set, exercise, { exerciseIndex, setIndex }) {
@@ -108,12 +109,12 @@ function morePanel(set, exercise, { exerciseIndex, setIndex }) {
   return `<div class="set-more-panel" data-set-more-panel="${exerciseIndex}-${setIndex}" hidden>${fields.join("")}</div>`;
 }
 
-function setRowActive(exercise, set, exerciseIndex, setIndex, previousSets) {
+export function setRowActive(exercise, set, exerciseIndex, setIndex, previousSets) {
   const cardio = isCardio(exercise);
   // 自重类动作重量可负：负数=助力（弹力带/助力器械），0=纯自重，正数=负重腰带
   const assistable = !cardio && Workout.allowsAssist(exercise);
   const fields = cardio
-    ? `<label><span>时长（分）</span><input type="number" min="0" step="1" value="${escapeHtml(set.duration_min === 0 ? "" : set.duration_min)}" placeholder="分钟" inputmode="numeric" data-set-field="duration_min" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="时长"></label><label><span>距离 km</span><input type="number" min="0" step="0.1" value="${escapeHtml(set.distance_km === 0 ? "" : set.distance_km)}" placeholder="0" inputmode="decimal" data-set-field="distance_km" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="距离"></label><label><span>配速</span><input value="${escapeHtml(set.pace)}" placeholder="如 6'00\"" data-set-field="pace" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="配速"></label>`
+    ? metricFields(exercise, set).map(({ field, label, unit, step, integer, min }) => `<label><span>${label}（${unit}）</span><input type="number" ${min === '' ? '' : `min="${min}"`} step="${integer ? 1 : 'any'}" value="${escapeHtml(inputMetricValue(field, set[field], exercise))}" placeholder="可选" inputmode="decimal" data-set-field="${field}" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="${label}"></label>`).join("")
     : [
       stepperField("重量 kg", "weight_kg", set, {
         exerciseIndex, setIndex, down: "-2.5", up: "2.5",
@@ -126,35 +127,36 @@ function setRowActive(exercise, set, exerciseIndex, setIndex, previousSets) {
   // 同一组序上一次怎么练的，直接贴在当前组上，衔接时有参照。
   // 只放数值本身："上次"这个前提由卡片级那行给出，同一件事不在两处各写一遍，完整语义留在 title。
   const last = previousSets?.[setIndex];
-  const lastCompact = last ? Workout.formatSetCompact(last, exercise.equipment) : "";
+  const lastCompact = last ? Workout.formatSetCompact(last, exercise) : "";
   const lastHint = lastCompact ? `<button type="button" class="set-hint" data-fill-last="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="点一下用上次这一组的数字">${escapeHtml(lastCompact)}</button>` : "";
   // 头部只保留"第 N 组"这一条信息：当前组已经是高亮的，再写"本次要填的组"是重复噪音。
   return `<div class="set-row is-active">
-      <div class="set-row-head"><strong>第 ${setIndex + 1} 组</strong>${lastHint}<button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${setIndex + 1} 组">×</button></div>
+      <div class="set-row-head"><strong>第 ${setIndex + 1} ${recordUnit(exercise)}</strong>${lastHint}<button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${setIndex + 1} ${recordUnit(exercise)}">×</button></div>
       <div class="set-fields${cardio ? " cardio-fields" : ""}">${fields}</div>
+      ${cardio ? metricSummaryHtml(exercise, set, `data-exercise="${exerciseIndex}" data-set="${setIndex}"`) : ""}
       <div class="set-more"><button type="button" class="set-more-toggle" data-set-more="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false">RPE · RIR · 备注</button>${morePanel(set, exercise, { exerciseIndex, setIndex })}</div>
     </div>`;
 }
 
 function setRows(exercise, exerciseIndex, openIndex, previousSets, compact = false) {
   // 已完成且收起：三组都收成只读一行，不再留一个展开的编辑器。
-  if (compact) return exercise.sets.map((set, setIndex) => setLineCompact(set, { index: setIndex, equipment: exercise.equipment })).join("");
+  if (compact) return exercise.sets.map((set, setIndex) => setLineCompact(set, { index: setIndex, equipment: exercise })).join("");
   return exercise.sets.map((set, setIndex) => (setIndex === openIndex
     ? setRowActive(exercise, set, exerciseIndex, setIndex, previousSets)
-    : setLine(set, { index: setIndex, exerciseIndex, setIndex, equipment: exercise.equipment }))).join("");
+    : setLine(set, { index: setIndex, exerciseIndex, setIndex, equipment: exercise }))).join("");
 }
 
 // 已录组数 / 总组数
 function progressText(exercise) {
   const done = Workout.recordedSets(exercise).length;
-  return { done, total: exercise.sets.length, label: `${done}/${exercise.sets.length} 组` };
+  return { done, total: exercise.sets.length, label: `${done}/${exercise.sets.length} ${recordUnit(exercise)}` };
 }
 
 // 卡片级只说"上次哪天、练了几组"；每一组的具体重量次数贴到对应的组行上（见 setRowActive），
 // 同一份数据不在两处各出现一遍。
 function lastPerformanceHtml(previous, exercise) {
   if (!previous) {
-    const assist = Workout.allowsAssist(exercise) ? "；自重动作重量填 0 表示纯自重，填负数表示助力（如 -20）" : "，先把重量和次数填好";
+    const assist = isCardio(exercise) ? '，按本项目指标填写' : Workout.allowsAssist(exercise) ? "；自重动作重量填 0 表示纯自重，填负数表示助力（如 -20）" : "，先把重量和次数填好";
     return `<p class="exercise-last is-first">首次记录此动作${assist}。</p>`;
   }
   return `<p class="exercise-last"><span class="exercise-last-date">上次 ${escapeHtml(previous.date)}</span><span class="exercise-last-count">· ${previous.sets.length} 组</span></p>`;
@@ -165,17 +167,23 @@ function lastPerformanceHtml(previous, exercise) {
 // 它不替代完整编辑页：右上的「总览」随时退回去改历史组、删组、看动作说明。
 // 屏幕是深墨底，跟开场那滴墨是同一个语言：墨不是过场，是训练时的常驻背景。
 
-function focusField({ label, field, unit, value, step, min, assistable, title, suggest }) {
-  const typed = value === 0 || value === "" ? "" : value;
+function metricSummaryHtml(exercise, set, attributes = "") {
+  const pace = derivedPace(set, exercise);
+  const text = [pace ? `记录时长配速 ${pace}（非移动时间）` : "", set.pace ? `原记录配速 ${set.pace}` : "", exercise.exercise_id === "stair_climber" ? "楼层与步数不换算；本机档位不是速度，不能跨机比较。" : "", treadmillGuidance(exercise)].filter(Boolean).join(" · ");
+  return `<p class="focus-hint" data-metric-summary ${attributes}>${escapeHtml(text)}</p>`;
+}
+
+function focusField({ label, field, unit, value, step, min, integer, assistable, title, suggest }) {
+  const typed = value == null || value === '' ? '' : value;
   // 没输入时把上次的数字摆出来，颜色淡一档：它是建议，不是这次的记录，
   // 点「完成这组」才写进数据。这样换动作时不用重输，也不会把没练的组算成已录。
-  const suggested = typed === "" && suggest != null && Number(suggest) ? suggest : "";
+  const suggested = typed === '' && suggest != null && suggest !== '' ? suggest : '';
   const shown = typed === "" ? suggested : typed;
   const stateClass = shown === "" ? " is-empty" : (typed === "" ? " is-suggest" : "");
   return `<div class="focus-field">
       <span class="focus-label">${label}</span>
       <button type="button" class="focus-step" data-focus-step="${field}" data-delta="-${step}" aria-label="减少${label}">−</button>
-      <input class="focus-value${stateClass}" type="number" min="${min}" step="${step}" inputmode="decimal" value="${escapeHtml(shown)}" placeholder="0" data-focus-field="${field}" aria-label="${label}"${title ? ` title="${escapeHtml(title)}"` : ""}>
+      <input class="focus-value${stateClass}" type="number" ${min === '' ? '' : `min="${min}"`} step="${integer ? 1 : 'any'}" inputmode="decimal" value="${escapeHtml(shown)}" placeholder="0" data-focus-field="${field}" aria-label="${label}"${title ? ` title="${escapeHtml(title)}"` : ""}>
       <span class="focus-unit">${unit}</span>
       <button type="button" class="focus-step" data-focus-step="${field}" data-delta="${step}" aria-label="增加${label}">+</button>
     </div>`;
@@ -203,19 +211,18 @@ function focusHtml(session, selectedDay, target, history = []) {
   const remainingExercises = session.exercises.length - 1 - target.exercise;
   const previous = Workout.previousPerformance(history, exercise.exercise_id);
   const previousSet = previous?.sets?.[target.set];
-  const previousText = previousSet ? Workout.formatSetCompact(previousSet, exercise.equipment) : "";
+  const previousText = previousSet ? Workout.formatSetCompact(previousSet, exercise) : "";
   // 空白组已经把上次的数字填进去了（淡色）：这一行不再重复数字，只交代它从哪来。
   const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
 
   const fields = cardio
-    ? focusField({ label: "时长", field: "duration_min", unit: "分", value: set.duration_min || 0, step: 1, min: 0, suggest: previousSet?.duration_min }) +
-      focusField({ label: "距离", field: "distance_km", unit: "km", value: set.distance_km || 0, step: 0.5, min: 0, suggest: previousSet?.distance_km })
+    ? metricFields(exercise, set).map(spec => focusField({ ...spec, value: inputMetricValue(spec.field, set[spec.field], exercise), suggest: inputMetricValue(spec.field, previousSet?.[spec.field], exercise) })).join("")
     : focusField({
-      label: "重量", field: "weight_kg", unit: "kg", value: set.weight_kg || 0, step: 2.5,
+      label: "重量", field: "weight_kg", unit: "kg", value: set.weight_kg ?? '', step: 2.5,
       min: assistable ? -200 : 0, assistable,
       title: assistable ? "0 = 纯自重，负数 = 助力" : "",
       suggest: previousSet?.weight_kg,
-    }) + focusField({ label: "次数", field: "reps", unit: "次", value: set.reps || 0, step: 1, min: 1, suggest: previousSet?.reps });
+    }) + focusField({ label: "次数", field: "reps", unit: "次", value: set.reps ?? '', step: 1, min: 1, suggest: previousSet?.reps });
 
   const dots = exercise.sets.map((item, index) => {
     const done = Workout.setHasRecord(item);
@@ -226,7 +233,7 @@ function focusHtml(session, selectedDay, target, history = []) {
   // 当前组：第 N / M 组与下面的进度点是同一条信息的两半，排在一行；右侧是本组停留的临时计时。
   // 以前 N 只在底部小字和几条细横里，训练中一眼扫不到现在记到第几组。
   // 本组停留只作参考（算间歇），不写进记录；页面不可见时按真实时间算（由 tick 里的时间戳决定）。
-  const setBar = `<div class="focus-setbar"><button type="button" class="focus-group-menu" data-focus-group-menu aria-label="组操作（也可长按组号）" aria-haspopup="dialog"><span class="focus-setpos" data-focus-setpos>第 <b>${target.set + 1}</b> / ${totalSets} 组</span><span class="focus-group-label">组操作 ···</span></button><div class="focus-dots" aria-hidden="true">${dots}</div><span class="focus-dwell" data-focus-dwell>本组停留 00:00</span></div>`;
+  const setBar = `<div class="focus-setbar"><button type="button" class="focus-group-menu" data-focus-group-menu aria-label="${recordUnit(exercise)}操作（也可长按记录号）" aria-haspopup="dialog"><span class="focus-setpos" data-focus-setpos>第 <b>${target.set + 1}</b> / ${totalSets} ${recordUnit(exercise)}</span><span class="focus-group-label">${recordUnit(exercise)}操作 ···</span></button><div class="focus-dots" aria-hidden="true">${dots}</div><span class="focus-dwell" data-focus-dwell>本${recordUnit(exercise)}停留 00:00</span></div>`;
 
   // 动作之间的切换：逐组屏原来只有「总览」一条出口，换个动作要先开弹窗、再点某一组。
   // 现在当前动作名下面直接给上/下一个，训练中换动作不用离开这一屏。
@@ -244,11 +251,11 @@ function focusHtml(session, selectedDay, target, history = []) {
     : tail;
 
   // 两个主按钮都在 DOM 里，只切 hidden：逐屏局部更新时不必重画按钮、也不丢监听。
-  const primary = `<button type="button" class="focus-primary" data-focus-done${pending === 0 ? " hidden" : ""}>完成这组</button><button type="button" class="focus-primary is-finish" data-focus-finish${pending === 0 ? "" : " hidden"}>结束训练</button>`;
+  const primary = `<button type="button" class="focus-primary" data-focus-done${pending === 0 ? " hidden" : ""}>完成这${recordUnit(exercise)}</button><button type="button" class="focus-primary is-finish" data-focus-finish${pending === 0 ? "" : " hidden"}>结束训练</button>`;
 
   // 上次这组同样固定成「一句话 + 一个可点按钮」，文字和按钮各自更新，不整套重画。
   const lastState = !previousText ? " is-first" : (suggestionOn ? " is-filled" : "");
-  const lastText = !previousText ? "这个动作首次记录" : (suggestionOn ? "上次这组的数字已填入，直接完成或改数字" : "上次这组");
+  const lastText = !previousText ? "这个动作首次记录" : (suggestionOn ? `上次这${recordUnit(exercise)}的数字已填入，直接完成或改数字` : `上次这${recordUnit(exercise)}`);
 
   return `<section class="workout-app workout-focus" data-focus-root>
       <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-clock"><i>整场</i><b class="focus-timer" data-focus-timer>00:00</b></span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
@@ -259,10 +266,11 @@ function focusHtml(session, selectedDay, target, history = []) {
       ${previousText ? (suggestionOn
         ? `<p class="focus-last is-filled"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`
         : `<p class="focus-last"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last>${escapeHtml(previousText)}</button></p>`) : `<p class="focus-last is-first"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`}
-      <div class="focus-coach" aria-hidden="true"><svg class="move-figure" data-move-figure></svg></div>
+      ${metricSummaryHtml(exercise, set)}
+      <div class="focus-coach"><svg class="move-figure" data-move-figure></svg></div>
       <p class="focus-hint">${hint}</p>
       <div class="focus-actions">${primary}</div>
-      <p class="focus-extras"><button type="button" data-focus-addset>＋ 加一组</button><i aria-hidden="true">·</i><button type="button" data-focus-add-exercise>＋ 加动作</button></p>
+      <p class="focus-extras"><button type="button" data-focus-addset>＋ 加一${recordUnit(exercise)}</button><i aria-hidden="true">·</i><button type="button" data-focus-add-exercise>＋ 加动作</button></p>
       <div class="focus-flash" aria-live="polite"></div>
       ${dialogShell()}
     </section>`;
@@ -275,8 +283,8 @@ function overviewDialogHtml(session, selectedDay) {
   const body = session.exercises.map((exercise, exerciseIndex) => {
     const sets = (exercise.sets || []).map((set, setIndex) => {
       const done = Workout.setHasRecord(set);
-      const text = done ? Workout.formatSetText(set, exercise.equipment) : "未录";
-      return `<button type="button" class="ovd-set${done ? " is-done" : ""}" data-focus-jump="${exerciseIndex}-${setIndex}"><span>第 ${setIndex + 1} 组</span><b>${escapeHtml(text)}</b></button>`;
+      const text = done ? Workout.formatSetText(set, exercise) : "未录";
+      return `<button type="button" class="ovd-set${done ? " is-done" : ""}" data-focus-jump="${exerciseIndex}-${setIndex}"><span>第 ${setIndex + 1} ${recordUnit(exercise)}</span><b>${escapeHtml(text)}</b></button>`;
     }).join("");
     return `<section class="ovd-ex"><h4>${escapeHtml(exercise.name)}<em>${escapeHtml(exercise.body_part)}</em><button type="button" class="ovd-remove" data-focus-remove-ex="${exerciseIndex}" title="从本次训练移除" aria-label="移除${escapeHtml(exercise.name)}">×</button></h4><div class="ovd-sets">${sets}</div></section>`;
   }).join("");
@@ -368,7 +376,7 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
           return `<article class="${cardClass}" data-exercise-card="${exerciseIndex}" data-done-id="${escapeHtml(exercise.id)}"${cardFold}>${headHtml}
           ${compact ? "" : lastPerformanceHtml(previous, exercise)}
           <div class="set-list">${setRows(exercise, exerciseIndex, openIndex, previous?.sets, compact)}</div>
-          <div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一组</button>${compact ? "" : `<span class="rest-advice" title="${escapeHtml(advice.reason)}">组间歇建议 <b>${escapeHtml(advice.minutes)}</b>（${escapeHtml(advice.label)}）</span>`}<button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
+          <div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一${recordUnit(exercise)}</button>${compact ? "" : `<span class="rest-advice" title="${escapeHtml(advice.reason)}">组间歇建议 <b>${escapeHtml(advice.minutes)}</b>（${escapeHtml(advice.label)}）</span>`}<button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
         }).join("") : `<div class="session-empty">点击“添加动作”安排本次训练。</div>`}</div></main>
       </div>
       <section class="workout-completion${completionOpen ? " is-open" : " is-collapsed"}" aria-label="结束训练">
@@ -437,11 +445,11 @@ function sparklineHtml(series) {
 
 function digestRowHtml(digest) {
   // 新纪录也要给出差量：只说“新纪录”丢掉了涨了多少，而涨多少才是判断要不要再加重量的依据。
-  const figures = Workout.deltaText(digest);
+  const figures = `${digest.cardio ? '记录变化 ' : ''}${Workout.deltaText(digest)}`;
   const meta = digest.isPR
     ? ["新纪录", digest.text].filter(Boolean).join(" · ")
     : [digest.text, String(digest.date || "").slice(5)].filter(Boolean).join(" · ");
-  return `<button type="button" class="digest-row is-${digest.isPR ? "pr" : digest.state}" data-exercise-trend="${escapeHtml(digest.exercise_id)}">
+  return `<button type="button" class="digest-row is-${digest.cardio ? "flat" : digest.isPR ? "pr" : digest.state}" data-exercise-trend="${escapeHtml(digest.exercise_id)}">
         <span class="digest-main"><b class="digest-name">${escapeHtml(digest.name)}</b>${sparklineHtml(digest.series)}</span>
         <span class="digest-figures"><em class="digest-delta">${escapeHtml(figures)}</em><span class="digest-meta">${escapeHtml(meta)}</span></span>
       </button>`;
@@ -463,7 +471,7 @@ function finalSetText(record) {
   for (let index = exercises.length - 1; index >= 0; index -= 1) {
     const sets = Workout.recordedSets(exercises[index]);
     if (!sets.length) continue;
-    const text = Workout.formatSetCompact(sets[sets.length - 1], exercises[index].equipment);
+    const text = Workout.formatSetCompact(sets[sets.length - 1], exercises[index]);
     return `<b>${escapeHtml(exercises[index].name)}</b> ${escapeHtml(text)}`;
   }
   return "";
@@ -554,13 +562,13 @@ function detailHtml(record) {
   const kicker = recordKicker(record);
   const kickerHtml = kicker && kicker !== String(record.title || "") ? `<span class="dialog-kicker">${escapeHtml(kicker)}</span>` : "";
   return `<div class="dialog-head"><div>${kickerHtml}<h3>${escapeHtml(record.title)}</h3></div>${copy}<button type="button" class="workout-btn compact" data-history-edit="${escapeHtml(record.id)}">编辑</button> <button type="button" class="dialog-delete" data-history-delete="${escapeHtml(record.id)}" title="删除这条记录">删除</button><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
-      <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${record.duration_min ? `${escapeHtml(record.duration_min)} 分钟` : "未填"}</dd></div><div><dt>组数</dt><dd>${info.setCount} 组</dd></div><div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div></dl>
+      <dl class="record-facts"><div><dt>日期</dt><dd>${escapeHtml(record.date)}</dd></div><div><dt>时长</dt><dd>${record.duration_min ? `${escapeHtml(record.duration_min)} 分钟` : "未填"}</dd></div><div><dt>组数</dt><dd>${info.setCount} 组</dd></div>${info.hasStrength ? `<div><dt>容量</dt><dd>${Math.round(info.volume)} kg</dd></div>` : ''}</dl>
       ${record.mood ? `<p class="record-mood">${escapeHtml(record.mood)}</p>` : ""}
       <div class="record-exercises">${(record.exercises || []).map(exercise => {
         // 只展示真正有数值的组，旧数据里的空组不渲染成 0 kg × 0。
         const sets = (exercise.sets || []).filter(set => Workout.setHasRecord(set));
         if (!sets.length) return "";
-        return `<section><h4>${escapeHtml(exercise.name)}<button type="button" class="record-trend-link" data-exercise-trend="${escapeHtml(exercise.exercise_id)}">进展</button></h4>${sets.map((set, index) => `<div class="record-set"><span>第 ${index + 1} 组</span><b>${escapeHtml(Workout.formatSetText(set, exercise.equipment))}</b><em>${set.rpe ? `RPE ${escapeHtml(set.rpe)}` : ""}${set.rir ? `${set.rpe ? " · " : ""}RIR ${escapeHtml(set.rir)}` : ""}${set.note ? `${set.rpe || set.rir ? " · " : ""}${escapeHtml(set.note)}` : ""}</em></div>`).join("")}</section>`;
+        return `<section><h4>${escapeHtml(exercise.name)}<button type="button" class="record-trend-link" data-exercise-trend="${escapeHtml(exercise.exercise_id)}">进展</button></h4>${sets.map((set, index) => `<div class="record-set"><span>第 ${index + 1} ${recordUnit(exercise)}</span><b>${escapeHtml(Workout.formatSetText(set, exercise))}</b><em>${set.rpe ? `RPE ${escapeHtml(set.rpe)}` : ""}${set.rir ? `${set.rpe ? " · " : ""}RIR ${escapeHtml(set.rir)}` : ""}${set.note ? `${set.rpe || set.rir ? " · " : ""}${escapeHtml(set.note)}` : ""}</em></div>`).join("")}</section>`;
       }).join("") || `<div class="session-empty">本次训练没有动作记录。</div>`}</div>
       ${record.note ? `<p class="record-note">${escapeHtml(record.note)}</p>` : ""}`;
 }
@@ -571,7 +579,9 @@ function exerciseProgressHtml(records, exerciseId) {
   const track = WorkoutCatalog.exercises.find(item => item.id === exerciseId);
   const head = `<div class="dialog-head"><div><span class="dialog-kicker">动作进展</span><h3>${escapeHtml(entries[0] ? track?.name || entries[0].title : track?.name || "动作")}</h3><p class="dialog-sub">${entries.length ? `近 ${entries.length} 次记录，越靠上越新` : "还没有这个动作的记录"}</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>`;
   if (!entries.length) return `${head}<div class="session-empty">练过这个动作后，这里会显示每次的组次变化。</div>`;
-  const equipment = entries[0].equipment;
+  const equipment = { equipment: entries[0].equipment, exercise_id: exerciseId };
+  const cardio = Workout.isCardio(equipment);
+  if (cardio) return `${head}<p class="dialog-sub">按相同指标与单位查看记录变化，时长增加不代表能力提升。</p><div class="trend-list">${entries.map(item => `<article class="trend-item"><header><span>${escapeHtml(item.date)}</span><b>${escapeHtml(Workout.formatSetList(item.sets, equipment))}</b></header><span>${item.setCount} 组</span></article>`).join('')}</div>`;
   return `${head}
       <div class="trend-hero">${trendFlowHtml(entries.map(item => {
         const best = Workout.bestSet(item.sets) || item.sets[0];
@@ -592,11 +602,11 @@ function buildCopyText(record) {
   (record.exercises || []).forEach((exercise, index) => {
     lines.push(`${index + 1}. ${exercise.name}${exercise.body_part ? `（${exercise.body_part}）` : ""}`);
     (exercise.sets || []).filter(set => Workout.setHasRecord(set)).forEach((set, setIndex) => {
-      const part = [Workout.formatSetText(set, exercise.equipment)];
+      const part = [Workout.formatSetText(set, exercise)];
       if (set.rpe) part.push(`RPE ${set.rpe}`);
       if (set.rir) part.push(`RIR ${set.rir}`);
       if (set.note) part.push(set.note);
-      lines.push(`   第 ${setIndex + 1} 组 ${part.join(" · ")}`);
+      lines.push(`   第 ${setIndex + 1} ${recordUnit(exercise)} ${part.join(" · ")}`);
     });
   });
   if (record.note) lines.push(`备注：${record.note}`);

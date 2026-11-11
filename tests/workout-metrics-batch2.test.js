@@ -1,0 +1,60 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import W from '../src/lib/workout.js';
+import V, {setRowActive} from '../src/lib/workout-view.js';
+import {metricFields,parseSetInput,inputMetricValue,derivedPace,fillPrevious,clearRecordFields,cardioMetric} from '../src/lib/workout-metrics.js';
+const swim={exercise_id:'swimming',equipment:'有氧'};
+const rope={exercise_id:'jump_rope',equipment:'有氧'};
+function session(id,set,date='2026-11-10') {const s=W.createSession('cardio');W.addExercise(s,id);s.date=date;s.status='completed';s.exercises[0].sets=[set];return s;}
+test('游泳米输入单一km来源，边界、旧数据和配速',()=>{
+  assert.equal(metricFields(swim).find(s=>s.field==='distance_km').unit,'米');
+  assert.equal(parseSetInput('distance_km','500',swim).value,0.5);
+  assert.equal(inputMetricValue('distance_km',0.5,swim),500);
+  assert.equal(inputMetricValue('distance_km',0.025,swim),25);
+  assert.equal(inputMetricValue('distance_km','',swim),'');
+  assert.equal(parseSetInput('distance_km','',swim).value,'');
+  assert.equal(parseSetInput('distance_km','0',swim).value,0);
+  for(const value of [-1,NaN,Infinity]) assert.equal(parseSetInput('distance_km',value,swim).valid,false);
+  assert.equal(parseSetInput('distance_km','500',{exercise_id:'treadmill'}).value,500);
+  const old={duration_min:12,distance_km:0.5,pace:'旧配速',unknown:{x:1}};
+  const s=session('swimming',old);const saved=W.upsertSession([],s);
+  assert.deepEqual(saved.exercises[0].sets[0],old);assert.equal('distance_m' in saved.exercises[0].sets[0],false);
+  assert.match(W.formatSetText(old,swim),/距离 500 米/);assert.match(W.formatSetText(old,swim),/原记录配速/);
+  assert.equal(derivedPace(old,swim),'');
+  const blank=W.createSet(swim);fillPrevious(blank,old);assert.equal(blank.distance_km,0.5);
+  const zero={distance_km:0};fillPrevious(zero,old);assert.equal(zero.distance_km,0);
+});
+test('游泳真实逐组和总览表单均为米；同字段切换读取单位适配',()=>{
+  const s=session('swimming',{distance_km:0.5});
+  const html=setRowActive(s.exercises[0],s.exercises[0].sets[0],0,0,[]);
+  assert.match(html,/距离（米）/);assert.match(html,/value="500"[^>]*data-set-field="distance_km"/);
+  const focus=V.editorHtml(s,'cardio',[],{focus:true,focusTarget:{exercise:0,set:0}});
+  assert.match(focus,/value="500"[^>]*data-focus-field="distance_km"/);assert.match(focus,/focus-unit">米/);
+  const added=W.addSet(s,0);assert.equal(inputMetricValue('distance_km',added.distance_km,swim),500);
+  const spec=metricFields(swim).find(s=>s.field==='distance_km');
+  assert.equal(parseSetInput('distance_km',inputMetricValue('distance_km',0.5,swim)+spec.step,swim).value,0.525);
+  const d=W.progressDigests([session('swimming',{distance_km:0.5}),session('swimming',{distance_km:0.4},'2026-11-09')])[0];
+  assert.equal(d.unit,'米');assert.deepEqual(d.series,[400,500]);assert.equal(d.delta,100);
+});
+test('跳绳独立计数only有效，继承草稿保存摘要趋势闭环',()=>{
+  assert.deepEqual(metricFields(rope).map(s=>s.field),['duration_min','jump_count']);
+  const set={jump_count:500,unknown:{counter:'synthetic'}};
+  const s=session('jump_rope',set);assert.equal(W.setHasRecord(set),true);
+  const inherited=W.addSet(s,0);assert.equal(inherited.jump_count,500);clearRecordFields(inherited);assert.equal(W.setHasRecord(inherited),false);
+  const saved=W.upsertSession([],JSON.parse(JSON.stringify(s)));assert.deepEqual(saved.exercises[0].sets,[set]);
+  assert.match(W.formatSetText(set,rope),/跳绳次数 500 次/);assert.doesNotMatch(W.formatSetText(set,rope),/kg|步/);
+  assert.equal(W.calculateStats(s).volume,0);
+  for(const value of [-1,0,0.5,NaN,Infinity]) assert.equal(W.setHasRecord({jump_count:value}),false);
+  assert.equal(parseSetInput('jump_count',0.5).valid,false);assert.equal(parseSetInput('jump_count',0).valid,true);
+  const blank=W.createSet(rope);fillPrevious(blank,set);assert.equal(blank.jump_count,500);
+  const zero={jump_count:0};fillPrevious(zero,set);assert.equal(zero.jump_count,0);
+  for(const old of [{duration_min:5},{distance_km:0.5}]) assert.deepEqual(W.upsertSession([],session('jump_rope',old)).exercises[0].sets[0],old);
+  const digest=W.progressDigests([session('jump_rope',set),session('jump_rope',{jump_count:400},'2026-11-09')])[0];
+  assert.equal(digest.metricField,'jump_count');assert.deepEqual(digest.series,[400,500]);assert.equal(digest.isPR,false);
+  assert.equal(cardioMetric({sets:[{steps:400}]},'jump_count'),null);
+  assert.match(setRowActive(rope,set,0,0,[]),/data-set-field="jump_count"/);
+});
+test('战绳历史形态不变',()=>{
+  const s=session('battle_rope',{weight_kg:0,reps:20});assert.equal(W.isCardio(s.exercises[0]),false);
+  assert.deepEqual(W.upsertSession([],s).exercises[0].sets[0],{weight_kg:0,reps:20});
+});

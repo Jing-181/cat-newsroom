@@ -193,6 +193,7 @@ function goalsTileHTML() {
   const sessions = (data().sport || []).filter(x => Workout.isSession(x) && x.status === "completed" && inWeek.has(x.date));
   sessions.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const setCount = sessions.reduce((s, x) => s + (Workout.summary(x).setCount || 0), 0);
+  const hasStrength = sessions.some(x => Workout.summary(x).hasStrength);
   const volume = Math.round(sessions.reduce((s, x) => s + (Workout.summary(x).volume || 0), 0));
   // 训练计划进度：生成过计划且有完成记录才显示进度条
   let planRow = "";
@@ -206,9 +207,9 @@ function goalsTileHTML() {
     }
   } catch (_) { /* 计划读取失败不影响本周统计 */ }
   const rows = sessions.slice(0, 3).map((x, i) => { const info = Workout.summary(x), col = colors[i % colors.length];
-    return `<div class="book-row"><span class="spine" style="background:${col}">${icon("activity", 16)}</span><div class="bmid"><div class="btt">${esc(x.title)}</div><div class="bsub">${info.exerciseCount} 个动作 · ${info.setCount} 组 · ${Math.round(info.volume)} kg</div></div><span class="bpct" style="color:${col}">${esc(String(x.date || "").slice(5))}</span></div>`; }).join("");
+    return `<div class="book-row"><span class="spine" style="background:${col}">${icon("activity", 16)}</span><div class="bmid"><div class="btt">${esc(x.title)}</div><div class="bsub">${info.exerciseCount} 个动作 · ${info.setCount} 组${info.hasStrength ? ` · 力量容量 ${Math.round(info.volume)} kg` : ''}</div></div><span class="bpct" style="color:${col}">${esc(String(x.date || "").slice(5))}</span></div>`; }).join("");
   const body = sessions.length
-    ? `<div class="goals-stats"><div class="goals-stat"><b>${sessions.length}</b><span>本周训练</span></div><div class="goals-stat"><b>${setCount}</b><span>总组数</span></div><div class="goals-stat"><b>${volume}</b><span>容量 kg</span></div></div>${planRow}<div class="book-list">${rows}</div>`
+    ? `<div class="goals-stats"><div class="goals-stat"><b>${sessions.length}</b><span>本周训练</span></div><div class="goals-stat"><b>${setCount}</b><span>总组数</span></div>${hasStrength ? `<div class="goals-stat"><b>${volume}</b><span>力量容量 kg</span></div>` : ''}</div>${planRow}<div class="book-list">${rows}</div>`
     : `<div class="focus-empty">本周还没训练，点「运动健身」开始第一练吧。</div>`;
   return `<div class="tile b4"><div class="tile-h"><span class="tic">${icon("activity", 16)}</span><div class="tt"><span class="en">WEEKLY TRAINING</span><span class="zh">本周训练</span></div><span class="r js-open" data-open="sport">${sessions.length} 次</span></div>${body}</div>`;
 }

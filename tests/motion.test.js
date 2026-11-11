@@ -20,38 +20,14 @@ import {
 } from "../src/lib/motion/core.js";
 import { CLIPS, clipFor, kindForName } from "../src/lib/motion/clips.js";
 
-// 这四个动作归到正确的模式。其余四类按训练日走，不逐个列。
-test("动作名归到正确的动作模式", () => {
-  assert.equal(kindForName("杠铃深蹲"), "squat");
-  assert.equal(kindForName("保加利亚蹲"), "split-squat");
-  assert.equal(kindForName("罗马尼亚硬拉"), "hinge");
-  assert.equal(kindForName("臀推"), "hinge");
-  assert.equal(kindForName("哑铃卧推"), "bench");
-  assert.equal(kindForName("站姿推举"), "press");
-  assert.equal(kindForName("绳索下压"), "pushdown");
-  assert.equal(kindForName("蝴蝶机夹胸"), "lateral-raise");
-  assert.equal(kindForName("绳索夹胸"), "lateral-raise");
-  assert.equal(kindForName("反向蝴蝶机"), "lateral-raise");
-  assert.equal(kindForName("坐姿绳索划船"), "row");
-  assert.equal(kindForName("哑铃弯举"), "curl");
-  assert.equal(kindForName("引体向上"), "pull-up");
-  assert.equal(kindForName("坐姿腿屈伸"), "leg-extension");
-  assert.equal(kindForName("平板支撑"), "plank");
-  assert.equal(kindForName("跑步机爬坡"), "run");
-  assert.equal(kindForName("户外跑步"), "run");
-  assert.equal(kindForName("跳绳"), "run");
-  assert.equal(kindForName(""), "idle");
+test('legacy exact-name lookup returns real clip keys', () => {
+  for (const [name, kind] of Object.entries({ '杠铃深蹲': 'squat', '杠铃卧推': 'benchPress', '引体向上': 'pullUp', '保加利亚分腿蹲': 'splitSquat', '腿屈伸': 'legExtension', '哑铃侧平举': 'lateralRaise', '悬挂举腿': 'hangingLegRaise' })) {
+    assert.equal(kindForName(name), kind);
+    assert.equal(clipFor(kind), CLIPS[kind]);
+  }
 });
-
-// 长正则优先：容易搞错的几对要是排序不对，就会被笼统的关键字抢走。
-test("归类不会让笼统关键字抢走具体动作", () => {
-  assert.equal(kindForName("俯身飞鸟"), "lateral-raise", "不能被「推」抢走");
-  assert.equal(kindForName("腿举"), "squat");
-  assert.equal(kindForName("保加利亚分腿蹲"), "split-squat", "不能被「蹲」抢走");
-  assert.equal(kindForName("坐姿腿弯举"), "leg-extension", "不能被「弯举」抢走");
-  assert.equal(kindForName("悬挂举腿"), "plank", "不能被「腿举」抢走");
-  assert.equal(kindForName("双杠臂屈伸"), "pushdown");
-  assert.equal(kindForName("过顶臂屈伸"), "pushdown");
+test('legacy lookup does not fuzzy-match unrelated activities', () => {
+  for (const name of ['游泳', '单车', '拉伸', '俯卧撑', '腿举', '']) assert.equal(kindForName(name), 'idle');
 });
 
 // 每条剪辑的元信息都要齐，预览页和归类都靠它。

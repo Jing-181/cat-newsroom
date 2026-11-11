@@ -27,11 +27,14 @@ export function createPlayer({
   loop = true,
   onFrame = () => {},
   fps = 0,
+  speed = 1,
   raf = DEFAULT_RAF,
   cancel = DEFAULT_CANCEL,
   now = DEFAULT_NOW,
   watchVisibility = true,
 } = {}) {
+  if (!Number.isFinite(speed) || speed <= 0) throw new RangeError('speed must be positive');
+  if (!Number.isFinite(duration) || duration <= 0) throw new RangeError('duration must be positive');
   let id = null;
   let running = false;
   let wanted = false;   // 用户想要它播；页面切走时会被暂停，回来要能自动续上
@@ -40,13 +43,13 @@ export function createPlayer({
   let lastPaint = -Infinity;
   let destroyed = false;
 
-  const timeNow = () => offset + (now() - origin) / 1000;
+  const timeNow = () => offset + (now() - origin) / 1000 * speed;
 
   const tick = () => {
     if (destroyed || !running) return;
     const t = now();
 
-    if (!loop && offset + (t - origin) / 1000 >= duration) {
+    if (!loop && timeNow() >= duration) {
       offset = duration;
       running = false;
       id = null;
@@ -62,7 +65,7 @@ export function createPlayer({
 
     const time = timeNow();
     onFrame(loop ? time % duration : time);
-    id = raf(tick);
+    if (!destroyed && running) id = raf(tick);
   };
 
   const play = () => {
@@ -91,6 +94,7 @@ export function createPlayer({
   };
 
   const seek = seconds => {
+    if (destroyed) return;
     offset = loop && duration > 0 ? ((seconds % duration) + duration) % duration : Math.max(0, seconds);
     origin = now();
     if (!running) onFrame(offset);

@@ -69,14 +69,14 @@ test("加动作照抄当前动作的组数，同器械才带重量，次数一�
   assert.equal(dumbbell.planned_sets, 3);
   assert.deepEqual(dumbbell.sets.map(set => set.weight_kg), [30, 30, 30]);
   // 次数留空：抄过来会一出生就算已记录，进度虚高。
-  assert.deepEqual(dumbbell.sets.map(set => set.reps), [0, 0, 0]);
+  assert.deepEqual(dumbbell.sets.map(set => set.reps), ['', '', '']);
   assert.equal(workout.recordedSets(dumbbell).length, 0);
 
   workout.addExercise(session, "cable_fly_mid", [], template);
   const cable = session.exercises[2];
   assert.equal(cable.sets.length, 3);
   // 器械不同：组数照抄，重量不搬（30kg 的哑铃不是 30kg 的绳索）。
-  assert.deepEqual(cable.sets.map(set => set.weight_kg), [0, 0, 0]);
+  assert.deepEqual(cable.sets.map(set => set.weight_kg), ['', '', '']);
 });
 
 test("自定义动作也照抄组数，但重量不抄", () => {
@@ -84,7 +84,7 @@ test("自定义动作也照抄组数，但重量不抄", () => {
   workout.addCustomExercise(session, "猫式拉伸", [], { sets: 3, weight_kg: 30, equipment: "哑铃" });
   const custom = session.exercises[1];
   assert.equal(custom.sets.length, 3);
-  assert.deepEqual(custom.sets.map(set => set.weight_kg), [0, 0, 0]);
+  assert.deepEqual(custom.sets.map(set => set.weight_kg), ['', '', '']);
 });
 
 test("空白组把上次的重量与次数摆成建议值，但不写进数据、也不算已录", () => {

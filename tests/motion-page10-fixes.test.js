@@ -1,0 +1,15 @@
+import test from'node:test';import assert from'node:assert/strict';import{CHEST_CLIPS as C}from'../src/lib/motion/chest-clips.js';import{FLY_CLIPS as F}from'../src/lib/motion/fly-clips.js';import{BACK_CLIPS as B}from'../src/lib/motion/back-clips.js';import{project}from'../src/lib/motion/candidate-clips.js';import{createCandidateSkin}from'../src/lib/motion/candidate-skin.js';import{svgNode,withSvgDocument,pathPoints}from'./motion-svg-helpers.js';
+const near=(a,b)=>assert.ok(Math.abs(a-b)<.001,`${a} != ${b}`);
+test('Smith/single-arm bottoms retain world chest clearance and now project wrist above shoulder with elbow separation',()=>withSvgDocument(()=>{
+ for(const clip of[C.smithBench,C.singleDumbbellBench]){const s=clip.sample(2),a=s.arms[1];near(a.shoulder.z,32);near(a.hand.z,42);assert.ok(a.elbow.z>19&&a.elbow.z<21);assert.ok(a.elbow.x>a.shoulder.x);assert.ok(a.elbow.y>a.shoulder.y);assert.ok(a.hand.z-a.elbow.z>21);
+ const svg=svgNode(),skin=createCandidateSkin(svg),snapshot=JSON.stringify(s);skin.paint(s);assert.equal(JSON.stringify(s),snapshot);const camera={...s.camera,yaw:-.35,elevation:.4},p=x=>project(x,camera),shoulder=p(a.shoulder),elbow=p(a.elbow),wrist=p(a.hand);assert.ok(shoulder.y-wrist.y>6,'wrist visibly above shoulder');assert.ok(Math.abs(elbow.x-shoulder.x)>18,'elbow no longer collapses into thin vertical fold');
+ const arm=pathPoints(svg.children[0].children.find(n=>n.attrs['data-part']==='nearArm').attrs.d);assert.ok(arm.some(point=>Math.hypot(point.x-wrist.x,point.y-wrist.y)<.002));skin.destroy();}
+}));
+test('incline fly actual full-cycle arm/shaft paths stay out of head center without changing fixed elbow geometry',()=>withSvgDocument(()=>{
+ const svg=svgNode(),skin=createCandidateSkin(svg);
+ for(let i=0;i<=480;i++){const s=F.inclineFly.sample(i/120),snapshot=JSON.stringify(s);skin.paint(s);assert.equal(JSON.stringify(s),snapshot);const h=project(s.head,{...s.camera,yaw:-.35,elevation:.4});for(const name of['farArm','nearArm','bar']){const d=svg.children[0].children.find(n=>n.attrs['data-part']===name).attrs.d;for(const chunk of d.split('M').filter(Boolean)){const points=pathPoints('M'+chunk);for(let j=1;j<points.length;j++){const a=points[j-1],b=points[j];for(let k=1;k<20;k++){const t=k/20;assert.ok(Math.hypot(a.x+(b.x-a.x)*t-h.x,a.y+(b.y-a.y)*t-h.y)>9.5);}}}}}skin.destroy();
+}));
+test('only targeted fixtures have explicit readable style and actual emitted seat/ground segments',()=>withSvgDocument(()=>{
+ for(const clip of[F.inclineFly,C.smithBench,C.singleDumbbellBench,B.pulldownReverse]){const s=clip.sample(1),svg=svgNode(),skin=createCandidateSkin(svg);skin.paint(s);const node=svg.children[0].children.find(n=>n.attrs['data-part']==='bench');assert.equal(node.attrs['opacity'],'0.85');assert.equal(node.attrs['stroke-width'],'2.4');assert.ok(pathPoints(node.attrs.d).length>=8);assert.ok(s.fixtures.some(line=>line.some(p=>p.z===0)));skin.destroy();}
+ assert.equal(F.dumbbellFly.sample(0).fixtureStyle,undefined);assert.equal(C.dumbbellBench.sample(0).fixtureStyle,undefined);assert.equal(B.pulldownWide.sample(0).fixtureStyle,undefined);
+}));
