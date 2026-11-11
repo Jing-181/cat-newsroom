@@ -1,0 +1,17 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>手机训练高度回归</title><link rel="stylesheet" href="../styles.css"></head><body><div id="app"></div><script type="module">
+import Workout from '../lib/workout.js';
+import View from '../lib/workout-view.js';
+import {createDemoFigure} from '../lib/motion/index.js';
+import {initMobileViewport} from '../lib/mobile-viewport.js';
+const params=new URLSearchParams(location.search),id=params.get('exercise')||'dumbbell_bench_press';
+const s=Workout.createSession('cardio');Workout.addExercise(s,id);Workout.addExercise(s,'pull_up');
+for(let i=1;i<12;i++)Workout.addSet(s,0);
+const e=s.exercises[0];if(params.get('long')==='1')e.name='双行标题训练动作 · 保持输入控件清楚可点';
+Object.keys(e.sets[0]).forEach(key=>{if(typeof e.sets[0][key]==='number'||['weight_kg','reps','duration_min','distance_km'].includes(key))e.sets[0][key]=0;});
+if(params.get('finished')==='1')for(const exercise of s.exercises)for(const set of exercise.sets){if('reps' in set)set.reps=8;else set.duration_min=5;}
+document.querySelector('#app').innerHTML=View.editorHtml(s,'cardio',[],{focus:true,focusTarget:{exercise:0,set:0}});
+document.querySelector('[data-focus-dwell]').textContent='本组停留 123:59';document.querySelector('[data-focus-timer]').textContent='12:34:56';
+const stop=createDemoFigure(document.querySelector('[data-move-figure]'),{exercise:e,reduced:true}),viewport=initMobileViewport();
+window.addEventListener('pagehide',()=>{stop();viewport();});
+// Synthetic template/layout only: never mounts WorkoutUI, touches persistence or sync.
+</script></body></html>

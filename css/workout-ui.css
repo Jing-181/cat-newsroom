@@ -854,6 +854,14 @@ button.set-hint:hover { color:var(--module-4); }
 
 @media (max-width:820px), (max-width:1024px) and (pointer:coarse) {
   .workout-app.workout-focus { overflow-y:auto; }
+  /* Keep 2.20.0 interaction/flow; only remove redundant navigation and tighten spacing. */
+  .workout-app.workout-focus .focus-nav { display:none; }
+  .workout-app.workout-focus .focus-head { height:80px; flex-basis:80px; margin-top:8px; }
+  .workout-app.workout-focus .focus-head h2 { font-size:22px; line-height:1.35; }
+  .workout-app.workout-focus .focus-head p { margin-top:4px; }
+  .workout-app.workout-focus .focus-setbar { margin-top:8px; }
+  .workout-app.workout-focus .focus-fields { margin-top:8px; gap:8px; }
+  .workout-app.workout-focus .focus-last { margin-top:8px; }
   .workout-focus .focus-fields, .workout-focus .focus-field, .workout-focus .focus-primary { flex-shrink:0; }
   .workout-focus .focus-value { scroll-margin-block:80px; }
   .focus-setbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; flex:0 0 auto; }
