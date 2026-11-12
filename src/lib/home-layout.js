@@ -16,27 +16,21 @@ export const HOME_GROUPS = {
 
 // key：卡片标识（云端排序存 key 数组）；label：设置页显示名；group：所属分组（组头自动跟随）
 export const HOME_CARDS = [
-  { key: "clock", label: "时钟问候", group: "rhythm" },
-  { key: "focus", label: "今日聚焦", group: "rhythm" },
-  { key: "quick", label: "快速记录", group: "rhythm" },
-  { key: "overview", label: "今日概览", group: "rhythm" },
+  { key: "clock", label: "日期问候", group: "rhythm" },
+  { key: "quick", label: "随手记", group: "rhythm" },
   { key: "daily", label: "每日一卡", group: "daily" },
-  { key: "todo", label: "事项清单", group: "habits" },
+  { key: "todo", label: "今天要做", group: "habits" },
   { key: "pomo", label: "专注番茄钟", group: "focus" },
-  { key: "trend", label: "心情趋势", group: "focus" },
-  { key: "goals", label: "本周目标", group: "growth" },
+  { key: "trend", label: "今天的状态", group: "focus" },
+  { key: "goals", label: "本周训练", group: "growth" },
   { key: "report", label: "训练周复盘", group: "report" },
 ];
 
-export const DEFAULT_HOME_ORDER = HOME_CARDS.map(card => card.key);
+export const DEFAULT_HOME_ORDER = ["clock", "quick", "todo", "goals", "trend", "pomo", "daily", "report"];
 
-// 手机首屏先给「今天能做的事」：时钟→快速记录→今日聚焦→事项，
-// 概览、每日一卡、趋势这些「看」的往后排。
+// 两端默认顺序一致：先记录与执行，再看状态和生活小笺。
 // 只在用户没有自定义排序时使用；已保存的顺序（含云端拉回来的）一律优先，不覆盖。
-export const DEFAULT_HOME_ORDER_MOBILE = [
-  "clock", "quick", "focus", "todo",
-  "overview", "daily", "pomo", "trend", "goals", "report",
-];
+export const DEFAULT_HOME_ORDER_MOBILE = [...DEFAULT_HOME_ORDER];
 
 // 保留自定义的相对顺序，旧配置中的收起卡片只过滤展示、不回写删除。
 export function visibleHomeOrder(order, fallback = DEFAULT_HOME_ORDER) {

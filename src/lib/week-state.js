@@ -1,4 +1,4 @@
-// 本周状态共享逻辑：洞察页大格子 + 首页趋势卡下方紧凑条，读写 data().__trend
+// 本周状态共享逻辑：洞察页七天格子与首页今日评分，读写 data().__trend。
 // 存储结构 { week: 本周周一ISO日期, days: [7 个数字] }，week 对不上就当作没记录，跨周自动归零
 import { today, weekDates, weekStartKey, trendDays } from "./utils.js";
 import { getData, save } from "./store.js";
@@ -20,9 +20,12 @@ export function writeTrendDay(index, value) {
   const d = getData();
   const trend = readTrend();
   trend[index] = value;
+  const previous = d.__trend;
   d.__trend = { week: weekStartKey(), days: trend };
-  save();
-  if (typeof window.saveMetaCloud === "function") window.saveMetaCloud("__trend", d.__trend);
+  try { save(); } catch (error) { d.__trend = previous; throw error; }
+  // 同步失败不撤回本机已经保存的状态。
+  try { if (typeof window.saveMetaCloud === "function") window.saveMetaCloud("__trend", d.__trend); }
+  catch { /* 本机状态已保存，交给同步状态提示后续处理。 */ }
 }
 
 // 生成 7 天格子 HTML；compact=true 用于首页趋势卡下方的紧凑条

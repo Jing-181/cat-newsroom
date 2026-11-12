@@ -57,7 +57,7 @@ case "${1:-}" in
     echo $! > "$PID_FILE"
     sleep 2
     if running && [ -n "$(listener)" ]; then
-      echo "已启动（host $HOST）："
+      echo "已启动（host ${HOST}）："
       print_urls
       echo "PID $(pid)（写进 $PID_FILE，脚本下次能停掉它）"
       echo "日志：$LOG_FILE"

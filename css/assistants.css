@@ -1,0 +1,52 @@
+/* 报刊署名栏：趣味集中在角色原画，其他元素沿用共享主题。 */
+.assistant-crew { min-width: 0; }
+.assistant-byline { display: flex; gap: 12px; align-items: baseline; margin-bottom: 12px; font-size: 14px; font-weight: 700; }
+.assistant-byline small { color: var(--text-secondary); font: 12px var(--font-sans); }
+.assistant-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.assistant-member, .assistant-badge { display: flex; align-items: center; gap: 12px; text-align: left; padding: 8px; border: 1px solid var(--border); background: var(--surface-card); color: var(--text); border-radius: var(--radius-card); cursor: pointer; }
+.assistant-member strong { display: block; font: 700 16px var(--font); }
+.assistant-member small, .assistant-badge small { display: block; color: var(--text-secondary); font: 12px/1.6 var(--font-sans); margin-top: 4px; }
+.assistant-arrow { margin-left: auto; color: var(--text-secondary); }
+.assistant-portrait { display: block; width: 72px; height: 72px; flex-shrink: 0; background-size: 300% 100%; background-repeat: no-repeat; border-radius: var(--radius-tile); }
+.assistant-crew button { transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
+.assistant-crew button:hover { background-color: var(--surface-nested); border-color: var(--accent); }
+.assistant-crew button:active { transform: scale(.97); }
+.assistant-crew button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.assistant-crew--compact { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+.assistant-badge { font: 700 13px var(--font-sans); padding: 4px 12px 4px 4px; border-radius: var(--radius-pill); }
+.assistant-badge .assistant-portrait { width: 44px; height: 44px; border-radius: var(--radius-pill); }
+.assistant-badge small { margin: 0; font-size: 11px; }
+.assistant-dialog { box-sizing: border-box; margin: auto; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; padding: 24px; background: var(--surface-card); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sheet); box-shadow: var(--shadow-overlay); }
+.assistant-dialog::backdrop { background: color-mix(in srgb, var(--text) 45%, transparent); }
+.assistant-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.assistant-close, .assistant-tabs button { border: 1px solid transparent; background: transparent; color: var(--text); border-radius: var(--radius-control); cursor: pointer; min-height: 44px; min-width: 44px; }
+.assistant-close { font-size: 24px; }
+.assistant-tabs { display: flex; gap: 8px; margin: 12px 0 20px; }
+.assistant-tabs button { flex: 1; font: 14px var(--font-sans); }
+.assistant-tabs button[aria-pressed="true"] { background: var(--surface-nested); border-color: var(--accent); }
+.assistant-profile { display: flex; align-items: center; gap: 20px; }
+.assistant-profile .assistant-portrait { width: 144px; height: 144px; }
+.assistant-profile h2 { margin: 8px 0; font-size: 28px; }
+.assistant-profile p { margin: 0; }
+.assistant-replay { min-height: 44px; }
+.assistant-dialog blockquote { margin: 24px 0 12px; font-size: 20px; line-height: 1.6; font-weight: 700; }
+.assistant-description { color: var(--text-secondary); font: 14px/1.8 var(--font-sans); }
+.assistant-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.assistant-links button { min-height: 44px; }
+/* 窄屏仍三人同席；角标在文流内，不覆盖输入与训练控件。 */
+@media (max-width: 620px) {
+  .assistant-roster { gap: 8px; }
+  .assistant-member { flex-direction: column; align-items: center; gap: 8px; padding: 8px 4px 12px; text-align: center; }
+  .assistant-member .assistant-portrait { width: 64px; height: 64px; }
+  .assistant-member strong { font-size: 14px; }
+  .assistant-member small { font-size: 11px; }
+  .assistant-arrow { display: none; }
+  .assistant-dialog { padding: 20px; }
+  .assistant-profile { gap: 12px; }
+  .assistant-profile .assistant-portrait { width: 108px; height: 108px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-crew button { transition: none; }
+  .assistant-crew button:active { transform: none; }
+  .assistant-replay { display: none; }
+}

@@ -3,23 +3,28 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { CONFIG } from "../../lib/config.js";
 import { icon } from "../../lib/icons.js";
-import { today, dateStr, avgProgress, weekDates } from "../../lib/utils.js";
+import { today, dateStr, avgProgress, trendSVG } from "../../lib/utils.js";
 import Workout from "../../lib/workout.js";
-import { getData, save, subscribe } from "../../lib/store.js";
+import { getData, subscribe } from "../../lib/store.js";
 import { trainingReviewSlotHTML, initTrainingReview } from "../../lib/training-review.js";
-import { trendCellsHTML, wireTrendCells, refreshTrendCells, nonTrendSnapshot } from "../../lib/week-state.js";
+import { readTrend, trendCellsHTML, wireTrendCells, refreshTrendCells, nonTrendSnapshot } from "../../lib/week-state.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null);
 
-// 本周状态录入：7 天格子与首页趋势卡共用同一份数据（lib/week-state.js）
+// 本周状态录入：7 天格子与首页今日评分共用同一份数据。
 function trendBlockHTML() {
-  return `<div class="sec-title">本周状态</div><div class="week-state"><div class="ws-grid">${trendCellsHTML()}</div><p class="ws-tip">点日期格子记录当天状态：1 分很低、5 分很好，再点循环，点满 5 分再点可清除。首页「本周状态趋势」也会同步显示。</p></div>`;
+  return `<div class="sec-title">本周状态</div><div class="week-state"><div data-week-chart>${trendSVG(readTrend())}</div><div class="ws-grid">${trendCellsHTML()}</div><p class="ws-tip">点日期格子记录当天状态：1 分很低、5 分很好，再点循环，点满 5 分再点可清除。首页只显示今天的状态。</p></div>`;
 }
 
 let renderedNonTrend = null;
+function refreshTrend() {
+  refreshTrendCells(root.value);
+  const chart = root.value.querySelector('[data-week-chart]');
+  if (chart) chart.innerHTML = trendSVG(readTrend());
+}
 function onStoreUpdate() {
-  if (renderedNonTrend === nonTrendSnapshot()) refreshTrendCells(root.value);
+  if (renderedNonTrend === nonTrendSnapshot()) refreshTrend();
   else render();
 }
 
@@ -43,7 +48,7 @@ function render() {
     ${trendBlockHTML()}`;
   renderedNonTrend = nonTrendSnapshot();
   root.value.querySelectorAll("[data-open]").forEach(el => el.onclick = () => emit("navigate", el.dataset.open));
-  wireTrendCells(root.value);
+  wireTrendCells(root.value, { onUpdate: refreshTrend });
   root.value.insertAdjacentHTML("beforeend", trainingReviewSlotHTML());
   initTrainingReview(root.value);
 }

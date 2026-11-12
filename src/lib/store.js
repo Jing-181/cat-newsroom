@@ -111,3 +111,22 @@ export function applyCloud() {
 export function applyRemote() {
   renderAfterWorkoutDialog();
 }
+
+// 快速捕获先确认本机落盘；同步异常不能撤回已经保存的记录。
+export function insertRecord(moduleKey, record) {
+  const data = getData(), previous = data[moduleKey];
+  const list = Array.isArray(previous) ? previous : [];
+  record.updated_at = new Date().toISOString();
+  data[moduleKey] = [record, ...list];
+  try { save(); }
+  catch (error) {
+    if (previous === undefined) delete data[moduleKey];
+    else data[moduleKey] = previous;
+    throw error;
+  }
+  let syncPending = false;
+  try { window.syncRecord?.({ moduleKey, record }); }
+  catch { syncPending = true; }
+  bump();
+  return { syncPending };
+}

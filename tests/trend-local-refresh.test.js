@@ -53,8 +53,8 @@ test('remote trend refresh updates existing cells and excludes only top-level tr
   const current=nonTrendSnapshot();getData().__homeOrder=['todo','trend'];
   assert.notEqual(nonTrendSnapshot(),current);
 });
-test('both subscription callbacks branch to local refresh only when non-trend snapshot matches', () => {
-  for (const source of [home,insight]) {
+test('insight subscription callback branch to local refresh only when non-trend snapshot matches', () => {
+  for (const source of [insight]) {
     let snapshot='same', local=0, full=0;
     const call=new Function('nonTrendSnapshot','refreshTrend','refreshTrendCells','root','render',`let renderedNonTrend='same';${sourceFunction(source,'onStoreUpdate')};return onStoreUpdate;`)(()=>snapshot,()=>local++,()=>local++,{value:{}},()=>full++);
     call();assert.equal(local,1);assert.equal(full,0);
@@ -63,24 +63,9 @@ test('both subscription callbacks branch to local refresh only when non-trend sn
     assert.match(source,/renderedNonTrend = nonTrendSnapshot\(\)/);
   }
 });
-test('home updates chart, average and empty state without touching grid or outer tree', () => {
-  let series=Array(7).fill(null), cellUpdates=0, chartWrites=0;
-  const chart={html:'', get innerHTML(){return this.html;},set innerHTML(v){chartWrites++;this.html=v;}};
-  const average={textContent:''},axis={style:{}};
-  const tile={querySelector:s=>({'[data-trend-chart]':chart,'[data-trend-average]':average,'[data-trend-axis]':axis}[s])};
-  const root={value:{querySelector:()=>tile,set innerHTML(_){throw Error('Root replaced');}}};
-  const refresh=new Function('root','refreshTrendCells','CONFIG','data','trendSVG','icon',`${sourceFunction(home,'trendPresentation')}\n${sourceFunction(home,'refreshTrend')}\nreturn refreshTrend;`)(root,()=>cellUpdates++,{trend:{series:()=>series,unit:'分'}},()=>({}),v=>`<svg>${v.join(',')}</svg>`,()=> '');
-  refresh();assert.match(chart.html,/trend-empty/);assert.equal(average.textContent,'');assert.equal(axis.style.visibility,'hidden');
-  series=[2,4,null,null,null,null,null];refresh();assert.match(chart.html,/<svg>/);assert.equal(average.textContent,'均 3分');assert.equal(axis.style.visibility,'visible');
-  const writes=chartWrites;refresh();assert.equal(chartWrites,writes);
-  series=Array(7).fill(null);refresh();assert.match(chart.html,/trend-empty/);assert.equal(average.textContent,'');
-  assert.equal(cellUpdates,4);
-  assert.match(home,/wireTrendCells\(scope, \{ onUpdate: refreshTrend \}\)/);
-});
-test('home quick recording opens non-sport editor without navigating, sport still navigates', () => {
-  const buttons=['todo','note','sport'].map(quick=>({dataset:{quick}})),nav=[],edit=[];
-  const scope={querySelectorAll:s=>s==='[data-quick]'?buttons:[],querySelector:()=>null};
-  new Function('root','Trace','go','openEditor','wireTrendCells','refreshTrend',`${sourceFunction(home,'wireHome')};wireHome();`)({value:scope},{track(){}},key=>nav.push(key),(...args)=>edit.push(args),()=>{},()=>{});
-  buttons.forEach(b=>b.onclick());
-  assert.deepEqual(nav,['sport']);assert.deepEqual(edit,[['todo',null],['note',null]]);
+test('insight updates chart without replacing the scoring cells', () => {
+  const chart = { innerHTML: '' }, scope = { querySelector: () => chart };
+  let cellRefreshes = 0;
+  const call = new Function('root', 'refreshTrendCells', 'readTrend', 'trendSVG', `${sourceFunction(insight,'refreshTrend')};return refreshTrend;`)({ value: scope }, () => cellRefreshes++, () => [2, 4, null], values => values.join(','));
+  call(); assert.equal(chart.innerHTML, '2,4,'); assert.equal(cellRefreshes, 1);
 });

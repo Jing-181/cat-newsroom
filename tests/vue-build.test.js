@@ -166,8 +166,8 @@ test("训练周复盘两处挂载形态分离：首页摘要（结论+指标前�
   assert.match(reviewLib, /function readyHTML\(report, list, compact\)/);
   assert.match(reviewLib, /training-review-more/); // 看全文入口
   const home = read("src/modules/home/HomeView.vue");
-  assert.match(home, /report: \(\) => trainingReviewSlotHTML\(\{ compact: true \}\)/);
-  assert.match(home, /initTrainingReview\(root\.value, \{ compact: true, onMore: \(\) => go\("insight"\) \}\)/);
+  assert.match(home, /const reportHTML = trainingReviewSlotHTML\(\{ compact: true \}\)/);
+  assert.match(home, /initTrainingReview\(root\.value, \{ compact: true, onMore: \(\) => go\('insight'\) \}\)/);
   // 洞察页不传 compact：仍是结论 + 全量指标 + 结构分析 + 下周提示 + 导出 + 往期
   const insight = read("src/modules/insight/InsightView.vue");
   assert.match(insight, /insertAdjacentHTML\("beforeend", trainingReviewSlotHTML\(\)\)/);
@@ -197,7 +197,7 @@ test("使用记录接入点：只新增调用，不碰数据键与同步层", ()
   assert.doesNotMatch(workoutUi, /localStorage\.setItem\(\s*"cat-newsroom-data-v2"/);
   assert.match(read("src/modules/workout/SportView.vue"), /workout_page_open/);
   assert.match(read("src/lib/editor.js"), /record_saved/);
-  assert.match(read("src/modules/home/HomeView.vue"), /quick_add_click/);
+  assert.match(read("src/components/QuickCapture.vue"), /quick_add_click/);
   assert.match(read("src/App.vue"), /app_open/);
   assert.match(read("src/lib/training-review.js"), /report_more_click/);
   // 设置页三项能力：开关 / 清空 / 导出

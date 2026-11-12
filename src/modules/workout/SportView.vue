@@ -6,6 +6,7 @@ import { getData, persist, remove } from "../../lib/store.js";
 import WorkoutUI from "../../lib/workout-ui.js";
 import Trace from "../../lib/trace.js";
 
+const emit = defineEmits(["navigate"]);
 const MODULE_KEY = "sport"; // 与主站 CONFIG.modules 的 sport 键一致
 const rootRef = ref(null);
 let controller = null;
@@ -45,5 +46,6 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <div class="sport-atlas-entry"><button class="btn ghost" @click="emit('navigate', 'exerciseAtlas')">运动图鉴 →</button></div>
   <div ref="rootRef" class="workout-mount"></div>
 </template>

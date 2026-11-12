@@ -21,7 +21,7 @@ const results = { startedAt: new Date().toISOString(), cases: [], screenshots: [
   'Real Safari/WebKit and iPhone hardware: CDP viewport/touch/UA simulation is Chromium only',
   'Full App shell navigation and workout pages; Home/Insight tested only in isolated fixture',
 ] };
-const tracked = ['src/modules/todo/TodoView.vue', 'src/modules/note/NoteView.vue', 'src/lib/editor.js', 'src/lib/task-groups.js', 'css/quick-editor.css', 'src/lib/mobile-viewport.js', 'src/lib/dialog-contract.js', 'src/lib/store.js', 'src/modules/home/HomeView.vue', 'src/modules/insight/InsightView.vue', 'src/lib/week-state.js', 'src/App.vue', 'src/responsive.css', 'src/styles.css', 'css/app-dialog.css'];
+const tracked = ['src/modules/todo/TodoView.vue', 'src/modules/note/NoteView.vue', 'src/lib/editor.js', 'src/lib/task-groups.js', 'css/quick-editor.css', 'src/lib/mobile-viewport.js', 'src/lib/dialog-contract.js', 'src/lib/store.js', 'src/modules/home/HomeView.vue', 'src/components/QuickCapture.vue', 'src/modules/timeline/TimelineView.vue', 'src/lib/life-feed.js', 'css/life-home.css', 'src/modules/insight/InsightView.vue', 'src/lib/week-state.js', 'src/App.vue', 'src/responsive.css', 'src/styles.css', 'css/app-dialog.css'];
 async function hashes() {
   return Object.fromEntries(await Promise.all(tracked.map(async path => [path, createHash('sha256').update(await readFile(resolve(root, path))).digest('hex')])));
 }
@@ -177,15 +177,14 @@ try {
   const attachPhoto = async paste => evaluate(`(async()=>{const file=await ${photo};const dt=new DataTransfer();dt.items.add(file);${paste ? "document.querySelector('.quick-editor').dispatchEvent(new ClipboardEvent('paste',{bubbles:true,clipboardData:dt}));" : "const input=document.querySelector('#q-file');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));"}})()`);
   await run('随记文本 + 图片：文件选择桩上传及显示', async () => {
     await click('.note-capture'); await fill('#q-content', '文字配本地测试照片'); await attachPhoto(false);
-    await wait(`document.querySelector('#q-upload-status').textContent.includes('已上传')`);
-    await check(`fixture.uploads.length===1 && fixture.uploads[0].options.moduleKey==='note'`, 'Upload stub not called');
+    await check(`fixture.uploads.length===0`, 'Photo uploaded before save');
     await click('#q-save'); await wait(`!document.querySelector('.quick-editor')`);
+    await check(`fixture.uploads.length===1 && fixture.uploads[0].options.moduleKey==='note'`, 'Upload stub not called');
     await wait(`[...document.querySelectorAll('.note-image img')].some(img=>img.complete && img.naturalWidth===640)`);
     await check(`fixture.store.getData().note.some(x=>x.content==='文字配本地测试照片' && x.image.startsWith('data:image/png'))`, 'Image note not persisted');
   });
   await run('随记仅图片：粘贴图片事件及保存', async () => {
     await click('.note-capture'); await attachPhoto(true);
-    await wait(`document.querySelector('#q-upload-status').textContent.includes('已上传')`);
     await click('#q-save'); await wait(`!document.querySelector('.quick-editor')`);
     await check(`fixture.store.getData().note.some(x=>!x.content && x.image)`, 'Image-only note rejected');
   });
@@ -196,26 +195,25 @@ try {
     await check(`document.querySelectorAll('.note-entry').length===3`, 'Note search reset failed');
   });
   await run('随记草稿：暂存关闭、重新打开、整页重载、保存清理', async () => {
-    await click('.note-capture'); await fill('#q-content', '刷新后仍应保留的隔离草稿'); await attachPhoto(false);
-    await wait(`document.querySelector('#q-upload-status').textContent.includes('已上传')`);
+    // 已有图片地址能随草稿恢复；未上传 File 不声称跨刷新保留。
+    await click('.note-capture'); await fill('#q-content', '刷新后仍应保留的隔离草稿');
+    await evaluate(`(()=>{const input=document.querySelector('#q-image');input.value=fixture.store.getData().note.find(x=>x.image).image;document.querySelector('#q-add-url').click();})()`);
     await click('#q-close'); await wait(`!document.querySelector('.quick-editor')`);
     await click('.note-capture');
-    await check(`document.querySelector('#q-content').value==='刷新后仍应保留的隔离草稿' && document.querySelector('#q-image').value.startsWith('data:image/png')`, 'Reopen lost draft');
+    await check(`document.querySelector('#q-content').value==='刷新后仍应保留的隔离草稿' && document.querySelector('#q-images img')?.src.startsWith('data:image/png')`, 'Reopen lost draft');
     await send('Page.reload', { ignoreCache: true });
     // Page.reload acknowledges before the old execution context is destroyed; wait for load event via CDP.
     await new Promise(resolve => { const timer=setTimeout(done, 1500); function done(){clearTimeout(timer);ws.removeEventListener('message',listener);resolve();} function listener(e){if(JSON.parse(e.data).method==='Page.loadEventFired')done();} ws.addEventListener('message',listener); });
     await wait('window.ready === true'); await evaluate(`fixture.show('note')`); await click('.note-capture');
-    await check(`document.querySelector('#q-content').value==='刷新后仍应保留的隔离草稿' && document.querySelector('#q-image').value.startsWith('data:image/png')`, 'Reload lost draft text/image');
+    await check(`document.querySelector('#q-content').value==='刷新后仍应保留的隔离草稿' && document.querySelector('#q-images img')?.src.startsWith('data:image/png')`, 'Reload lost draft text/image');
     await click('#q-save'); await wait(`!document.querySelector('.quick-editor')`);
     await check(`!localStorage.getItem('cat-newsroom-quick-draft-v1:quick-record-fixture-only:note')`, 'Saved draft not cleared');
   });
   await run('上传失败保留文本，重试上传后可保存', async () => {
-    await click('.note-capture'); await fill('#q-content', '失败重试不能丢文字'); await evaluate('fixture.failUpload=true'); await attachPhoto(false);
+    await click('.note-capture'); await fill('#q-content', '失败重试不能丢文字'); await evaluate('fixture.failUpload=true'); await attachPhoto(false); await click('#q-save');
     await wait(`document.querySelector('#q-upload-status').textContent.includes('fixture upload failed')`);
     await check(`document.querySelector('#q-content').value==='失败重试不能丢文字'`, 'Upload failure lost text');
-    await evaluate('fixture.failUpload=false'); await click('#q-upload');
-    await wait(`document.querySelector('#q-upload-status').textContent.includes('已上传')`);
-    await click('#q-save'); await wait(`!document.querySelector('.quick-editor')`);
+    await evaluate('fixture.failUpload=false'); await click('#q-save'); await wait(`!document.querySelector('.quick-editor')`);
   });
   for (const width of [375, 390, 430, 1280]) {
     await viewport(width);
@@ -230,10 +228,10 @@ try {
     }
     await run(`${width}px 随记编辑器无横向溢出`, async () => {
       await click('.note-capture'); await fill('#q-content', '窄屏编辑器换行检查 '.repeat(20)); await attachPhoto(false);
-      await wait(`document.querySelector('#q-upload-status').textContent.includes('已上传')`); await tick();
+      await wait(`!!document.querySelector('#q-images img')`); await tick();
       const measurement = await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('.quick-editor,.quick-editor *')].filter(e=>{const r=e.getBoundingClientRect();return r.width && (r.right>innerWidth+1 || r.left < -1)}).map(e=>e.id||e.className)})`);
       results.overflow.push({ width, view: 'note-editor', ...measurement }); await shot(`note-editor-${width}`);
-      await click('#q-close'); await wait(`!document.querySelector('.quick-editor')`);
+      await click('[data-photo-remove]'); await click('#q-close'); await wait(`!document.querySelector('.quick-editor')`);
       if (measurement.scrollWidth > width || measurement.offenders.length) throw Error('Editor overflow: ' + JSON.stringify(measurement));
     });
   }
@@ -317,7 +315,7 @@ try {
       results.geometry.push(await geometry(`cancelled-closed-${width}`));await shot(`iphone-sim-${width}-restored`);
     });
   }
-  for(const view of ['home','insight']) {
+  for(const view of ['insight']) {
     await run(`${view} 本地点击与trend-only bump保留真实七格/祖先节点及焦点`,async()=>{
       await viewport(390);
       await evaluate(`(()=>{fixture.store.getData().__trend=undefined;})()`);
@@ -328,7 +326,7 @@ try {
         await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await tick();
         await check(`trendNodes.every((node,i)=>node===document.querySelectorAll('[data-trend-day]')[i]) && trendNodes[0].parentNode===trendGrid && trendGrid.parentNode===trendRoot && document.activeElement===trendNodes[0]`, 'Local trend click replaced node/focus');
         await check(`trendNodes[0].getAttribute('aria-label').includes(${JSON.stringify(i===6?'未记录':i+'分')})`, 'Aria not updated');
-        if(view==='home')await check(i===6?`!!document.querySelector('[data-trend-chart] .trend-empty') && document.querySelector('[data-trend-average]').textContent===''`:`!!document.querySelector('[data-trend-chart] svg') && document.querySelector('[data-trend-average]').textContent.includes('均 ${i}分')`,'Chart/average/empty state not updated');
+        await check(i===6 ? `!document.querySelector('[data-week-chart] svg')` : `!!document.querySelector('[data-week-chart] svg')`, 'Weekly chart state incorrect');
       }
       await evaluate(`(()=>{fixture.store.getData().__trend.days[1]=4;window.beforeTrendScroll=scrollY;fixture.store.bump();})()`);await tick();
       await check(`trendNodes.every((node,i)=>node===document.querySelectorAll('[data-trend-day]')[i]) && trendGrid.parentNode===trendRoot && document.activeElement===trendNodes[0] && trendNodes[1].getAttribute('aria-label').includes('4分')`, 'Trend-only bump replaced nodes or failed to refresh');
@@ -340,12 +338,27 @@ try {
   }
   await run('首页快捷随记保持Home节点，运动仍发navigate',async()=>{
     await evaluate(`fixture.show('home')`);await tick();
-    await evaluate(`(()=>{window.homeQuick=document.querySelector('[data-quick="note"]');window.homeGrid=document.querySelector('.ws-grid');homeQuick.focus({preventScroll:true});fixture.navigation.length=0;homeQuick.click();})()`);
+    await evaluate(`(()=>{window.homeQuick=[...document.querySelectorAll('.capture-links button')].find(el=>el.textContent==='写图文日记');window.homeGrid=document.querySelector('.home-grid');homeQuick.focus({preventScroll:true});fixture.navigation.length=0;homeQuick.click();})()`);
     await wait(`!!document.querySelector('#q-content')`);
-    await check(`fixture.navigation.length===0 && homeQuick.isConnected && homeGrid===document.querySelector('.ws-grid')`,'Quick note navigated or replaced home');
+    await check(`fixture.navigation.length===0 && homeQuick.isConnected && homeGrid===document.querySelector('.home-grid')`,'Quick note navigated or replaced home');
     await click('#q-close');await wait(`!document.querySelector('.quick-editor')`);
     await check(`document.activeElement===homeQuick`,'Quick-note close lost opener focus');
-    await click('[data-quick="sport"]');await check(`fixture.navigation.join(',')==='sport'`,'Sport quick entry no longer navigates');
+    await evaluate(`[...document.querySelectorAll('.capture-links button')].find(el=>el.textContent==='记录运动').click()`);await check(`fixture.navigation.join(',')==='sport'`,'Sport quick entry no longer navigates');
+  });
+  // 新首页用稳定 Vue 表单；刷新与路由切换不得吞掉草稿。
+  await run('随手记保留草稿并兼容局域网保存，时间线可回看',async()=>{
+    await evaluate(`fixture.show('home')`);await tick();
+    await evaluate(`(()=>{const el=document.querySelector('.home-capture textarea');el.value='生活首批回归记录';el.dispatchEvent(new Event('input',{bubbles:true}));fixture.store.bump();})()`);await tick();
+    await check(`document.querySelector('.home-capture textarea').value==='生活首批回归记录'`, 'Refresh lost capture draft');
+    await evaluate(`fixture.show('note')`);await evaluate(`fixture.show('home')`);await tick();
+    await check(`document.querySelector('.home-capture textarea').value==='生活首批回归记录'`, 'Navigation lost capture draft');
+    await evaluate(`(()=>{window.originalUUID=crypto.randomUUID;crypto.randomUUID=undefined;document.querySelector('.home-capture form').requestSubmit();crypto.randomUUID=window.originalUUID;})()`);await tick();
+    await check(`document.querySelector('.home-capture textarea').value==='' && fixture.store.getData().note.filter(x=>x.content==='生活首批回归记录').length===1`, 'Capture did not save once without randomUUID');
+    await evaluate(`fixture.show('timeline')`);await tick();
+    await check(`[...document.querySelectorAll('.timeline-excerpt')].some(el=>el.textContent==='生活首批回归记录')`, 'Timeline missed saved record');
+    await evaluate(`[...document.querySelectorAll('.timeline-tools button')].find(el=>el.textContent==='训练').click()`);await tick();
+    await check(`![...document.querySelectorAll('.timeline-excerpt')].some(el=>el.textContent==='生活首批回归记录')`, 'Timeline filter leaked note');
+    await shot('life-timeline');
   });
 } catch (error) {
   results.fatal = error.stack;

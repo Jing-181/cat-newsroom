@@ -18,6 +18,7 @@ import Trace from "./lib/trace.js";
 import { initMobileViewport } from "./lib/mobile-viewport.js";
 import { useRoute, useRouter, RouterView } from 'vue-router';
 import { moduleRoutes } from './lib/app-router.js';
+import AssistantCrew from './components/AssistantCrew.vue';
 
 const route = useRoute(), router = useRouter();
 const primaryModules = CONFIG.modules.filter(m => isPrimaryModule(m.key));
@@ -237,7 +238,7 @@ async function onAvatarChange(e) {
         <a :href="router.resolve({name:'home'}).href" class="navi" :class="{ active: view === 'home' }" @click="navClick('home', $event)"><span v-html="icon('home', 19)"></span>首页</a>
         <div class="nav-sep">功能模块</div>
         <a v-for="m in primaryModules" :key="m.key" :href="router.resolve({name:m.key}).href" class="navi" :class="{ active: view === m.key }" @click="navClick(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
-        <a :href="router.resolve({name:'exerciseAtlas'}).href" class="navi" :class="{ active: view === 'exerciseAtlas' }" @click="navClick('exerciseAtlas', $event)"><span v-html="icon('activity', 19)"></span>运动总览</a>
+        <a :href="router.resolve({name:'timeline'}).href" class="navi" :class="{ active: view === 'timeline' }" @click="navClick('timeline', $event)"><span v-html="icon('calendar', 19)"></span>生活时间线</a>
         <details>
           <summary class="navi">更多模块</summary>
           <a v-for="m in collapsedModules" :key="m.key" :href="router.resolve({name:m.key}).href" class="navi" :class="{ active: view === m.key }" @click="navClick(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
@@ -259,6 +260,7 @@ async function onAvatarChange(e) {
     <!-- 主视区：切换模块时整块重建，靠 .view-swap 的入场动画把切换变成一次淡入，而不是硬闪 -->
     <main class="main">
       <div class="view-swap" :key="view">
+        <AssistantCrew v-if="view !== 'home'" compact :module="view" @navigate="onNavigate" />
         <RouterView v-slot="{ Component }"><component :is="Component" :key="view" @navigate="onNavigate" /></RouterView>
       </div>
     </main>

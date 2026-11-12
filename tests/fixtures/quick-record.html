@@ -65,7 +65,8 @@
     window.fetchUserSettings = async () => null;
     window.getSupabaseConfig = () => null;
     window.saveMetaCloud = () => {};
-    const views = { todo: TodoView, note: NoteView, home: HomeView, insight: InsightView };
+    const { default: TimelineView } = await import('/modules/timeline/TimelineView.vue');
+    const views = { timeline: TimelineView, todo: TodoView, note: NoteView, home: HomeView, insight: InsightView };
     inspectProxy = isProxy;
     const view = ref('todo');
     window.fixture = { store, uploads, syncCalls, syncErrors, syncInputs, CONFIG, viewportInitialized: true, navigation: [],
@@ -89,7 +90,7 @@
     createApp({ setup: () => () => [
       h('nav', { class: 'fixture-nav' }, ['todo', 'note'].map(key =>
         h('button', { class: 'btn ghost', onClick: () => { view.value = key; } }, key === 'todo' ? '事项' : '随记'))),
-      h(views[view.value], { onNavigate: key => { fixture.navigation.push(key); } }),
+      h(views[view.value], { onNavigate: key => { fixture.navigation.push(key); if (views[key]) view.value = key; } }),
     ] }).mount('#fixture');
     await nextTick();
     window.ready = true;

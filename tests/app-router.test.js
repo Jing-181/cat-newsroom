@@ -4,8 +4,8 @@ import {createAppRouter,moduleRoutes,routerBase} from '../src/lib/app-router.js'
 import {hasAuthCallback,settleAuthCallback,cleanAuthCallbackUrl} from '../src/lib/route-auth.js';
 import {readFileSync} from 'node:fs';
 const make=()=>createAppRouter({history:createMemoryHistory(),componentFor:()=>({render(){return null;}})});
-test('all11 named module routes, home redirect, unknown routes and real exercise titles',async()=>{
- const router=make();assert.equal(moduleRoutes.length,11);
+test('all12 named module routes, home redirect, unknown routes and real exercise titles',async()=>{
+ const router=make();assert.equal(moduleRoutes.length,12);
  await router.push('/');assert.equal(router.currentRoute.value.name,'home');
  for(const[name,path]of moduleRoutes){await router.push({name});assert.equal(router.currentRoute.value.meta.module,name);}
  await router.push('/exercises/pull_up?q=引体');assert.equal(router.currentRoute.value.params.exerciseId,'pull_up');assert.equal(router.currentRoute.value.query.q,'引体');assert.match(router.currentRoute.value.meta.title,/引体向上/);

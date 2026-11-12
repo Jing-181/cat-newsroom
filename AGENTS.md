@@ -5,7 +5,7 @@
 
 ## 这是什么
 
-猫咪生活报（Cat Life Daily）：一个单人用的生活工作台。十个模块——首页概览、洞察周报、待办、习惯打卡、阅读进度、运动健身、记账、日记、今日收藏、设置。
+猫咪生活报（Cat Life Daily）：一个单人用的生活工作台。十个模块——首页概览、洞察周报、待办、习惯打卡、阅读进度、运动健身、记账、日记、今日收藏、设置；另有生活时间线聚合页与运动图鉴。
 
 训练周复盘是只读展示：数据由 Hana 的定时任务每周一 07:30 写入 Supabase，前端读只读视图 `training_reports_feed`，不在浏览器里生成。
 只有 Jing 一个用户。数据存浏览器 localStorage，可选经 Supabase 跨设备同步。
@@ -41,14 +41,16 @@ Vite 6 的 host 校验允许 IP 字面量，所以手机用 `http://192.168.x.x:
 | 层 | 位置 | 说明 |
 | --- | --- | --- |
 | 统一入口 | `index.html` → `src/` | Vue 3 + Vite，root 指向 `src` |
-| 视图 | `src/modules/<key>/<Name>View.vue` | 10 个视图；6 个是薄包装，复用 `src/components/ModuleView.vue` 的通用引擎 |
+| 视图 | `src/modules/<key>/<Name>View.vue` | 12 个模块路由；打卡、阅读、记账、收藏复用 `src/components/ModuleView.vue`，首页、事项、日记、时间线有独立模板 |
+| 生活捕获与回看 | `src/components/QuickCapture.vue`、`src/lib/life-feed.js` | 首页快速写日记/事项；时间线只读聚合日记、收藏、已完成训练，不新增同步模块 |
+| 助手编辑部 | `src/components/AssistantCrew.vue`、`AssistantPortrait.vue`、`src/lib/assistants.js` | 三位助手的角色卡、模块入口和短表情动画；素材与来源在 `src/assets/assistants/`，播放复用 motion 时间层 |
 | 领域库 | `src/lib/*.js` | 全部业务领域模块：config / store / record-view / training-review / editor / icons / utils，以及从 `js/` 迁过来的弹窗、设备模式、备份、toast、记录列表与配图、番茄钟界面、训练家族（catalog / workout / plan / view / ui）。数据读写统一走 `store.js`（`getData` / `persist` / `remove` / `saveMetaField`），视图不再自己碰数据键。动作动画在 `src/lib/motion/`（core / clips / player / svg-skin），规则见 `docs/motion-system.md` |
 | 共享运行时 | `js/*.js` | 只剩三个同步层经典脚本（`sync-core` / `api-client` / `sync-hooks`），挂到 `window`，由 `src/main.js` 副作用导入。其余模块已全部迁到 `src/lib/` 的 ESM 且**不再挂全局垫片**：消费者一律直接 `import`，与经典脚本之间只剩 `window.CONFIG` / `window.data` / `window.store` / `window.updateAuthUI` / `window.DemoData` 这几个明确契约，见 `docs/refactor-plan-2026-10.md` |
 | 共享样式 | `css/*.css`（theme / components / workout-ui / app-dialog / record-media） | 全局 token 与组件 |
 | 桌面布局样式 | `src/desktop.css`、`src/responsive.css` | 由 `src/styles.css` @import |
 | 构建副本 | `src/public/` | **自动生成，不要手改** |
 
-关键点：Vue 组件用 `innerHTML` 渲染 HTML 字符串（`record-view.js`、各 module 的 JS 里），所以样式几乎全在全局 CSS，不在 SFC 的 `<style scoped>` 里。
+关键点：部分 Vue 组件仍用 `innerHTML` 渲染 HTML 字符串（`record-view.js`、各 module 的 JS 里）；首页表单和时间线使用 Vue 模板。样式主要在全局 CSS，不在 SFC 的 `<style scoped>` 里；首页与时间线样式在 `css/life-home.css`。
 
 `src/lib/package.json` 里只有 `{"type":"module"}`，作用是把 `src/lib` 划成 ES 模块作用域：这些文件本来就全是 ESM 语法，`tests/` 会直接 `import` 它们，少了这个标记 Node 会按 CommonJS 解析并报 `Cannot use import statement outside a module`。Vite 打包不依赖它。
 
@@ -56,6 +58,7 @@ Vite 6 的 host 校验允许 IP 字面量，所以手机用 `http://192.168.x.x:
 
 `home` `insight` `todo` `checkin` `read` `sport`(workout) `money` `note` `hot` `settings`
 模块定义（图标、配色、seed 数据、字段）都在 `src/lib/config.js` 的 `CONFIG.modules`。
+附加路由：`timeline`（`/timeline`）、`exerciseAtlas`（`/exercises/:exerciseId?`）。图鉴入口在运动页。
 
 ## 构建副本的坑
 
@@ -108,6 +111,7 @@ token 在 `css/theme.css`：颜色（`--page-bg` `--surface-*` `--text*` `--acce
 ## 文档索引
 
 - `docs/任务表.md` — 当前排期与执行约束（最该先看）
+- `docs/home-life-batch-2026-11.md` — 首页减负、随手记与生活时间线的实现边界和验收
 - `docs/design-system.md` — 视觉规范正本（颜色 / 字体 / 圆角 / 阴影 / 动效 token）
 - `docs/motion-system.md` — 动作动画系统（分层、姿势契约、加动作与换项目的步骤）；实物入口 `/preview/motion.html`
 - `docs/设计系统` → `docs/design-system.md`

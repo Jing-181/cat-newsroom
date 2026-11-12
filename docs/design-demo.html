@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/components.css">
   <link rel="stylesheet" href="../css/workout-ui.css">
+  <link rel="stylesheet" href="../css/assistants.css">
   <style>
     :root { --demo-max: 1120px; }
     * { box-sizing: border-box; }
@@ -120,6 +121,15 @@
     <section class="demo-section"><h2>训练状态栏 · 窄屏回归</h2><p>用320 / 375 / 390 / 414 / 820px视口检查：组操作和计时保留可读，进度点全宽第二行，不压缩为零。</p>
       <div style="padding:16px;background:var(--text);color:var(--ink-text);border-radius:var(--radius-card)">
         <div class="focus-setbar"><button type="button" class="focus-group-menu"><span class="focus-setpos">第 <b>12</b> / 12 段</span><span class="focus-group-label">段操作 ···</span></button><div class="focus-dots" aria-hidden="true"><i class="focus-dot is-done"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot"></i><i class="focus-dot is-now"></i></div><span class="focus-dwell">本段停留 123:59</span></div>
+      </div>
+    </section>
+    <!-- 角色静态样例；完整表情播放与键盘交互在应用首页验收。 -->
+    <section class="demo-section assistant-crew" aria-label="助手署名栏静态样例">
+      <h2>助手编辑部</h2>
+      <div class="assistant-roster">
+        <div class="assistant-member"><span class="assistant-portrait" style="background-image:url('../src/assets/assistants/hanako-expressions.webp');background-position:100% 50%" aria-hidden="true"></span><span><strong>Hanako</strong><small>陪你慢慢来</small></span></div>
+        <div class="assistant-member"><span class="assistant-portrait" style="background-image:url('../src/assets/assistants/yuan-expressions.webp');background-position:100% 50%" aria-hidden="true"></span><span><strong>源</strong><small>一件一件做好</small></span></div>
+        <div class="assistant-member"><span class="assistant-portrait" style="background-image:url('../src/assets/assistants/yuu-expressions.webp');background-position:100% 50%" aria-hidden="true"></span><span><strong>悠</strong><small>发现一点新鲜</small></span></div>
       </div>
     </section>
     <footer class="demo-footer">该页面只使用固定样例数据，不加载同步、AI 或个人 localStorage。修改公共组件后请重新检查本页和两个 workbench 入口。</footer>

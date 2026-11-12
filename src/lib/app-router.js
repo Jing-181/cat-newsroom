@@ -2,6 +2,8 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import { exercises } from './workout-catalog.js';
 export const moduleRoutes = [
   ['home','/home','首页',()=>import('../modules/home/HomeView.vue')],
+  // 时间线是聚合视图，不新增同步模块。
+  ['timeline','/timeline','生活时间线',()=>import('../modules/timeline/TimelineView.vue')],
   ['insight','/insight','洞察复盘',()=>import('../modules/insight/InsightView.vue')],
   ['todo','/todo','待办',()=>import('../modules/todo/TodoView.vue')],
   ['checkin','/checkin','习惯打卡',()=>import('../modules/checkin/CheckinView.vue')],
