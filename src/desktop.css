@@ -48,11 +48,11 @@
      否则要等旧页面淡出才能看到新页面，点了会有迟带感。 */
   @keyframes viewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   .view-swap { animation: viewIn var(--dur-base) var(--ease-out); }
-  .header { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 6px; }
+  .header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 6px; }
   .header h2 { font-size: 27px; font-weight: 700; letter-spacing: -.02em; }
   .header p { color: var(--text-secondary); font-size: 13px; margin-top: 5px; }
   .header .spacer { flex: 1; }
-  .date-chip { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--text-secondary);
+  .date-chip { display:inline-flex; flex-shrink:0; white-space:nowrap; align-items:center; gap:6px; font-size:13px; color:var(--text-secondary);
     background: var(--surface-card); border:1px solid var(--border); border-radius:999px; padding:8px 15px; box-shadow: var(--shadow-card); }
   .date-chip svg { color: var(--text-tertiary); }
 

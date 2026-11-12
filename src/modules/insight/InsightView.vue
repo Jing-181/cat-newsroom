@@ -24,7 +24,7 @@ function onStoreUpdate() {
 }
 
 function render() {
-  const cards = CONFIG.modules.map(m => {
+  const cards = CONFIG.modules.filter(m => !["checkin", "read", "money"].includes(m.key)).map(m => {
     const it = getData()[m.key] || []; let main = "", pct = 0;
     if (m.type === "todo") { main = `${it.filter(x => x.done).length}/${it.length} 已完成`; pct = it.length ? Math.round(it.filter(x => x.done).length / it.length * 100) : 0; }
     else if (m.type === "checkin") { const t = today(); main = `今日 ${it.filter(x => x.log && x.log[t]).length}/${it.length} 打卡`; pct = it.length ? Math.round(it.filter(x => x.log && x.log[t]).length / it.length * 100) : 0; }

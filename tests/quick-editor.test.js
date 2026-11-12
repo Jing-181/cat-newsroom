@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { noteImages, createNoteImageQueue } from '../src/lib/note-images.js';
 
 const source = fs.readFileSync(new URL('../src/lib/editor.js', import.meta.url), 'utf8');
 function harness() {
@@ -11,7 +12,7 @@ function harness() {
     constructor() { this.nodes = new Map(); this.listeners = {}; this.value = ''; this.hidden = false; this.disabled = false; this.classList = { add() {} }; }
     set innerHTML(html) {
       this.html = html;
-      for (const match of html.matchAll(/<(input|textarea|button|select|img|p|datalist)\b[^>]*\bid="([^"]+)"[^>]*>/g)) {
+      for (const match of html.matchAll(/<(input|textarea|button|select|img|p|datalist|div)\b[^>]*\bid="([^"]+)"[^>]*>/g)) {
         const e = new Element();
         e.value = /value="([^"]*)"/.exec(match[0])?.[1] || '';
         if (match[1] === 'textarea') e.value = html.slice(match.index + match[0].length).split('</textarea>')[0];
@@ -25,7 +26,10 @@ function harness() {
     removeAttribute(name) { delete this[name]; }
     click() { return this.onclick?.(); }
   }
+  const created = [], revoked = [];
+  const objectURL = { createObjectURL(file) { const url = `blob:test-${created.length}`; created.push({ file, url }); return url; }, revokeObjectURL(url) { revoked.push(url); } };
   const sandbox = {
+    noteImages, createNoteImageQueue: record => createNoteImageQueue(record, objectURL),
     window: { getCurrentUser: () => user, uploadCardImage: async () => ({ url: 'https://image.test/photo.jpg' }) },
     document: { createElement: () => new Element(), body: { appendChild() {} } },
     localStorage: { getItem: k => storage.get(k) || null, setItem: (k, v) => { if (failDraft) throw Error('quota'); storage.set(k, v); }, removeItem: k => storage.delete(k) },
@@ -44,7 +48,7 @@ function harness() {
   };
   vm.createContext(sandbox);
   vm.runInContext(source.replace(/^import .*;\n/gm, '').replace(/export /g, ''), sandbox);
-  return { api: sandbox, storage, data, layers, notices, setUser: v => { user = v; }, failSave: v => { failSave = v; }, failDraft: v => { failDraft = v; }, confirms: () => confirms };
+  return { api: sandbox, storage, data, layers, notices, created, revoked, setUser: v => { user = v; }, failSave: v => { failSave = v; }, failDraft: v => { failDraft = v; }, confirms: () => confirms };
 }
 const field = (overlay, name) => overlay.querySelector(`#q-${name}`);
 const type = (overlay, name, value) => { field(overlay, name).value = value; overlay.emit('input'); };
@@ -76,10 +80,14 @@ test('new note restores after close and successful save clears the account draft
   const h = harness(); let overlay = h.api.openEditor('note');
   assert.equal(field(overlay, 'title'), null);
   type(overlay, 'content', 'remember'); type(overlay, 'image', 'https://image.test/a');
+  field(overlay, 'add-url').click();
   field(overlay, 'close').click();
+  assert.equal(h.layers[0].isOpen(), false);
   overlay = h.api.openEditor('note');
   assert.equal(field(overlay, 'content').value, 'remember');
-  assert.equal(field(overlay, 'image').value, 'https://image.test/a');
+  assert.equal(field(overlay, 'image').value, '');
+  assert.deepEqual(Array.from(h.api.readQuickDraft('note', 'account-a').images), ['https://image.test/a']);
+  assert.match(field(overlay, 'images').innerHTML, /src="https:\/\/image.test\/a"/);
   await field(overlay, 'save').click();
   assert.equal(h.data.note.length, 1); assert.equal(h.storage.size, 0);
 });
@@ -117,7 +125,7 @@ test('editing preserves original data if persistence fails', async () => {
 
 test('desktop paste uses existing uploader, failure retains file and text for retry', async () => {
   const h = harness(), overlay = h.api.openEditor('note'); let calls = 0;
-  const file = { name: 'clipboard.png' };
+  const file = { name: 'clipboard.png', type: 'image/png' };
   h.api.window.uploadCardImage = async (picked, opts) => {
     calls++; assert.equal(picked, file); assert.equal(opts.moduleKey, 'note');
     if (calls === 1) throw Error('offline');
@@ -126,20 +134,57 @@ test('desktop paste uses existing uploader, failure retains file and text for re
   type(overlay, 'content', 'keep text');
   overlay.emit('paste', { clipboardData: { items: [{ type: 'image/png', getAsFile: () => file }] }, preventDefault() {} });
   await tick();
+  assert.equal(calls, 0);
+  await field(overlay, 'save').click();
   assert.match(field(overlay, 'upload-status').textContent, /offline/);
   assert.equal(field(overlay, 'content').value, 'keep text');
-  await field(overlay, 'save').click(); assert.equal(h.data.note.length, 0);
-  await field(overlay, 'upload').click();
+  assert.equal(h.data.note.length, 0);
+  await field(overlay, 'save').click();
   assert.equal(calls, 2);
-  assert.equal(h.api.readQuickDraft('note', 'account-a').image, 'https://image.test/retry');
+  assert.equal(h.data.note[0].image, 'https://image.test/retry');
+});
+
+test('multi-select DOM flow keeps successes and pending files, retries only unfinished uploads', async () => {
+  const h = harness(), overlay = h.api.openEditor('note');
+  const files = ['first.png', 'second.png', 'third.png'].map(name => ({ name, type: 'image/png' }));
+  const calls = []; let fail = true;
+  h.api.window.uploadCardImage = async (file, options) => {
+    calls.push(file.name); assert.equal(options.moduleKey, 'note');
+    if (file === files[1] && fail) throw Error('offline');
+    return { url: `https://image.test/${file.name}` };
+  };
+  type(overlay, 'content', 'batch draft');
+  assert.match(overlay.innerHTML, /id="q-file"[^>]*multiple/);
+  field(overlay, 'file').files = files;
+  await field(overlay, 'file').onchange();
+  assert.deepEqual(calls, []);
+  assert.match(field(overlay, 'images').innerHTML, /blob:test-0/);
+  await field(overlay, 'save').click();
+  assert.deepEqual(calls, ['first.png', 'second.png']);
+  assert.match(field(overlay, 'images').innerHTML, /src="https:\/\/image.test\/first.png"/);
+  assert.match(field(overlay, 'images').innerHTML, /上传失败，保存重试/);
+  assert.match(field(overlay, 'images').innerHTML, /待保存上传/);
+  assert.deepEqual(Array.from(h.api.readQuickDraft('note', 'account-a').images), ['https://image.test/first.png']);
+  field(overlay, 'close').click(); assert.equal(h.layers[0].isOpen(), true);
+  assert.equal(h.data.note.length, 0);
+  assert.equal(field(overlay, 'content').value, 'batch draft');
+  fail = false; await field(overlay, 'save').click();
+  assert.deepEqual(calls, ['first.png', 'second.png', 'second.png', 'third.png']);
+  assert.doesNotMatch(field(overlay, 'images').innerHTML, /上传失败|等待上传/);
+  await field(overlay, 'save').click();
+  assert.equal(h.data.note.length, 1);
+  assert.deepEqual(Array.from(h.data.note[0].images), files.map(file => `https://image.test/${file.name}`));
+  assert.equal(h.data.note[0].image, 'https://image.test/first.png');
+  assert.equal(h.storage.size, 0); assert.equal(h.layers[0].isOpen(), false);
 });
 
 test('account switch blocks save and async upload writes only original owner draft', async () => {
   const h = harness(), overlay = h.api.openEditor('note'); let done;
   h.api.window.uploadCardImage = () => new Promise(resolve => { done = resolve; });
   type(overlay, 'content', 'private');
-  field(overlay, 'file').files = [{}]; field(overlay, 'file').onchange();
-  h.setUser({ id: 'account-b' }); done({ url: 'https://image.test/private' }); await tick();
+  field(overlay, 'file').files = [{ type: 'image/png' }]; field(overlay, 'file').onchange();
+  const saving = field(overlay, 'save').click();
+  h.setUser({ id: 'account-b' }); done({ url: 'https://image.test/private' }); await saving;
   await field(overlay, 'save').click();
   assert.equal(h.data.note.length, 0);
   assert.equal(h.api.readQuickDraft('note', 'account-b'), null);

@@ -194,6 +194,7 @@ async function initSupabase({ authCallback = false, signal, callbackKeys = [] } 
     updateSyncIndicator();
     return true;
   } catch (error) {
+    recordSyncDiagnosticError('auth_init', error);
     // Callback failure/timeout never repairs business storage or activates a client.
     if (authCallback || inactive()) return false;
     if (!authCallback) console.error("[sync] 初始化失败:", error);
@@ -335,6 +336,7 @@ function runFullSync(options = {}) {
       if (changed && onSyncReady) onSyncReady(cloudData);
       return cloudData;
     } catch (error) {
+      recordSyncDiagnosticError('full_sync', error);
       console.error("[sync] 全量同步失败:", error);
       if (activeAccount(accountId)) { syncStatus = "error"; updateSyncIndicator(); }
       return null;
@@ -445,6 +447,7 @@ function processOutbox() {
       if (activeAccount(accountId)) { lastSyncAt = isoNow(); updateSyncIndicator(); }
       return true;
     } catch (error) {
+      recordSyncDiagnosticError('outbox', error);
       console.error('[sync] 原子操作失败:', error);
       if (activeAccount(accountId)) {
         syncStatus = 'error'; updateSyncIndicator();
@@ -633,6 +636,7 @@ async function getAccessToken() {
     const { data: { session } } = await sb.auth.getSession();
     return typeof session?.access_token === "string" ? session.access_token : null;
   } catch (error) {
+    recordSyncDiagnosticError('access_token', error);
     if (/ByteString|invalid character/i.test(String(error?.message || error))) {
       await sb.auth.signOut({ scope: "local" }).catch(() => {});
       throw new Error("登录状态已损坏，请重新登录后再生成周报");
@@ -702,7 +706,8 @@ async function fetchUserSettings() {
       return { home_order: pending ? pending.value : getLocalData()?.__homeOrder };
     }
     return row;
-  } catch (_) {
+  } catch (error) {
+    recordSyncDiagnosticError('settings', error);
     return null;
   }
 }
@@ -722,6 +727,55 @@ function updateSyncIndicator() {
     element.className = `sync-indicator ${state.cls}`;
     element.title = title;
   });
+}
+
+// Only allowlisted metadata is retained; never keep the original error object/message.
+let lastDiagnosticError = null;
+function recordSyncDiagnosticError(stage, error) {
+  const stages = ['auth_init', 'full_sync', 'outbox', 'access_token', 'settings'];
+  const codes = ['401', '403', '408', '429', '500', '502', '503', '504', '42501', '23505', 'PGRST301', 'refresh_token_not_found', 'refresh_token_already_used'];
+  const candidate = error?.code ?? error?.status;
+  const code = codes.find(value => value === candidate || (typeof candidate === 'number' && value === String(candidate))) || 'unknown';
+  // Inspect known browser signatures only; neither the message nor name is retained.
+  const networkError = error?.name === 'NetworkError' || (typeof error?.message === 'string'
+    && /\b(?:Failed to fetch|Load failed|NetworkError|network request failed)\b/i.test(error.message));
+  const category = error?.name === 'AbortError' ? 'timeout' : ['401', 'PGRST301', 'refresh_token_not_found', 'refresh_token_already_used'].includes(code) ? 'auth'
+    : ['403', '42501'].includes(code) ? 'permission'
+    : code === '429' ? 'rate_limit'
+    : ['408', '504'].includes(code) || error?.name === 'AbortError' ? 'timeout'
+    : ['500', '502', '503'].includes(code) ? 'server'
+    : code === '23505' ? 'conflict' : networkError ? 'network' : 'unknown';
+  lastDiagnosticError = { stage: stages.includes(stage) ? stage : 'unknown', code, category, at: isoNow() };
+}
+
+function getSyncDiagnostics() {
+  const queue = { storage: 'ok', total: 0, record: 0, delete: 0, meta: 0, other: 0, unowned: 0, currentAccount: 0, otherAccount: 0 };
+  try {
+    const raw = localStorage.getItem(SYNC_OUTBOX_KEY);
+    const items = raw === null ? [] : JSON.parse(raw);
+    if (!Array.isArray(items)) queue.storage = 'invalid';
+    else {
+      queue.total = items.length;
+      for (const item of items) {
+        queue[['record', 'delete', 'meta'].includes(item?.type) ? item.type : 'other']++;
+        if (!item?.accountId) queue.unowned++;
+        else if (currentUser?.id && item.accountId === currentUser.id) queue.currentAccount++;
+        else queue.otherAccount++;
+      }
+    }
+  } catch (_) { queue.storage = 'unavailable'; }
+  return {
+    capturedAt: isoNow(), lastSyncAt,
+    status: ['offline', 'connecting', 'online', 'error'].includes(syncStatus) ? syncStatus : 'unknown',
+    clientReady: !!sb,
+    session: !currentUser ? 'none' : currentUser.is_anonymous ? 'anonymous' : 'account',
+    environment: {
+      online: typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean' ? navigator.onLine : null,
+      secure: typeof window.isSecureContext === 'boolean' ? window.isSecureContext : null,
+      protocol: ['https:', 'http:', 'file:'].includes(window.location?.protocol) ? window.location.protocol : 'unknown',
+    },
+    queue, error: lastDiagnosticError ? { ...lastDiagnosticError } : null,
+  };
 }
 
 function getSyncStatus() { return syncStatus; }

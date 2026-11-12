@@ -26,6 +26,16 @@ export function recHTML(m, x) {
   const imageSrc = x.image || RecordMedia.resolveRecordImage(x, m.key, layout);
   const thumb = imageSrc ? `<img class="thumb" src="${attr(imageSrc)}" alt="查看图片">` : "";
 
+  // Notes use a compact photo grid regardless of a legacy layout; other modules stay unchanged.
+  if (m.key === "note") {
+    const images = RecordMedia.noteImages(x);
+    return `<div class="rec rec-note" data-record-id="${x.id}">${acts}<div class="top"><div class="body" data-edit="${x.id}">
+      ${x.title ? `<span class="rname">${esc(x.title)}</span>` : ""}
+      ${x.content ? `<div class="rnote">${esc(x.content)}</div>` : ""}
+      <span class="rdate">${esc(x.date || "")}</span>${customBlock}</div></div>
+      ${images.length ? `<div class="note-images">${images.map((url, index) => `<img class="thumb note-image-thumb" src="${attr(url)}" alt="查看第 ${index + 1} 张原图" loading="lazy">`).join("")}</div>` : ""}</div>`;
+  }
+
   // feature layout: 大图在上 + 标题 + 正文在下 (适合有图记录)
   if (layout === "feature" && imageSrc) {
     const body = (x.content || x.note || "").trim();

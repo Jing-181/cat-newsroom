@@ -1,9 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import Workout from '../src/lib/workout.js';import View from '../src/lib/workout-view.js';
 const css=readFileSync('css/workout-ui.css','utf8');
-test('mobile setbar has independent progress row and non-shrinking touch target, desktop retained',()=>{
+test('mobile heading puts position at right with non-shrinking menu and no redundant progress row',()=>{
  const block=css.slice(css.indexOf('@media (max-width:820px), (max-width:1024px) and (pointer:coarse)'));
- assert.match(block,/grid-template-columns:minmax\(0,1fr\) auto/);assert.match(block,/focus-dots[^}]+grid-column:1 \/ -1; grid-row:2/s);assert.match(block,/focus-group-menu[^}]+min-height:44px/s);assert.match(block,/focus-dot[^}]+min-width:18px/s);assert.match(block,/overflow-y:auto/);assert.match(block,/focus-field[^}]+flex-shrink:0/s);
+ assert.match(block,/grid-template-columns:minmax\(0,1fr\) auto/);assert.match(block,/focus-dots[^}]+display:none/s);assert.match(block,/focus-setbar[^}]+grid-column:2; grid-row:2/s);assert.match(block,/focus-group-menu[^}]+min-height:44px/s);assert.match(block,/focus-nav-btn[^}]+display:none/s);assert.match(block,/overflow-y:auto/);assert.match(block,/focus-field[^}]+flex-shrink:0/s);
 });
 test('real focus templates retain menu/dots/dwell and explicit zero for strength and multi-metric cardio',()=>{
  for(const id of ['pull_up','treadmill','stair_climber','swimming']){

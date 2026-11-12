@@ -44,7 +44,8 @@ test('行内草稿隔离账号和原型属性，整组操作先一次性落盘',
 });
 test('随记仅展示真实照片，保留旧标题与正文', () => {
   const source = read('src/modules/note/NoteView.vue');
-  assert.match(source, /v-if="item.image"/);
+  assert.match(source, /v-if="RecordMedia\.noteImages\(item\)\.length"/);
+  assert.match(source, /v-for="\(url, index\) in RecordMedia\.noteImages\(item\)"/);
   assert.match(source, /item.title !== '未命名'/);
   assert.match(source, /item.content/);
   assert.doesNotMatch(source, /ModuleView|resolveRecordImage/);

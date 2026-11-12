@@ -2,6 +2,8 @@
 //
 // ESM 模块：import RecordMedia from "./record-media.js"。
 
+import { noteImages } from "./note-images.js";
+
 function svgData(svg) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
@@ -232,6 +234,7 @@ function defaultPresetId(moduleKey, layout = "default") {
 }
 
 function resolveRecordImage(record, moduleKey, layout = "default") {
+  if (moduleKey === "note") return noteImages(record)[0] || "";
   if (record?.image) return record.image;
   const presetId = record?.image_preset || defaultPresetId(moduleKey, record?.layout || layout);
   return PRESET_MAP[presetId]?.src || PRESET_MAP["paper-note"].src;
@@ -253,6 +256,7 @@ function openImageViewer(src) {
 
 const RecordMedia = {
   presets: PRESETS,
+  noteImages,
   getChoices,
   getPreset,
   defaultPresetId,

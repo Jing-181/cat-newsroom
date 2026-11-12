@@ -259,9 +259,11 @@ function focusHtml(session, selectedDay, target, history = []) {
 
   return `<section class="workout-app workout-focus" data-focus-root>
       <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-clock"><i>整场</i><b class="focus-timer" data-focus-timer>00:00</b></span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
+      <div class="focus-heading">
       <div class="focus-head"><h2><button type="button" class="focus-name" data-focus-info>${escapeHtml(exercise.name)}</button></h2><p>${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)}</p></div>
       ${nav}
       ${setBar}
+      </div>
       <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
       ${previousText ? (suggestionOn
         ? `<p class="focus-last is-filled"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`

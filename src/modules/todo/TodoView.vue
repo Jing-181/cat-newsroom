@@ -2,17 +2,24 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { getData, persist, subscribe, save, bump } from "../../lib/store.js";
 import { openEditor, confirmDelete } from "../../lib/editor.js";
-import { taskGroups, createTask, matchesTask, groupName } from "../../lib/task-groups.js";
+import { taskGroups, createTask, matchesTask, groupName, readTaskGroupOrder, saveTaskGroupOrder, moveTaskGroup } from "../../lib/task-groups.js";
+import { createTaskGroupDrag } from "../../lib/task-group-drag.js";
 import Toast from "../../lib/toast.js";
 import AppDialog from "../../lib/app-dialog.js";
 
 const revision = ref(0);
+const root = ref(null);
+const dragging = ref(null);
+const orderMessage = ref("");
+let drag;
 const query = ref("");
 const drafts = ref(Object.create(null));
 const currentOwner = () => window.getCurrentUser?.()?.id || null;
 let draftOwner = currentOwner();
+const savedOrder = ref(readTaskGroupOrder(localStorage, draftOwner));
 function checkOwner() {
   if (currentOwner() === draftOwner) return true;
+  savedOrder.value = readTaskGroupOrder(localStorage, currentOwner());
   // 首次身份恢复不丢弃刚输入的本机草稿；已知账号切换仍清空。
   if (draftOwner === null && currentOwner()) { draftOwner = currentOwner(); return true; }
   draftOwner = currentOwner();
@@ -25,10 +32,35 @@ const folded = ref(new Set());
 const composing = ref(false);
 // store 数组非响应式；返回新快照，避免 Vue 以同一引用跳过分组重算。
 const records = computed(() => { revision.value; return [...(getData().todo || [])]; });
-const groups = computed(() => taskGroups(records.value, extras.value).map(g => ({ ...g, items: g.items.filter(x => matchesTask(x, query.value)) })).filter(g => !query.value.trim() || g.items.length));
+const groups = computed(() => taskGroups(records.value, extras.value, savedOrder.value).map(g => ({ ...g, items: g.items.filter(x => matchesTask(x, query.value)) })).filter(g => !query.value.trim() || g.items.length));
 let unsubscribe;
-onMounted(() => { unsubscribe = subscribe(() => { checkOwner(); revision.value++; }); });
-onBeforeUnmount(() => unsubscribe?.());
+onMounted(() => {
+  drag = createTaskGroupDrag({ host: window,
+    getTargets: () => [...root.value.querySelectorAll('[data-task-group]')].map(el => ({ name: el.dataset.taskGroup, rect: el.getBoundingClientRect() })),
+    onChange: value => { dragging.value = value; }, onDrop: reorder,
+  });
+  unsubscribe = subscribe(() => { drag.cancel(); checkOwner(); revision.value++; });
+});
+onBeforeUnmount(() => { unsubscribe?.(); drag?.destroy(); });
+function reorder(name, target) {
+  if (!checkOwner() || query.value.trim()) return;
+  const names = taskGroups(records.value, extras.value, savedOrder.value).map(g => g.name);
+  const next = moveTaskGroup(names, name, target);
+  if (next.every((value, index) => value === names[index])) return;
+  try { saveTaskGroupOrder(localStorage, currentOwner(), next); }
+  catch { Toast.show('排序未保存，请重试'); return; }
+  savedOrder.value = next;
+  orderMessage.value = `${name || '零散事项'}已移到第 ${next.indexOf(name) + 1} 组`;
+  revision.value++;
+}
+function orderKey(event, name) {
+  if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+  event.preventDefault();
+  drag?.cancel();
+  const names = groups.value.map(g => g.name), index = names.indexOf(name);
+  const target = names[index + (event.key === 'ArrowUp' ? -1 : 1)];
+  if (target !== undefined) reorder(name, target);
+}
 function changed(item) { persist("todo", item); }
 function add(group) {
   if (!checkOwner()) { Toast.show("账号已切换，请在当前账号重新输入"); return; }
@@ -96,7 +128,7 @@ function toggle(item) {
 </script>
 
 <template>
-  <section class="tasks-view">
+  <section ref="root" class="tasks-view">
     <header class="header"><div><h2>事项</h2><p>按版本安排，随手记下要做的事。</p></div></header>
     <div class="tasks-tools">
       <input v-model="query" class="shared-field" type="search" placeholder="搜索事项或版本…" aria-label="搜索事项或版本">
@@ -106,8 +138,11 @@ function toggle(item) {
       </form>
     </div>
     <p v-if="extras.some(name => !records.some(item => groupName(item.group) === name))" class="sub">新分组添加第一条事项后保存。</p>
-    <section v-for="group in groups" :key="group.name" class="task-group">
+    <p id="task-group-sort-help" class="task-sort-help">拖动手柄排序；键盘聚焦手柄后按上下方向键。顺序仅保存在当前设备的当前账号，不跨设备同步；搜索时暂停排序。</p>
+    <span class="task-sort-status" role="status" aria-live="polite">{{ orderMessage }}</span>
+    <section v-for="group in groups" :key="group.name" class="task-group" :data-task-group="group.name" :class="{ 'is-dragging': dragging?.name === group.name, 'is-drop-target': dragging?.target === group.name && dragging?.name !== group.name }">
       <header class="task-group-head">
+        <button type="button" class="task-drag-handle" :disabled="!!query.trim() || groups.length < 2" :aria-label="`排序 ${group.name || '零散事项'}`" aria-describedby="task-group-sort-help" @pointerdown="drag?.start($event, group.name)" @lostpointercapture="drag?.cancel()" @keydown="orderKey($event, group.name)"><span aria-hidden="true">⠿</span></button>
         <button class="task-group-toggle" :aria-expanded="!folded.has(group.name)" @click="toggleGroup(group.name)">
           <span aria-hidden="true">{{ folded.has(group.name) ? '▸' : '▾' }}</span>
           {{ group.name || '零散事项' }}
@@ -141,6 +176,15 @@ function toggle(item) {
 
 <style scoped>
 .tasks-view { max-width: 960px; margin: 0 auto; }
+.task-sort-help { color: var(--text-secondary); font: 12px/1.5 var(--font-sans); }
+.task-sort-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.task-drag-handle { flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: var(--radius-control); background: none; color: var(--text-secondary); font-size: 24px; cursor: grab; touch-action: none; user-select: none; }
+.task-drag-handle:hover { background: var(--surface-nested); }
+.task-drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.task-drag-handle:disabled { opacity: .4; cursor: default; touch-action: auto; }
+.task-group.is-dragging { opacity: .65; }
+.task-group.is-dragging .task-drag-handle { cursor: grabbing; }
+.task-group.is-drop-target { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tasks-tools { display: flex; gap: 16px; margin-bottom: 24px; align-items: center; }
 .tasks-tools > input { flex: 1; min-width: 0; }
 .task-add { display: flex; gap: 8px; }

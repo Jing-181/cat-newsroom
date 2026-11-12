@@ -9,6 +9,7 @@ import RecordMedia from "./record-media.js";
 import { bindLayer } from "./dialog-contract.js";
 import Toast from "./toast.js";
 import Trace from "./trace.js";
+import { noteImages, createNoteImageQueue } from "./note-images.js";
 
 function mediaFieldHTML(key, d) {
   const layout = d.layout || "default";
@@ -144,6 +145,8 @@ export function writeQuickDraft(key, owner, record) {
 export function quickRecord(key, base, values) {
   const record = { ...base, image: (values.image || "").trim() };
   if (key === "note") {
+    record.images = noteImages(Array.isArray(values.images) ? values : { image: values.image });
+    record.image = record.images[0] || "";
     record.content = (values.content || "").trim();
     record.date = base.date || isoToday();
     // Legacy title/mood/layout/preset are deliberately retained, never manufactured.
@@ -173,7 +176,13 @@ function openQuickEditor(key, item) {
     ? { id: Date.now(), content: "", date: isoToday() }
     : { id: Date.now(), title: "", group: "", note: "", priority: "P1", done: false })) };
   const groups = [...new Set((getData().todo || []).map(r => String(r.group || "").trim()).filter(Boolean))];
-  const media = `<div class="field quick-photo"><label for="q-image">照片（可选）</label>
+  const photos = key === "note" ? createNoteImageQueue(d) : null;
+  const media = key === "note" ? `<div class="field quick-photo"><label>照片（最多 9 张）</label>
+    <div id="q-images" class="note-image-editor-grid"></div>
+    <div class="quick-photo-actions"><button type="button" class="btn ghost" id="q-upload">${icon("camera", 14)} 添加照片</button>
+    <input id="q-file" type="file" accept="image/*" multiple hidden></div>
+    <details><summary>使用图片地址</summary><input id="q-image" placeholder="https://…" aria-label="图片地址"><button type="button" class="btn ghost" id="q-add-url">添加地址</button></details>
+    <p class="sub">可多选、粘贴或拖入照片，点击保存才上传；未上传文件仅保留在当前窗口。</p><p id="q-upload-status" role="status" aria-live="polite"></p></div>` : `<div class="field quick-photo"><label for="q-image">照片（可选）</label>
     <img id="q-preview" alt="照片预览" hidden>
     <div class="quick-photo-actions"><button type="button" class="btn ghost" id="q-upload">${icon("camera", 14)} 添加照片</button>
     <button type="button" class="btn ghost" id="q-remove">移除照片</button><input id="q-file" type="file" accept="image/*" hidden></div>
@@ -192,7 +201,11 @@ function openQuickEditor(key, item) {
     <div class="modal-actions">${editing ? '<button class="link-danger" id="q-delete">删除</button>' : ""}<div class="spacer"></div><button class="btn ghost" id="q-close">${editing ? "取消" : "暂存关闭"}</button><button class="btn" id="q-save">保存</button></div></div>`;
   document.body.appendChild(overlay);
   const el = id => overlay.querySelector(`#q-${id}`);
-  const values = () => Object.fromEntries(["title", "group", "note", "priority", "content", "image"].map(k => [k, el(k)?.value]));
+  const values = () => {
+    const result = Object.fromEntries(["title", "group", "note", "priority", "content", "image"].map(k => [k, el(k)?.value]));
+    if (photos) { result.images = photos.urls(); result.image = result.images[0] || ""; }
+    return result;
+  };
   let dirty = false, saved = false, uploading = false, pendingFile = null, draftSafe = false;
   const identityOK = () => quickEditorOwner() === owner;
   const draft = () => {
@@ -209,18 +222,26 @@ function openQuickEditor(key, item) {
     }
   };
   const preview = () => {
+    if (photos) {
+      el("images").innerHTML = photos.entries.map((entry, index) => `<div class="note-image-editor-tile">
+        ${entry.url || entry.preview ? `<button type="button" data-photo-view="${index}" aria-label="查看第 ${index + 1} 张原图"><img src="${attr(entry.url || entry.preview)}" alt="照片 ${index + 1}"></button>${entry.file ? `<span>${entry.error ? "上传失败，保存重试" : "待保存上传"}</span>` : ""}` : `<span>${esc(entry.file?.name || "照片")}<br>${entry.error ? "上传失败" : "等待上传"}</span>`}
+        <button type="button" class="btn ghost" data-photo-remove="${index}" ${uploading ? "disabled" : ""} aria-label="移除第 ${index + 1} 张照片">移除</button></div>`).join("");
+      el("upload").textContent = `添加照片（${photos.entries.length}/9）`;
+      el("upload").disabled = uploading || photos.entries.length >= 9;
+      return;
+    }
     const url = el("image").value.trim();
     el("preview").hidden = !url;
     if (url) el("preview").src = url; else el("preview").removeAttribute("src");
     el("remove").hidden = !url && !pendingFile;
   };
   const layer = bindLayer({ element: overlay, confirmDiscard: true,
-    isDirty: () => uploading || (dirty && (editing || !draftSafe)),
+    isDirty: () => uploading || !!photos?.pending || !!(photos && el("image").value.trim()) || (dirty && (editing || !draftSafe)),
     initialFocus: key === "note" ? "#q-content" : "#q-title",
-    onClose: () => { draft(); if (activeQuickEditor?.element === overlay && !uploading) activeQuickEditor = null; },
+    onClose: () => { draft(); photos?.dispose(); if (activeQuickEditor?.element === overlay && !uploading) activeQuickEditor = null; },
   });
   activeQuickEditor = { element: overlay, busy: () => uploading, isOpen: () => layer.isOpen(), close: () => layer.requestClose() };
-  overlay.addEventListener("input", () => { dirty = true; preview(); draft(); });
+  overlay.addEventListener("input", () => { dirty = true; if (!photos) preview(); draft(); });
   overlay.addEventListener("change", () => { dirty = true; draft(); });
   el("close").onclick = () => layer.requestClose();
   const upload = async picked => {
@@ -248,6 +269,61 @@ function openQuickEditor(key, item) {
       if (!layer.isOpen() && activeQuickEditor?.element === overlay) activeQuickEditor = null;
     }
   };
+  const addPhotos = files => {
+    if (uploading || !layer.isOpen()) return;
+    if (!identityOK()) { el("error").textContent = "账号已变化，请切回原账号后重试"; return; }
+    const accepted = photos.add(files);
+    el("error").textContent = accepted < files.length ? "仅接受图片，最多 9 张；无效或超出的文件未加入" : "";
+    dirty = dirty || accepted > 0; el("file").value = "";
+    el("upload-status").textContent = "点击保存上传；关闭或刷新后需重新选择未上传的文件";
+    preview(); draft();
+  };
+  const uploadPhotos = async () => {
+    uploading = true; dirty = true; el("save").disabled = true;
+    el("file").disabled = true;
+    el("image").disabled = true; el("add-url").disabled = true;
+    el("upload-status").textContent = "正在逐张上传…"; preview();
+    try {
+      await photos.upload(file => {
+        if (typeof window.uploadCardImage !== "function") throw new Error("上传服务尚未就绪");
+        return window.uploadCardImage(file, { moduleKey: key, recordId: d.id });
+      }, identityOK, () => { preview(); draft(); });
+      const failed = photos.entries.find(entry => entry.error);
+      el("upload-status").textContent = photos.pending
+        ? `${failed?.error || "上传未完成"}。已成功的照片已保留，再次保存可重试未完成的照片；关闭后需重新选择未上传文件。`
+        : "照片已上传";
+    } finally {
+      uploading = false; el("file").disabled = false; el("image").disabled = false;
+      el("add-url").disabled = false; el("file").value = ""; preview(); draft();
+      if (!layer.isOpen() && activeQuickEditor?.element === overlay) activeQuickEditor = null;
+    }
+  };
+  if (photos) {
+    el("upload").onclick = () => { if (!uploading) el("file").click(); };
+    el("file").onchange = () => addPhotos(Array.from(el("file").files || []));
+    el("add-url").onclick = () => {
+      if (!identityOK() || uploading) return;
+      if (!photos.addURL(el("image").value)) { el("error").textContent = "请填写图片地址，最多添加 9 张"; return; }
+      el("image").value = ""; dirty = true; preview(); draft();
+    };
+    el("images").onclick = event => {
+      const view = event.target.closest("[data-photo-view]");
+      if (view) { const entry = photos.entries[Number(view.dataset.photoView)]; RecordMedia.openImageViewer(entry?.url || entry?.preview); }
+      const remove = event.target.closest("[data-photo-remove]");
+      if (remove && !uploading && identityOK()) { photos.remove(Number(remove.dataset.photoRemove)); dirty = true; preview(); draft(); }
+    };
+    overlay.addEventListener("paste", event => {
+      const files = [...(event.clipboardData?.items || [])].filter(x => x.type.startsWith("image/")).map(x => x.getAsFile()).filter(Boolean);
+      if (files.length) { event.preventDefault(); addPhotos(files); }
+    });
+    const isFileDrag = event => Array.from(event.dataTransfer?.types || []).includes("Files");
+    overlay.addEventListener("dragover", event => { if (isFileDrag(event)) event.preventDefault(); });
+    overlay.addEventListener("drop", event => {
+      if (!isFileDrag(event)) return;
+      event.preventDefault();
+      addPhotos(Array.from(event.dataTransfer?.files || []));
+    });
+  } else {
   el("upload").onclick = () => pendingFile ? upload(pendingFile) : el("file").click();
   el("file").onchange = () => { const file = el("file").files?.[0]; if (file) upload(file); };
   overlay.addEventListener("paste", event => {
@@ -259,17 +335,22 @@ function openQuickEditor(key, item) {
     el("upload-status").textContent = ""; el("upload").textContent = "添加照片";
     preview(); draft();
   };
+  }
   if (editing) el("delete").onclick = async () => {
     if (uploading || !identityOK()) { el("error").textContent = "请等待上传完成，并确认仍在原账号"; return; }
     if (await confirmDelete(key, d.id)) { saved = true; layer.forceClose(); }
   };
   el("save").onclick = async () => {
-    if (uploading) return;
+    if (uploading || !layer.isOpen()) return;
     el("save").disabled = true; el("error").textContent = "";
     let records, previous;
     try {
       if (!identityOK()) throw new Error("账号已变化，草稿仍属于原账号；请切回原账号后重新打开");
-      if (pendingFile) throw new Error("照片尚未上传成功，请重试上传或移除照片后保存");
+      if (photos && el("image").value.trim()) throw new Error("图片地址尚未添加，请点击添加地址或清空后保存");
+      if (photos?.pending) await uploadPhotos();
+      if (!identityOK()) throw new Error("账号已变化，草稿仍属于原账号；请切回原账号后重新打开");
+      if (!layer.isOpen()) return;
+      if (pendingFile || photos?.pending) throw new Error("照片尚未上传成功，请再次保存重试或移除照片后保存");
       const record = quickRecord(key, d, values());
       records = getData()[key] = getData()[key] || [];
       previous = records.slice();

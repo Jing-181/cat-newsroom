@@ -7,6 +7,19 @@ import { getData, save, saveMetaField } from "../../lib/store.js";
 import AppDialog from "../../lib/app-dialog.js";
 import Toast from "../../lib/toast.js";
 import Trace from "../../lib/trace.js";
+import { readSyncDiagnostics } from "../../lib/sync-diagnostics.js";
+
+async function showSyncDiagnostics() {
+  const summary = readSyncDiagnostics();
+  const copy = await AppDialog.confirm(summary, { title: "同步诊断 · 只读", okText: "复制摘要", cancelText: "关闭" });
+  if (!copy) return;
+  try {
+    await navigator.clipboard.writeText(summary);
+    Toast.show("已复制脱敏摘要");
+  } catch (_) {
+    await AppDialog.alert(summary, { title: "复制不可用，请长按或选中文字复制" });
+  }
+}
 
 const root = ref(null);
 const order = ref([]);
@@ -209,6 +222,18 @@ onMounted(() => {
         <button class="btn ghost" @click="clearTrace">清空记录</button>
       </div>
       <div class="set-note">只记「点了哪个按钮、哪一步花了多久」，不记任何文字内容；数据只存这台设备，不上传、不出网，保留 90 天。关掉开关会立即停止记录，但不会删除已有数据。</div>
+    </div>
+
+    <div class="sec-title">同步诊断</div>
+    <div class="setting-card">
+      <div class="set-row">
+        <div class="set-tx">
+          <div class="set-name">只读同步摘要</div>
+          <div class="set-desc">查看错误阶段、时间、环境与队列数量，不包含记录内容或账号标识。</div>
+        </div>
+        <button type="button" class="btn ghost" @click="showSyncDiagnostics">查看诊断</button>
+      </div>
+      <div class="set-note">诊断按钮不联网、不初始化登录、不修复或改动队列；摘要可自行复制分享。</div>
     </div>
 
     <div class="sec-title">数据维护</div>

@@ -51,6 +51,13 @@
 .media-preset-head strong { font-size:12px; }
 .media-fallback { color:var(--text-tertiary); font-size:11px; }
 
+/* Note photos: bounded thumbnails, original URL stays available to the viewer. */
+.note-images { display: flex; flex-wrap: wrap; gap: 8px; max-width: 304px; margin: 8px 0; }
+.notes-view .note-images .note-image, .rec-note .note-image-thumb { width: 96px; height: 80px; max-width: 100%; max-height: 80px; flex: 0 1 96px; margin: 0; border: 0; padding: 0; overflow: hidden; border-radius: var(--radius-control); background: var(--surface-nested); cursor: zoom-in; }
+.notes-view .note-images .note-image img, .rec-note .note-image-thumb { display: block; width: 100%; height: 100%; object-fit: cover; }
+.rec-note .note-image-thumb { width: 96px; height: 80px; }
+.note-images .note-image:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* 记录分页：仅在记录超过一页时显示。 */
 .record-pager { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:14px; }
 .record-pager button { min-width:32px; height:32px; padding:0 8px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--surface-card); color:var(--text-secondary); cursor:pointer; }
