@@ -2,9 +2,11 @@
 .assistant-crew { min-width: 0; }
 .assistant-byline { display: flex; gap: 12px; align-items: baseline; margin-bottom: 12px; font-size: 14px; font-weight: 700; }
 .assistant-byline small { color: var(--text-secondary); font: 12px var(--font-sans); }
-.assistant-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.assistant-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 12px 0; border-block: 1px solid var(--border); }
 .assistant-member, .assistant-badge { display: flex; align-items: center; gap: 12px; text-align: left; padding: 8px; border: 1px solid var(--border); background: var(--surface-card); color: var(--text); border-radius: var(--radius-card); cursor: pointer; }
 .assistant-member strong { display: block; font: 700 16px var(--font); }
+/* 合席像报刊署名，不再让三张独立卡片抢走记录区的层级。 */
+.assistant-member { background: transparent; border-color: transparent; padding: 4px 8px; }
 .assistant-member small, .assistant-badge small { display: block; color: var(--text-secondary); font: 12px/1.6 var(--font-sans); margin-top: 4px; }
 .assistant-arrow { margin-left: auto; color: var(--text-secondary); }
 .assistant-portrait { display: block; width: 72px; height: 72px; flex-shrink: 0; background-size: 300% 100%; background-repeat: no-repeat; border-radius: var(--radius-tile); }
@@ -36,10 +38,10 @@
 /* 窄屏仍三人同席；角标在文流内，不覆盖输入与训练控件。 */
 @media (max-width: 620px) {
   .assistant-roster { gap: 8px; }
-  .assistant-member { flex-direction: column; align-items: center; gap: 8px; padding: 8px 4px 12px; text-align: center; }
-  .assistant-member .assistant-portrait { width: 64px; height: 64px; }
+  .assistant-member { flex-direction: column; align-items: center; gap: 6px; padding: 4px; text-align: center; }
+  .assistant-member .assistant-portrait { width: 44px; height: 44px; }
   .assistant-member strong { font-size: 14px; }
-  .assistant-member small { font-size: 11px; }
+  .assistant-member small { display: none; }
   .assistant-arrow { display: none; }
   .assistant-dialog { padding: 20px; }
   .assistant-profile { gap: 12px; }
