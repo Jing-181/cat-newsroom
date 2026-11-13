@@ -29,5 +29,5 @@
   }
   /* One scroll owner; don't compress controls when the keyboard takes half the screen. */
   .workout-focus > * { flex-shrink: 0; }
-  .workout-focus .focus-coach { flex: 1 0 88px; min-height: 88px; overflow: visible; }
+  .workout-focus .focus-coach { flex: 1 0 auto; min-height: clamp(128px, 20dvh, 176px); overflow: visible; }
 }

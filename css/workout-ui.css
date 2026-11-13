@@ -983,8 +983,9 @@ button.set-hint:hover { color:var(--module-4); }
 .focus-clock i { font-style:normal; font-size:9.5px; letter-spacing:.16em; color:rgba(240,232,213,.38); }
 .focus-timer { font-family:var(--font); font-size:11px; font-weight:400; letter-spacing:.08em; color:rgba(240,232,213,.55); font-variant-numeric:tabular-nums; }
 
-.focus-coach { flex:1; display:grid; place-items:center; min-height:88px; margin:6px 0 2px; color:rgba(240,232,213,.52); }
-.move-figure { height:96px; width:auto; overflow:visible; }
+/* 示范随视口放大，短屏保留安全高度，不缩挤记录控件。 */
+.focus-coach { flex:1; display:grid; place-items:center; min-height:clamp(128px, 20dvh, 176px); margin:6px 0 2px; color:rgba(240,232,213,.52); }
+.move-figure { height:clamp(128px, 20dvh, 176px); max-width:100%; width:auto; overflow:visible; }
 .move-figure .fig-far { opacity:.42; }
 .workout-focus .focus-hint { margin:0 0 12px; }
 
