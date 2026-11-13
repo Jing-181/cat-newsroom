@@ -54,7 +54,6 @@ function navClick(key, event) {
 function onNavigate(key) { go(key); }
 watch(() => route.fullPath, () => {
   drawerOpen.value = false;
-  document.documentElement.classList.remove('workout-fullscreen');
   try { DeviceMode.saveView(view.value); } catch { /* storage unavailable must not block navigation */ }
 }, { flush:'post' });
 
@@ -226,6 +225,7 @@ async function onAvatarChange(e) {
       <button class="m-menu-btn" type="button" aria-label="打开菜单" @click="toggleDrawer(true)"><span v-html="icon('menu', 20)"></span></button>
       <div class="m-brand"><img class="js-avatar" :src="avatarSrc" alt="头像"/><div class="m-brand-tx"><h1>{{ CONFIG.owner }}</h1><p>{{ todayText }}</p></div></div>
       <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
+      <AssistantCrew compact toolbar :module="view" @navigate="onNavigate" />
     </header>
     <!-- sidebar（PC 常驻；窄屏收起为抽屉） -->
     <aside class="sidebar" :class="{ 'm-open': drawerOpen }">
@@ -248,6 +248,8 @@ async function onAvatarChange(e) {
         <div class="nav-sep">配置</div>
         <a :href="router.resolve({name:'settings'}).href" class="navi" :class="{ active: view === 'settings' }" @click="navClick('settings', $event)"><span v-html="icon('settings', 19)"></span>个人配置</a>
       </nav>
+      <!-- 助手归入导航，让各模块直接从内容标题开始。 -->
+      <AssistantCrew class="sidebar-assistant" compact :module="view" @navigate="onNavigate" />
       <div class="sync-area" id="syncArea">
         <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
         <span class="sync-user-email" id="syncEmail"></span>
@@ -260,7 +262,6 @@ async function onAvatarChange(e) {
     <!-- 主视区：切换模块时整块重建，靠 .view-swap 的入场动画把切换变成一次淡入，而不是硬闪 -->
     <main class="main">
       <div class="view-swap" :key="view">
-        <AssistantCrew v-if="view !== 'home'" compact :module="view" @navigate="onNavigate" />
         <RouterView v-slot="{ Component }"><component :is="Component" :key="view" @navigate="onNavigate" /></RouterView>
       </div>
     </main>

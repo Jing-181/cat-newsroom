@@ -52,3 +52,12 @@
   .assistant-crew button:active { transform: none; }
   .assistant-replay { display: none; }
 }
+
+/* 手机头像融入顶栏，桌面卡片归入侧栏，不给正文增加空行。 */
+.assistant-crew--toolbar { margin:0; flex:0 0 auto; }
+.assistant-crew--toolbar .assistant-badge { padding:0; width:44px; height:44px; justify-content:center; border-color:var(--drawer-active); background:transparent; }
+.assistant-crew--toolbar .assistant-portrait { width:38px; height:38px; }
+.sidebar-assistant { margin:12px 16px; flex-shrink:0; justify-content:stretch; }
+.sidebar-assistant .assistant-badge { width:100%; color:var(--drawer-text); background:var(--drawer-hover); border-color:var(--drawer-active); }
+.sidebar-assistant .assistant-badge small { color:var(--drawer-text-mute); }
+.sidebar-assistant .assistant-badge > span:last-child { margin-left:auto; }

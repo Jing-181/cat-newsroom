@@ -25,6 +25,8 @@ function mountUI() {
   Trace.track("workout_page_open", { has_draft: !!WorkoutUI.hasDraft() });
   controller = WorkoutUI.mount(rootRef.value, {
     records: data.sport,
+    // 图鉴入口跟随训练页头，不再单独占据一行。
+    onOpenAtlas: () => emit("navigate", "exerciseAtlas"),
     onSave: record => persist(MODULE_KEY, record),
     onDelete: record => remove(MODULE_KEY, record.id),
   });
@@ -46,6 +48,5 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="sport-atlas-entry"><button class="btn ghost" @click="emit('navigate', 'exerciseAtlas')">运动图鉴 →</button></div>
   <div ref="rootRef" class="workout-mount"></div>
 </template>

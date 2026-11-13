@@ -51,7 +51,6 @@
 .timeline-excerpt { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.8; margin: 0 0 12px; }
 .timeline-more { display: block; margin: 24px auto; }
 .timeline-empty { margin-top: 24px; }
-.sport-atlas-entry { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 /* 宽屏把记录与执行并排，仍按 DOM 顺序阅读，保留用户自定义排序。 */
 @media (min-width: 1180px) {
   .home-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; }

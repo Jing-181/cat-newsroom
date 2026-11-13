@@ -17,7 +17,6 @@ import Trace from "./trace.js";
 import { metricFields, fillPrevious, clearRecordFields, parseSetInput, sameFieldLayout, derivedPace, isUnfilled, inputMetricValue, metricSpec, recordUnit, treadmillGuidance } from './workout-metrics.js';
 
   const DRAFT_KEY = "cat-newsroom-workout-draft-v1";
-  const FULLSCREEN_KEY = "cat-newsroom-workout-fullscreen";
 const DAY_KEY = "cat-newsroom-workout-day-v1";
 
 function readJson(key) {
@@ -383,13 +382,6 @@ function mount(container, options) {
     persistDraft();
     render();
     window.scrollTo({ top: 0, behavior: shouldAnimate() ? "smooth" : "auto" });
-  }
-
-  // 全屏：只是把顶栏与底栏藏起来，不动任何布局与数据。
-  // 它存在 <html> 上，因为要隐藏的元素在训练页外面；离开这一页时由 App 清掉。
-  function applyFullscreen(on) {
-    document.documentElement.classList.toggle("workout-fullscreen", Boolean(on));
-    try { localStorage.setItem(FULLSCREEN_KEY, on ? "1" : "0"); } catch (_) { /* 无痕模式不阻止 */ }
   }
 
   // 秒表和图解：只在逐组屏出现。秒表从 started_at 算，不另外存字段；
@@ -955,9 +947,6 @@ function mount(container, options) {
       const scope = focusScope();
       if (scope) openExerciseInfo(scope.exercise);
     });
-    container.querySelector("[data-focus-fullscreen]")?.addEventListener("click", () => {
-      applyFullscreen(!document.documentElement.classList.contains("workout-fullscreen"));
-    });
     // 全部组都记完了，剩下的就是时长、状态词和保存，交给结束弹窗
     container.querySelector("[data-focus-finish]")?.addEventListener("click", openFinishDialog);
     // 加组不搬注意力：提前把四组排好，下一步仍然是当前组的下一组，不是新加的那一组。
@@ -1230,6 +1219,8 @@ function mount(container, options) {
   }
 
   function wire() {
+    // 所有训练状态共用图鉴入口，草稿由原有逻辑保留。
+    container.querySelector("[data-open-atlas]")?.addEventListener("click", () => options.onOpenAtlas?.());
     container.querySelector("#workout-plan-menu")?.addEventListener("click", event => {
       const actions = container.querySelector(".workout-plan-actions");
       if (!actions) return;
@@ -1347,9 +1338,6 @@ function mount(container, options) {
       : WorkoutView.idleHtml(selectedDay, records);
     wire();
     startFocusExtras();
-    // 全屏只在训练中存在：回到列表页就把顶底栏还回去，不然会困在没有导航的页面里
-    if (!session) document.documentElement.classList.remove("workout-fullscreen");
-    else if (localStorage.getItem(FULLSCREEN_KEY) === "1") document.documentElement.classList.add("workout-fullscreen");
     if (heights.size) {
       container.querySelectorAll("[data-exercise-card][data-done-id]").forEach(card => {
         const from = heights.get(card.dataset.doneId);
@@ -1461,8 +1449,6 @@ function mount(container, options) {
     });
   }
 
-  // 上次选了全屏就继续全屏；不选的人不受影响
-  applyFullscreen(localStorage.getItem(FULLSCREEN_KEY) === "1");
   render();
   if (pendingDraft) {
     AppDialog.confirm(`上次有一条没结束的${pendingDraft.title || "训练"}（${pendingDraft.date}），接着记还是开新的？`, {

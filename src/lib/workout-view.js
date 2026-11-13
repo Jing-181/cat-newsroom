@@ -193,7 +193,7 @@ function focusHtml(session, selectedDay, target, history = []) {
   // 还没动作：也停在逐组屏里加，不再退回整页。训练的第一个决定就是「练什么」。
   if (!target) {
     return `<section class="workout-app workout-focus" data-focus-root>
-      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
+      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><div class="focus-top-actions"><button type="button" class="focus-overview" data-open-atlas>图鉴</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
       <div class="focus-empty"><p class="focus-empty-kicker">今天还没有动作</p><h2>先挑一个练的</h2><p class="focus-empty-sub">加完就从第一组开始记，其他都不用管。</p></div>
       <div class="focus-actions"><button type="button" class="focus-primary" data-focus-add-exercise>+ 加动作</button></div>
       <p class="focus-extras"><button type="button" data-focus-cancel>放弃这次训练</button></p>
@@ -258,7 +258,7 @@ function focusHtml(session, selectedDay, target, history = []) {
   const lastText = !previousText ? "这个动作首次记录" : (suggestionOn ? `上次这${recordUnit(exercise)}的数字已填入，直接完成或改数字` : `上次这${recordUnit(exercise)}`);
 
   return `<section class="workout-app workout-focus" data-focus-root>
-      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-clock"><i>整场</i><b class="focus-timer" data-focus-timer>00:00</b></span><div class="focus-top-actions"><button type="button" class="focus-full" data-focus-fullscreen aria-label="全屏" title="全屏">⤢</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
+      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-clock"><i>整场</i><b class="focus-timer" data-focus-timer>00:00</b></span><div class="focus-top-actions"><button type="button" class="focus-overview" data-open-atlas>图鉴</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
       <div class="focus-heading">
       <div class="focus-head"><h2><button type="button" class="focus-name" data-focus-info>${escapeHtml(exercise.name)}</button></h2><p>${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)}</p></div>
       ${nav}
@@ -340,7 +340,7 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
     return focusHtml(session, selectedDay, uiState.focusTarget, history);
   }
   return `<section class="workout-app">
-      <div class="workout-head"><div><h2>${editing ? "编辑" : "记录"}${escapeHtml(session.title)}</h2><p>${escapeHtml(session.date)} · 草稿会自动保存在本机</p></div><div class="workout-head-actions"><button type="button" class="workout-btn compact" data-focus-enter>逐组记录</button><button type="button" class="workout-btn danger" id="workout-cancel">${editing ? "退出编辑" : "放弃"}</button></div></div>
+      <div class="workout-head"><div><h2>${editing ? "编辑" : "记录"}${escapeHtml(session.title)}</h2><p>${escapeHtml(session.date)} · 草稿会自动保存在本机</p></div><div class="workout-head-actions"><button type="button" class="workout-btn compact" data-open-atlas>运动图鉴</button><button type="button" class="workout-btn compact" data-focus-enter>逐组记录</button><button type="button" class="workout-btn danger" id="workout-cancel">${editing ? "退出编辑" : "放弃"}</button></div></div>
       <div class="workout-days">${dayButtons(selectedDay)}</div>
       ${statsHtml(stats)}
       ${session.exercises.length ? trackedHtml(history, { exerciseIds: session.exercises.map(item => item.exercise_id) }) : ""}
@@ -538,7 +538,7 @@ function historyHtml(records) {
 function idleHtml(selectedDay, records) {
   // 运动偏好入口暂时下线：偏好与计划的组合方式要重新设计。实现仍留在 workout-ui.js，挂回来只需把那个按钮放回这个菜单。
   return `<section class="workout-app workout-idle"><header class="workout-mast"><div class="workout-mast-copy"><p class="workout-kicker">Cat Life Daily · 运动</p><h2>运动健身</h2><p class="workout-mast-sub">按训练日安排今天，逐组记下重量。</p></div>
-      <div class="workout-mast-actions"><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划" aria-expanded="false">☰</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
+      <div class="workout-mast-actions"><button type="button" class="workout-btn compact" data-open-atlas>运动图鉴</button><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划" aria-expanded="false">☰</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
       </header>
       <div class="workout-days" role="group" aria-label="训练日">${dayButtons(selectedDay)}</div>
       ${startCardHtml(selectedDay, records)}
