@@ -137,6 +137,8 @@ try {
     await check('new Set(fixture.store.getData().todo.map(x=>x.id)).size===3', 'Duplicate record IDs');
   });
   await run('分组新增、分组内新增及折叠展开', async () => {
+    await check(`document.querySelector('.task-group-form').getClientRects().length===0`, 'Mobile group form not collapsed');
+    await click('.task-group-create');
     await fill('[aria-label="新分组名称"]', 'v2.18'); await enter();
     await fill('[aria-label="添加到v2.18"]', '分组里的目标事项'); await enter();
     await check(`fixture.store.getData().todo.some(x=>x.title==='分组里的目标事项' && x.group==='v2.18')`, 'Group field not saved');
@@ -338,6 +340,8 @@ try {
   }
   await run('首页快捷随记保持Home节点，运动仍发navigate',async()=>{
     await evaluate(`fixture.show('home')`);await tick();
+    // 低频入口先展开，关闭编辑器后仍须返回可见的触发按钮。
+    await click('.capture-more summary');
     await evaluate(`(()=>{window.homeQuick=[...document.querySelectorAll('.capture-links button')].find(el=>el.textContent==='写图文日记');window.homeGrid=document.querySelector('.home-grid');homeQuick.focus({preventScroll:true});fixture.navigation.length=0;homeQuick.click();})()`);
     await wait(`!!document.querySelector('#q-content')`);
     await check(`fixture.navigation.length===0 && homeQuick.isConnected && homeGrid===document.querySelector('.home-grid')`,'Quick note navigated or replaced home');

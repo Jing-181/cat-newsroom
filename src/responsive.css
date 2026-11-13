@@ -101,6 +101,17 @@
   .header h2 { font-size: 22px; }
   .toolbar { flex-wrap: wrap; }
   .search-box { width: 100%; }
+  /* 常用记录模块共享一行搜索和新建，日期由顶栏统一展示。 */
+  .module-view > .header .date-chip { display: none; }
+  .module-view > .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin: 12px 0; }
+  .module-view > .toolbar > .spacer { display: none; }
+  .module-view > .toolbar .search-box { min-width: 0; width: 100%; }
+  .module-view > .toolbar input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; }
+  .module-view > .toolbar .btn { min-height: 44px; white-space: nowrap; }
+  .module-view .hero.has-cover { min-height: 72px; }
+  .module-view .mod-summary { gap: 8px; }
+  .module-view .mini { padding: 10px 12px; }
+
   /* 快速记录恢复双列：图标按钮本身是横向内容，单列太浪费高度 */
   .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .qbtn { padding: 12px 13px; gap: 10px; }
@@ -122,7 +133,8 @@
   .rec .acts button { width: 30px; height: 30px; border-radius: var(--radius-control); }
   .rec .acts button:active { background: var(--surface-nested); color: var(--text); opacity: 1; }
   .rec .top { flex-wrap: wrap; order: 0; }
-  .rec-layout-default .top { padding-right: 96px; }
+  .rec-layout-default .top { padding-right: 0; padding-top: 28px; }
+  .rec .rnote { min-width: 0; overflow-wrap: anywhere; }
   /* 点按卡片有轻微按下的手感 */
   .rec:active { transform: scale(.992); }
 

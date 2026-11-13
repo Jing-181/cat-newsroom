@@ -141,7 +141,7 @@ function render() {
 
   root.value.innerHTML = `<div class="header"><div><h2>${m.name}</h2><p>${m.desc}</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
     <div class="toolbar">
-      <div class="search-box">${icon("search", 15, 2.2)}<input id="search" placeholder="搜索…" value="${attr(searchQ)}"/></div>
+      <div class="search-box">${icon("search", 15, 2.2)}<input id="search" type="search" aria-label="搜索记录" placeholder="搜索…" value="${attr(searchQ)}"/></div>
       <div class="spacer"></div><button class="btn" id="btn-new">${icon("plus", 16, 2.2)}新建</button></div>
     ${head}
     <div class="mod-layout">

@@ -129,7 +129,7 @@ onBeforeUnmount(() => { mounted = false; unsubscribe?.(); clearInterval(timer); 
           <div class="home-moods" aria-label="今日状态评分"><button v-for="value in 5" :key="value" :aria-pressed="mood === value" :aria-label="`今日状态 ${value} 分`" @click="setMood(value)">{{ value }}</button></div><p class="life-caption">1 分很低 · 5 分很好 · 再点一次清除</p>
         </section>
         <section v-else-if="key === 'pomo'" class="home-pomo life-panel">
-          <header class="life-heading"><h3>专注一会儿</h3><span id="pomo-status">已暂停</span></header><div class="home-pomo-row"><strong id="pomo-time">{{ pad2(Math.floor(pomo.remain / 60)) }}:{{ pad2(pomo.remain % 60) }}</strong><button id="pomo-toggle" @click="ensurePomodoroController()?.toggle()">开始</button><button @click="ensurePomodoroController()?.stop()">重置</button></div>
+          <header class="life-heading"><h3>专注一会儿</h3><span id="pomo-status">已暂停</span></header><div class="home-pomo-row"><strong id="pomo-time">{{ pad2(Math.floor(pomo.remain / 60)) }}:{{ pad2(pomo.remain % 60) }}</strong><button class="pomo-primary" id="pomo-toggle" @click="ensurePomodoroController()?.toggle()">开始</button><button class="pomo-reset" @click="ensurePomodoroController()?.stop()">重置</button></div>
         </section>
         <section v-else-if="key === 'goals'" class="home-wide home-training">
           <div class="home-training-summary life-panel"><div><h3>本周完成 {{ trainingCount }} 次训练</h3><p class="life-caption">{{ hasDraft ? '有一份未结束的训练，接着来。' : '准备好了，就从一次训练开始。' }}</p></div><button class="btn" @click="go('sport')">{{ hasDraft ? '继续训练' : '开始训练' }}</button></div>

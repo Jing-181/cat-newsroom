@@ -12,16 +12,32 @@
 .home-masthead > div:first-child { min-width: 0; }
 .home-cat { width: 96px; flex-shrink: 0; }
 .home-cat svg { width: 100%; height: auto; }
+/* 输入与保存共用一张纸面，焦点边框覆盖整个书写区。 */
+.capture-composer { border: 1px solid var(--border-input); border-radius: var(--radius-control); background: var(--surface-card); overflow: hidden; transition: border-color var(--dur-fast) var(--ease-out); }
+.capture-composer:focus-within { border-color: var(--accent); outline: 2px solid var(--accent-muted); }
+.home-capture textarea.shared-field { border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 14px; }
+.home-capture textarea.shared-field:focus { outline: none; box-shadow: none; }
+.home-capture .life-switch { padding: 3px; background: var(--surface-nested); border-radius: var(--radius-control); }
+.home-capture .life-switch button { min-height: 38px; padding: 6px 10px; }
+.home-capture .life-switch button[aria-pressed="true"] { background: var(--surface-card); border-color: var(--border); color: var(--text); }
 .home-capture textarea { display: block; width: 100%; resize: vertical; min-height: 82px; font: 14px/1.7 var(--font-sans); }
-.capture-actions { margin-top: 12px; flex-wrap: wrap; }
-.capture-links { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); justify-content: flex-start; flex-wrap: wrap; gap: 8px 16px; }
+.capture-actions { margin: 0; padding: 8px 12px 12px; flex-wrap: wrap; gap: 8px; }
+.capture-actions .btn { min-height: 40px; }
+.capture-more { margin-top: 8px; }
+.capture-more summary { width: fit-content; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 8px 0; color: var(--text-secondary); font: 12px/1.5 var(--font-sans); cursor: pointer; border-radius: var(--radius-control); list-style: none; }
+.capture-more summary::-webkit-details-marker { display: none; }
+.capture-more summary::after { content: "＋"; }
+.capture-more[open] summary::after { content: "−"; }
+.capture-more summary:hover, .capture-more summary:active { color: var(--accent); background: var(--surface-nested); }
+.capture-more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.capture-links { margin-top: 0; padding-top: 8px; border-top: 1px solid var(--border); justify-content: flex-start; flex-wrap: wrap; gap: 8px 16px; }
 .capture-message { margin: 12px 0 0; color: var(--accent); font: 13px/1.6 var(--font-sans); }
 .life-switch { display: flex; flex-wrap: wrap; gap: 4px; }
 .life-switch button, .life-link, .capture-links button, .home-task button, .home-moods button, .home-pomo button { color: var(--text-secondary); background: transparent; border: 1px solid transparent; border-radius: var(--radius-control); font: 13px/1.5 var(--font-sans); padding: 8px 12px; cursor: pointer; transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
 .life-switch button[aria-pressed="true"], .home-moods button[aria-pressed="true"] { background: var(--accent-muted); color: var(--accent); border-color: var(--accent); }
 .life-link, .capture-links button { padding: 6px 0; color: var(--accent); }
 .home-edition button:hover, .life-timeline button:hover { background: var(--surface-nested); }
-.home-edition button:active, .life-timeline button:active, .sport-atlas-entry button:active { transform: scale(.98); }
+.home-edition button:active, .life-timeline button:active { transform: scale(.98); }
 .home-edition button:focus-visible, .life-timeline button:focus-visible, .home-training summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .home-edition button:disabled { opacity: .5; cursor: default; transform: none; }
 .home-task { display: flex; gap: 12px; align-items: center; border-top: 1px solid var(--border); padding: 8px 0; }
@@ -30,11 +46,16 @@
 .home-moods { display: flex; gap: 8px; }
 .home-moods button { flex: 1; border-color: var(--border); padding: 12px 4px; }
 .home-pomo { background: var(--ink-bg-from); color: var(--ink-text); }
+.home-pomo .life-heading { margin-bottom: 20px; }
 .home-pomo .life-heading span { color: var(--ink-text-mute); font: 12px var(--font-sans); }
 .home-pomo-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.home-pomo-row strong { font: 700 32px var(--font-sans); font-variant-numeric: tabular-nums; margin-right: auto; }
-.home-pomo button { color: var(--ink-text); border-color: var(--ink-line); }
+.home-pomo-row strong { font: 700 clamp(36px, 4vw, 48px)/1.1 var(--font-sans); letter-spacing: -.04em; font-variant-numeric: tabular-nums; margin-right: auto; }
+.home-pomo button { color: var(--ink-text); border-color: var(--ink-line); min-height: 44px; }
 .home-pomo button:hover { background: var(--ink-hover); }
+.home-pomo .pomo-primary { background: var(--ink-text); border-color: var(--ink-text); color: var(--ink-bg-from); padding-inline: 20px; font-weight: 700; }
+.home-pomo .pomo-primary:hover { background: color-mix(in srgb, var(--ink-text) 85%, var(--ink-bg-from)); }
+.home-pomo .pomo-reset { color: var(--ink-text-mute); border-color: transparent; padding-inline: 8px; }
+.home-pomo button:focus-visible { outline-color: var(--ink-text); }
 .home-training-summary { flex-wrap: wrap; }
 .home-training details { margin: 12px 0 0; }
 .home-training summary { color: var(--text-secondary); font: 13px var(--font-sans); padding: 8px; cursor: pointer; border-radius: var(--radius-control); }
@@ -71,7 +92,12 @@
   .home-masthead h2 { margin-bottom: 4px; }
   .home-capture .life-heading { margin-bottom: 12px; }
   .home-capture textarea { min-height: 72px; }
-  .capture-links { margin-top: 12px; padding-top: 8px; }
+  .capture-links { margin-top: 0; padding-top: 8px; }
+  .home-capture .life-heading { gap: 8px; }
+  .home-capture .life-switch button { min-height: 44px; }
+  .capture-actions .btn { min-height: 44px; }
+  .home-pomo-row { gap: 6px; }
+  .home-pomo .pomo-primary { padding-inline: 16px; }
 }
 /* 触屏输入保持 16px，避免 iOS 聚焦时自动放大。 */
 @media (max-width: 820px), (max-width: 1024px) and (pointer: coarse) {

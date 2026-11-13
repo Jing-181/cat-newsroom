@@ -18,8 +18,11 @@ onBeforeUnmount(() => unsubscribe?.());
 <template>
   <section class="notes-view">
     <header class="header"><div><h2>随记</h2><p>几张照片，或几句话。</p></div></header>
-    <button class="note-capture" @click="openEditor('note', null)"><span>记点什么……</span><span>＋ 文字 / 照片</span></button>
-    <input v-model="query" class="shared-field note-search" type="search" placeholder="搜索随记…" aria-label="搜索随记" @input="limit = 30">
+    <!-- 手机搜索与新建同行，桌面保留宽幅书写入口。 -->
+    <div class="note-tools">
+      <input v-model="query" class="shared-field note-search" type="search" placeholder="搜索随记…" aria-label="搜索随记" @input="limit = 30">
+      <button class="note-capture" aria-label="新建随记，可添加文字或照片" @click="openEditor('note', null)"><span class="note-capture-prompt">记点什么……</span><span class="note-capture-desktop">＋ 文字 / 照片</span><span class="note-capture-mobile">＋ 新建</span></button>
+    </div>
     <div class="notes-list">
       <article v-for="item in notes.slice(0, limit)" :key="item.id" class="note-entry">
         <header><time>{{ item.date }}</time><details class="note-menu"><summary aria-label="更多操作">···</summary><div><button @click="openEditor('note', item)">编辑</button><button class="danger" @click="confirmDelete('note', item.id)">删除</button></div></details></header>
@@ -36,9 +39,13 @@ onBeforeUnmount(() => unsubscribe?.());
 <style scoped>
 .notes-view { max-width: 760px; margin: 0 auto; }
 .note-capture { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); color: var(--text-secondary); text-align: left; font: 14px var(--font-sans); cursor: pointer; }
-.note-capture span:last-child { color: var(--accent); white-space: nowrap; }
+.note-capture-desktop, .note-capture-mobile { color: var(--accent); white-space: nowrap; }
 .note-capture:hover { border-color: var(--accent); }
-.note-search { margin: 16px 0; width: 100%; }
+.note-tools { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.note-search { width: 100%; min-width: 0; }
+.note-capture-mobile { display: none; }
+.note-capture:active { background: var(--surface-nested); }
+.note-capture:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .notes-list { display: grid; gap: 16px; }
 .note-entry { padding: 16px; background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
 .note-entry > header { display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); font: 12px var(--font-sans); margin-bottom: 8px; }
@@ -52,4 +59,13 @@ onBeforeUnmount(() => unsubscribe?.());
 .note-menu button { border: 0; background: none; color: var(--text); width: 100%; padding: 12px; cursor: pointer; }
 .note-menu button:hover { background: var(--surface-nested); }
 .note-menu .danger { color: var(--danger); }
+/* 窄屏只保留一个明确的新建入口。 */
+@media (max-width: 820px) {
+  .note-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 12px; }
+  .note-search { min-height: 44px; font-size: 16px; }
+  .note-capture { width: auto; min-height: 44px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--accent); color: var(--on-accent); }
+  .note-capture .note-capture-mobile { display: inline; color: inherit; }
+  .note-capture-prompt, .note-capture-desktop { display: none; }
+  .note-capture:hover, .note-capture:active { background: color-mix(in srgb, var(--accent) 85%, var(--text)); }
+}
 </style>

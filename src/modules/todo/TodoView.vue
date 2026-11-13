@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { getData, persist, subscribe, save, bump } from "../../lib/store.js";
 import { openEditor, confirmDelete } from "../../lib/editor.js";
 import { taskGroups, createTask, matchesTask, groupName, readTaskGroupOrder, saveTaskGroupOrder, moveTaskGroup } from "../../lib/task-groups.js";
@@ -23,8 +23,16 @@ function checkOwner() {
   // 首次身份恢复不丢弃刚输入的本机草稿；已知账号切换仍清空。
   if (draftOwner === null && currentOwner()) { draftOwner = currentOwner(); return true; }
   draftOwner = currentOwner();
+  groupFormOpen.value = false;
   drafts.value = Object.create(null); extras.value = []; newGroup.value = ""; folded.value = new Set();
   return false;
+}
+// 手机按需展开分组表单；收起时保留尚未提交的名称。
+const groupFormOpen = ref(false), groupInput = ref(null), groupToggle = ref(null);
+const groupComposing = ref(false);
+async function toggleGroupForm() {
+  groupFormOpen.value = !groupFormOpen.value;
+  if (groupFormOpen.value) { await nextTick(); groupInput.value?.focus(); }
 }
 const newGroup = ref("");
 const extras = ref([]);
@@ -72,13 +80,19 @@ function add(group) {
   try { changed(item); drafts.value[group] = ""; query.value = ""; }
   catch { list.splice(list.indexOf(item), 1); Toast.show("保存失败，内容已保留，请重试"); }
 }
-function addGroup() {
-  if (!checkOwner()) return;
+async function addGroup() {
+  if (groupComposing.value || !checkOwner()) return;
   const name = groupName(newGroup.value);
   if (!name) return;
   if (!extras.value.includes(name)) extras.value.push(name);
   folded.value.delete(name);
   newGroup.value = "";
+  query.value = "";
+  groupFormOpen.value = false;
+  await nextTick();
+  // 创建后直接聚焦新组的事项输入框。
+  const section = [...root.value.querySelectorAll("[data-task-group]")].find(el => el.dataset.taskGroup === name);
+  section?.querySelector(".task-inline-add input")?.focus();
 }
 async function deleteGroup(name) {
   const owner = window.getCurrentUser?.()?.id || null;
@@ -132,13 +146,14 @@ function toggle(item) {
     <header class="header"><div><h2>事项</h2><p>按版本安排，随手记下要做的事。</p></div></header>
     <div class="tasks-tools">
       <input v-model="query" class="shared-field" type="search" placeholder="搜索事项或版本…" aria-label="搜索事项或版本">
-      <form class="task-add" @submit.prevent="addGroup">
-        <input v-model="newGroup" class="shared-field" maxlength="80" placeholder="版本或分组名称" aria-label="新分组名称">
+      <button ref="groupToggle" type="button" class="btn ghost task-group-create" :aria-expanded="groupFormOpen" aria-controls="task-group-create-form" @click="toggleGroupForm">{{ groupFormOpen ? '收起' : '＋ 分组' }}</button>
+      <form id="task-group-create-form" class="task-add task-group-form" :class="{ 'is-open': groupFormOpen }" @submit.prevent="addGroup" @keydown.esc="groupFormOpen = false; groupToggle?.focus()">
+        <input ref="groupInput" v-model="newGroup" @compositionstart="groupComposing = true" @compositionend="groupComposing = false" class="shared-field" maxlength="80" placeholder="版本或分组名称" aria-label="新分组名称">
         <button class="btn ghost" :disabled="!newGroup.trim()">新建分组</button>
       </form>
     </div>
     <p v-if="extras.some(name => !records.some(item => groupName(item.group) === name))" class="sub">新分组添加第一条事项后保存。</p>
-    <p id="task-group-sort-help" class="task-sort-help">拖动手柄排序；键盘聚焦手柄后按上下方向键。顺序仅保存在当前设备的当前账号，不跨设备同步；搜索时暂停排序。</p>
+    <details class="task-sort-guide"><summary>排序说明</summary><p id="task-group-sort-help" class="task-sort-help">拖动手柄排序；键盘聚焦手柄后按上下方向键。顺序仅保存在当前设备的当前账号，不跨设备同步；搜索时暂停排序。</p></details>
     <span class="task-sort-status" role="status" aria-live="polite">{{ orderMessage }}</span>
     <section v-for="group in groups" :key="group.name" class="task-group" :data-task-group="group.name" :class="{ 'is-dragging': dragging?.name === group.name, 'is-drop-target': dragging?.target === group.name && dragging?.name !== group.name }">
       <header class="task-group-head">
@@ -176,6 +191,11 @@ function toggle(item) {
 
 <style scoped>
 .tasks-view { max-width: 960px; margin: 0 auto; }
+.task-group-create { display: none; }
+.task-sort-guide { margin: -8px 0 12px; color: var(--text-secondary); font: 12px/1.5 var(--font-sans); }
+.task-sort-guide summary { cursor: pointer; width: fit-content; padding: 10px 4px; border-radius: var(--radius-control); }
+.tasks-view :is(button, summary):active { background: var(--surface-nested); }
+.tasks-view :is(button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .task-sort-help { color: var(--text-secondary); font: 12px/1.5 var(--font-sans); }
 .task-sort-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .task-drag-handle { flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: var(--radius-control); background: none; color: var(--text-secondary); font-size: 24px; cursor: grab; touch-action: none; user-select: none; }
@@ -222,5 +242,19 @@ function toggle(item) {
 .task-menu button { display: block; padding: 12px 8px; width: 100%; text-align: left; border: 0; color: var(--text); background: none; cursor: pointer; }
 .task-menu button:hover { background: var(--surface-nested); }
 .task-menu .danger { color: var(--danger); }
-@media (max-width: 820px) { .tasks-tools { flex-direction: column; align-items: stretch; gap: 12px; } .task-group-toggle { flex-wrap: wrap; } }
+/* 搜索与分组入口同行，表单仅在主动展开后占用一行。 */
+@media (max-width: 820px) {
+  .tasks-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 12px; }
+  .task-group-create { display: inline-flex; min-height: 44px; }
+  .task-group-form { display: none; grid-column: 1 / -1; }
+  .task-group-form.is-open { display: flex; }
+  .tasks-view input.shared-field { font-size: 16px; min-height: 44px; width: 100%; }
+  .task-add button { min-height: 44px; }
+  .task-group-head { padding: 8px; gap: 4px; }
+  .task-group-toggle { flex-wrap: wrap; min-height: 44px; }
+  .task-line { padding: 8px 12px; }
+  .task-inline-add { padding: 8px 12px 12px; }
+  .task-sort-guide { margin-bottom: 8px; }
+}
+
 </style>

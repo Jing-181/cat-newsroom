@@ -58,11 +58,12 @@ onBeforeUnmount(() => { stash(); unsubscribe?.(); });
       <button type="button" :aria-pressed="kind === 'note'" @click="kind = 'note'">记一笔</button>
       <button type="button" :aria-pressed="kind === 'todo'" @click="kind = 'todo'">加事项</button>
     </div></header>
-    <form @submit.prevent="submit">
+    <form class="capture-composer" @submit.prevent="submit">
       <textarea v-model="text" class="shared-field" rows="2" :aria-label="kind === 'note' ? '随手记内容' : '事项内容'" :placeholder="kind === 'note' ? '今天有什么值得记下的小事？' : '记下一件要做的事…'" @compositionstart="composing = true" @compositionend="composing = false" @keydown="shortcut" />
       <div class="capture-actions"><span class="capture-hint">⌘ / Ctrl + Enter 保存</span><button class="btn" type="submit" :disabled="!text.trim() || composing">{{ kind === 'note' ? '存入日记' : '加入事项' }}</button></div>
     </form>
-    <div class="capture-links"><button type="button" @click="openEditor('note', null)">写图文日记</button><button type="button" @click="emit('navigate', 'sport')">记录运动</button><button type="button" @click="openEditor('hot', null)">添加收藏</button><button type="button" @click="emit('navigate', 'timeline')">生活时间线 →</button></div>
+    <!-- 低频入口按需展开，把首页空间留给输入。 -->
+    <details class="capture-more"><summary>更多记录方式</summary><div class="capture-links"><button type="button" @click="openEditor('note', null)">写图文日记</button><button type="button" @click="emit('navigate', 'sport')">记录运动</button><button type="button" @click="openEditor('hot', null)">添加收藏</button><button type="button" @click="emit('navigate', 'timeline')">生活时间线 →</button></div></details>
     <p v-if="message" class="capture-message" role="status">{{ message }}</p>
   </section>
 </template>

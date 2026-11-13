@@ -82,11 +82,11 @@ export function recHTML(m, x) {
       <span class="badge" style="background:var(--surface-nested);color:var(--text-secondary)">${esc(x.category || "其他")}</span>
       <span class="rdate">${x.date || ""}</span>${customBlock}</div>
       <div class="amt ${inc ? "inc" : "exp"}">${inc ? "+" : "-"}¥${x.amount}</div></div></div>`; }
-  // note
+  // 收藏摘要使用正文截行，避免沿用日期的不换行样式。
   return `<div class="rec ${layoutCls}" data-record-id="${x.id}">${acts}<div class="top">${thumb}<div class="body" data-edit="${x.id}">
     <span class="rname">${esc(x.title || "无标题")}</span>
     ${x.mood ? `<span class="badge" style="background:var(--accent-muted);color:var(--accent)">${esc(x.mood)}</span>` : ""}
-    ${x.content ? `<span class="rdate" style="margin-left:0;color:var(--text-tertiary)">${esc(x.content).slice(0, 40)}</span>` : ""}
+    ${x.content ? `<span class="rnote">${esc(x.content)}</span>` : ""}
     <span class="rdate">${x.date || ""}</span>${customBlock}</div></div></div>`;
 }
 
