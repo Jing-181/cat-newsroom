@@ -21,7 +21,8 @@ import AssistantCrew from "../../components/AssistantCrew.vue";
 import Toast from "../../lib/toast.js";
 
 // 静态刊物沿用部署基路径，支持 GitHub Pages 子目录。
-const storyUrl = `${import.meta.env.BASE_URL}assets/stories/lights-still-on/01-extra-minute/index.html`;
+// 独立角色站维护故事，首页只保留稳定入口。
+const storyUrl = 'https://jing-181.github.io/image-gen/#story';
 const emit = defineEmits(["navigate"]);
 const root = ref(null), revision = ref(0), currentDay = ref(today());
 const order = computed(() => { revision.value; return visibleHomeOrder(getData().__homeOrder, DEFAULT_HOME_ORDER); });
