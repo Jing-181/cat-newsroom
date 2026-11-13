@@ -18,11 +18,9 @@ import WorkoutUI from "../../lib/workout-ui.js";
 import { sleepingCat } from "../../lib/critters.js";
 import QuickCapture from "../../components/QuickCapture.vue";
 import AssistantCrew from "../../components/AssistantCrew.vue";
+import CharacterWorld from '../../components/CharacterWorld.vue';
 import Toast from "../../lib/toast.js";
 
-// 静态刊物沿用部署基路径，支持 GitHub Pages 子目录。
-// 独立角色站维护故事，首页只保留稳定入口。
-const storyUrl = 'https://jing-181.github.io/image-gen/#story';
 const emit = defineEmits(["navigate"]);
 const root = ref(null), revision = ref(0), currentDay = ref(today());
 const order = computed(() => { revision.value; return visibleHomeOrder(getData().__homeOrder, DEFAULT_HOME_ORDER); });
@@ -140,22 +138,7 @@ onBeforeUnmount(() => { mounted = false; unsubscribe?.(); clearInterval(timer); 
         <div v-else-if="key === 'report'" class="home-wide home-report" v-html="reportHTML"></div>
       </template>
     </div>
-    <section class="story-entry" aria-label="故事会">
-      <img src="../../../assets/stories/lights-still-on/01-extra-minute/04.webp" alt="Hanako、源和悠走进纸片组成的旧日街道" loading="lazy">
-      <div><p>故事会 · 灯还亮着</p><h2>多出来的一分钟</h2><p>一只每到打烊就慢一分钟的旧钟，藏着谁没说出口的等待。</p><a class="shared-btn" :href="storyUrl">读第一篇 · 12 格 →</a></div>
-    </section>
+    <CharacterWorld />
     <div v-if="getData().__homeVersionVisible !== false" class="home-ver">猫咪生活报 · v{{ CONFIG.APP_VERSION }}</div>
   </div>
 </template>
-
-<style scoped>
-/* 故事入口沿用报刊主题，窄屏保持图文完整。 */
-.story-entry { display:grid; grid-template-columns:160px minmax(0,1fr); gap:24px; align-items:center; margin-top:24px; padding:24px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-card); }
-.story-entry img { width:100%; border-radius:var(--radius-tile); }
-.story-entry h2 { margin:8px 0; font-size:24px; }
-.story-entry p { margin:8px 0 16px; color:var(--text-secondary); font-size:14px; line-height:1.7; }
-.story-entry a { text-decoration:none; display:inline-flex; }
-.story-entry a:active { transform:scale(.98); }
-.story-entry a:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
-@media(max-width:540px) { .story-entry { grid-template-columns:1fr; padding:16px; gap:16px; } .story-entry img { max-height:240px; object-fit:cover; object-position:center; } }
-</style>

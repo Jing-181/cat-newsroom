@@ -3,7 +3,7 @@
 // 不再整目录拷副本 —— 之前副本与源文件并行存在，出现过"改了根文件、页面读的却是旧副本"。
 // 留在 public 的只有三类：src/index.html 以普通 script 加载的两个同步脚本、
 // 旧书签地址与设备切换器指向的跳转壳、App.vue 默认头像走的 /assets/。
-import { mkdirSync, copyFileSync, cpSync, existsSync } from "node:fs";
+import { rmSync, mkdirSync, copyFileSync, cpSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,6 +29,8 @@ for (const [src, dest] of entries) {
     mkdirSync(dirname(to), { recursive: true });
     copyFileSync(from, to);
   } else {
+    // 重建目录副本，避免已删除素材留在部署产物中。
+    rmSync(to, { recursive: true, force: true });
     cpSync(from, to, { recursive: true });
   }
   console.log(`已拷贝：${dest}`);
