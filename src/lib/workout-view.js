@@ -259,8 +259,6 @@ function focusHtml(session, selectedDay, target, history = []) {
       ${nav}
       ${setBar}
       </div>
-      <p class="focus-plan-hint" data-plan-hint>${escapeHtml(planHintText(exercise))}</p>
-      <div class="focus-rest-controls" data-plan-rest-controls${exercise._plan ? '' : ' hidden'}><button type="button" class="workout-btn" data-plan-rest="-30">休息参考 −30秒</button><button type="button" class="workout-btn" data-plan-rest="30">＋30秒</button></div>
       <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
       ${previousText ? (suggestionOn
         ? `<p class="focus-last is-filled"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`
@@ -670,14 +668,12 @@ function planViewHtml(plan, progress = null) {
 }
 
 function dailyChoiceHtml(recommendation, split, options, cycle) {
-  const labels = { push: '推 · 胸 / 肩 / 三头', pull: '拉 · 背 / 后束 / 二头', legs: '腿 · 股四头 / 腘绳 / 臀 / 小腿' };
-  return `<div class="dialog-head"><div><span class="dialog-kicker">今天怎么练</span><h3>先选当天安排</h3></div><button type="button" class="icon-action" data-dialog-close aria-label="取消选择">×</button></div>
-    <p class="dialog-sub">${escapeHtml(recommendation.rationale)}</p>
-    <p class="dialog-sub">疲劳、疼痛或不适时优先休息或减量。可以自由换部位，不必完成推荐量。</p>
-    <label class="workout-field">训练部位<select data-daily-split>${Object.entries(labels).map(([key, text]) => `<option value="${key}"${key === split ? ' selected' : ''}>${text}</option>`).join('')}</select></label>
-    <div class="plan-day-grid plan-day-grid-flow">${options.map(day => `<section class="plan-day-card"><h4>${day.variant} · ${escapeHtml(day.label)}</h4><p>${day.exercises.reduce((sum, ex) => sum + ex.sets, 0)} 工作组 · 预计约 ${day.estimated_minutes} 分钟（含热身、休息估算）</p><ul>${day.exercises.map(ex => `<li>${escapeHtml(ex.name)} · ${ex.sets} × ${ex.reps} · 参考休息 ${ex.rest_seconds} 秒</li>`).join('')}</ul><button type="button" class="workout-btn primary" data-daily-confirm="${day.variant}">选 ${day.variant} 并开练</button></section>`).join('')}</div>
-    <p class="dialog-sub">当天自由计划不覆盖六次循环，也不推进循环进度。休息是起点参考，体感优先，可在训练中调整。</p>
-    <div class="dialog-actions"><button type="button" class="workout-btn" data-dialog-close>取消</button>${cycle ? '<button type="button" class="workout-btn" data-daily-cycle>按已保存六次计划开练</button>' : '<span>尚无已保存的六次计划</span>'}</div>`;
+  const labels = { push: '推', pull: '拉', legs: '腿' };
+  return `<div class="daily-choice"><div class="dialog-head"><h3>今天怎么练</h3><button type="button" class="icon-action" data-dialog-close aria-label="取消选择">×</button></div>
+    <label class="daily-split">部位<select data-daily-split>${Object.entries(labels).map(([key, text]) => `<option value="${key}"${key === split ? ' selected' : ''}>${text}</option>`).join('')}</select></label>
+    <div class="daily-tabs" role="tablist" aria-label="训练方案">${options.map((day, i) => `<button type="button" role="tab" id="daily-tab-${day.variant}" aria-controls="daily-panel-${day.variant}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-daily-tab="${day.variant}">${day.variant} · ${day.variant === 'A' ? '基础' : '器械'}</button>`).join('')}</div>
+    ${options.map((day, i) => `<section class="daily-preview" role="tabpanel" id="daily-panel-${day.variant}" aria-labelledby="daily-tab-${day.variant}"${i ? ' hidden' : ''}><p class="daily-summary">${day.exercises.reduce((sum, ex) => sum + ex.sets, 0)}组 · 约${day.estimated_minutes}分</p><ul>${day.exercises.map(ex => `<li><span>${escapeHtml(ex.name)}</span><b>${ex.sets}×${escapeHtml(String(ex.reps).replaceAll('-', '–'))}</b></li>`).join('')}</ul><button type="button" class="workout-btn primary daily-start" data-daily-confirm="${day.variant}">开始 ${day.variant}</button></section>`).join('')}
+    ${cycle ? '<button type="button" class="workout-btn daily-cycle" data-daily-cycle>原六次计划 →</button>' : ''}</div>`;
 }
 
 function planHintText(exercise) {

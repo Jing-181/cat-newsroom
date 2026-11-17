@@ -265,10 +265,6 @@ function mount(container, options) {
       input.classList.toggle("is-suggest", typed === "" && suggest !== "");
     });
 
-    const planHint = root.querySelector('[data-plan-hint]');
-    if (planHint) planHint.textContent = WorkoutView.planHintText(exercise);
-    const restControls = root.querySelector('[data-plan-rest-controls]');
-    if (restControls) restControls.hidden = !exercise._plan;
     const name = root.querySelector(".focus-name");
     if (name) { name.textContent = exercise.name; name.title = exercise.name; }
     const meta = root.querySelector(".focus-head p");
@@ -877,16 +873,6 @@ function mount(container, options) {
         input.classList.toggle("is-empty", !Number(set[field]));
       }
     }));
-    container.querySelectorAll('[data-plan-rest]').forEach(button => button.addEventListener('click', () => {
-      const scope = focusScope();
-      if (!scope?.exercise?._plan) return;
-      const plan = scope.exercise._plan;
-      plan.rest_seconds = Math.max(30, Math.min(600, plan.rest_seconds + Number(button.dataset.planRest)));
-      plan.rest_hint = '已按体感调整，仅作参考；不自动完成组';
-      const hint = container.querySelector('[data-plan-hint]');
-      if (hint) hint.textContent = WorkoutView.planHintText(scope.exercise);
-      persistDraft();
-    }));
     container.querySelectorAll("[data-focus-field]").forEach(input => input.addEventListener("input", () => {
       input.classList.toggle("is-empty", input.value === "");
       input.classList.remove("is-suggest");
@@ -1263,7 +1249,27 @@ function mount(container, options) {
     const choices = WorkoutPlan.dailyOptions(split, records);
     const cycle = loadPlan();
     const dialog = openDialog(WorkoutView.dailyChoiceHtml(recommendation, split, choices, cycle));
-    dialog.querySelector('[data-daily-split]')?.addEventListener('change', event => openDailyChoice(event.target.value));
+    dialog.querySelector('[data-daily-split]')?.addEventListener('change', event => {
+      openDailyChoice(event.target.value);
+      container.querySelector('[data-daily-split]')?.focus();
+    });
+    const tabs = [...dialog.querySelectorAll('[data-daily-tab]')];
+    const selectTab = tab => {
+      tabs.forEach(item => {
+        const selected = item === tab;
+        item.setAttribute('aria-selected', String(selected));
+        item.tabIndex = selected ? 0 : -1;
+        dialog.querySelector('#' + item.getAttribute('aria-controls')).hidden = !selected;
+      });
+    };
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => selectTab(tab));
+      tab.addEventListener('keydown', event => {
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : -1;
+        if (next < 0) return;
+        event.preventDefault(); selectTab(tabs[next]); tabs[next].focus();
+      });
+    });
     dialog.querySelector('[data-daily-cycle]')?.addEventListener('click', () => {
       const raw = WorkoutPlan.loadProgress();
       openDialog(WorkoutView.planViewHtml(cycle, WorkoutPlan.isProgressValid(raw, cycle.generated_at) ? raw : null));

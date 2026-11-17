@@ -375,8 +375,23 @@ button.set-hint:hover { color:var(--module-4); }
 
 /* 训练计划日卡视图 */
 .plan-day-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; max-height:min(62vh,560px); overflow-y:auto; padding:2px; }
-/* Daily A/B uses the dialog as its only scroll owner, including both confirmations. */
-.plan-day-grid.plan-day-grid-flow { max-height:none; overflow:visible; }
+/* A/B stays visible; only the selected compact preview occupies space. */
+.daily-choice { display:grid; gap:16px; }
+.daily-choice .dialog-head { margin:0; align-items:center; }
+.daily-choice .dialog-head h3 { margin:0; }
+.daily-split { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:12px; font:14px/1.5 var(--font-sans); }
+.daily-tabs { display:flex; gap:8px; }
+.daily-tabs button { flex:1; min-height:44px; border:1px solid var(--border-input); border-radius:var(--radius-control); background:var(--surface-card); color:var(--text); font:700 14px var(--font-sans); cursor:pointer; }
+.daily-tabs button[aria-selected=true] { background:var(--accent-muted); border-color:var(--accent); color:var(--accent); }
+.daily-choice button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.daily-preview[hidden] { display:none; }
+.daily-summary { margin:0 0 8px; font:13px/1.5 var(--font-sans); color:var(--text-secondary); }
+.daily-preview ul { list-style:none; padding:0; margin:0 0 16px; }
+.daily-preview li { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font:14px/1.5 var(--font-sans); }
+.daily-preview li span { min-width:0; overflow-wrap:anywhere; }
+.daily-preview li b { flex-shrink:0; font-weight:700; font-variant-numeric:tabular-nums; }
+.daily-choice .daily-start { width:100%; min-height:44px; }
+.daily-choice .daily-cycle { min-height:44px; width:100%; }
 .workout-dialog .icon-action[data-dialog-close] { width:44px; height:44px; min-width:44px; min-height:44px; }
 .plan-day-card { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-input); border-radius:var(--radius-card); background:var(--surface-card); cursor:pointer; transition:border-color var(--dur-fast); }
 .plan-day-card:hover { border-color:var(--module-4); }
@@ -649,7 +664,7 @@ button.set-hint:hover { color:var(--module-4); }
    历史从卡片墙改成一行一条的账本：日期在左，标题与末组在右，情绪词当印章盖在角上。 */
 .workout-app.workout-idle { gap:0; }
 
-.workout-mast { display:flex; align-items:flex-end; gap:12px; padding:2px 0 12px; border-bottom:2px solid color-mix(in srgb,var(--text) 84%,transparent); }
+.workout-mast { display:flex; align-items:flex-end; gap:12px; padding:2px 0 12px; }
 .workout-mast-copy { min-width:0; flex:1; }
 .workout-kicker { margin:0; font-family:var(--font); font-size:10px; letter-spacing:.24em; color:var(--text-tertiary); text-transform:uppercase; }
 .workout-mast h2 { margin:7px 0 0; font-family:var(--font); font-size:29px; font-style:normal; font-weight:400; letter-spacing:.03em; line-height:1.1; }
@@ -793,12 +808,6 @@ button.set-hint:hover { color:var(--module-4); }
 .focus-overview { flex:0 0 auto; min-height:32px; padding:0 13px; border:1px solid rgba(240,232,213,.22); border-radius:999px; background:none; color:rgba(240,232,213,.74); font:inherit; font-size:11px; letter-spacing:.06em; cursor:pointer; }
 .focus-overview:active { background:rgba(240,232,213,.1); }
 .focus-heading { display:contents; }
-/* Plan guidance owns its spacing; never inherit light-dialog negative margins. */
-.workout-focus .focus-plan-hint { flex:0 0 auto; margin:16px 0 0; color:var(--ink-text); font:14px/1.5 var(--font-sans); overflow-wrap:anywhere; }
-.workout-focus .focus-plan-hint:empty { display:none; }
-.workout-focus .focus-rest-controls { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; }
-.workout-focus .focus-rest-controls .workout-btn { min-height:44px; color:var(--ink-text); background:var(--ink-hover); border-color:var(--ink-text-mute); border-radius:var(--radius-control); }
-.workout-focus .focus-rest-controls .workout-btn:focus-visible { outline:2px solid var(--ink-text); outline-offset:2px; }
  .focus-head { margin-top:22px; }
 .focus-head h2 { margin:0; font-family:var(--font); font-size:24px; font-weight:400; letter-spacing:.03em; overflow-wrap:anywhere; }
 .focus-head p { margin:7px 0 0; font-size:10.5px; letter-spacing:.04em; color:rgba(240,232,213,.5); }

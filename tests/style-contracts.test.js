@@ -17,13 +17,14 @@ test('photo status and placeholder have separate size contracts', () => {
   assert.doesNotMatch(css, /tile > span/);
   assert.match(css, /note-image-status \{ min-height: 0/);
 });
-test('training guidance and daily plan use dedicated layout contracts', () => {
+test('training screen omits removed guidance and daily choice has accessible compact tabs', () => {
   const js = read('src/lib/workout-view.js'), css = read('css/workout-ui.css');
-  assert.match(js, /class="focus-plan-hint" data-plan-hint/);
-  assert.match(js, /class="workout-btn" data-plan-rest="-30"/);
-  assert.match(js, /plan-day-grid plan-day-grid-flow/);
-  assert.match(css, /plan-day-grid-flow \{ max-height:none; overflow:visible/);
-  assert.match(css, /focus-plan-hint \{[^}]*color:var\(--ink-text\)/);
+  assert.doesNotMatch(js, /data-plan-hint|data-plan-rest/);
+  assert.match(js, /role="tablist"/);
+  assert.match(js, /role="tabpanel"/);
+  assert.match(js, /data-daily-cycle/);
+  assert.match(css, /daily-preview\[hidden\] \{ display:none/);
+  assert.doesNotMatch(css.match(/\.workout-mast \{[^}]+\}/)[0], /border-bottom/);
 });
 test('search, checkbox and touch frames have shared explicit contracts', () => {
   const css = read('css/form-controls.css'), desktop = read('src/desktop.css');

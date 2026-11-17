@@ -64,8 +64,9 @@ test('选择弹窗保留取消、切换与六次计划入口；独立计划不�
   const options = plan.dailyOptions('push', [], now);
   const html = view.dailyChoiceHtml(plan.recommendSplit([], now), 'push', options, plan.generatePlan({ now }));
   assert.match(html, /data-dialog-close/); assert.match(html, /data-daily-split/);
-  assert.match(html, /data-daily-cycle/); assert.match(html, /选 A 并开练/);
-  assert.match(html, /不推进循环进度/);
+  assert.match(html, /data-daily-cycle/); assert.match(html, /开始 A/);
+  assert.match(html, /A · 基础/); assert.match(html, /B · 器械/);
+  assert.doesNotMatch(html, /参考休息|不推进循环进度|疲劳、疼痛/);
   const ui = readFileSync(new URL('../src/lib/workout-ui.js', import.meta.url), 'utf8');
   const chooser = ui.slice(ui.indexOf('function openDailyChoice('), ui.indexOf('function wire()'));
   assert.doesNotMatch(chooser, /createSession|persistDraft|saveProgress/);
