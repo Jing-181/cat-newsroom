@@ -159,9 +159,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div ref="root" class="settings-view">
-    <div class="header"><div><h2>个人配置</h2><p>每日一卡与首页布局</p></div><div class="spacer"></div></div>
-
+  <div ref="root" class="settings-view page-shell">
     <div class="sec-title">每日一卡</div>
     <div class="setting-card">
       <div class="set-row">

@@ -6,6 +6,9 @@
   <title>猫咪生活报 · Design Demo</title>
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/page-shell.css">
+  <link rel="stylesheet" href="../css/form-controls.css">
+  <script type="module">import { ensureFormControls } from '../src/lib/form-controls.js'; ensureFormControls();</script>
   <link rel="stylesheet" href="../css/workout-ui.css">
   <link rel="stylesheet" href="../css/assistants.css">
   <style>
@@ -71,6 +74,11 @@
       <p>复古报刊 × 个人生活<br>共享主题与组件回归页</p>
     </header>
 
+    <section class="demo-section page-shell" aria-label="共享页面刊头示例">
+      <header class="page-header"><div><p class="page-eyebrow">Daily notes</p><h2>随记</h2><p>几张照片，或几句话。</p></div><button class="shared-btn">新建</button></header>
+      <div class="page-toolbar"><input class="shared-field" aria-label="示例搜索" placeholder="搜索随记…"></div>
+    </section>
+
     <section class="demo-section" aria-labelledby="colors-title">
       <h2 id="colors-title">色彩</h2>
       <div class="demo-grid">
@@ -98,11 +106,21 @@
       </article>
       <article class="shared-card form-grid" style="margin-top:12px">
         <label class="shared-field">动作名称<input value="哑铃卧推" aria-label="动作名称"></label>
+        <label class="shared-field">版本 / 分组<input list="demo-groups" placeholder="输入或选择"><datalist id="demo-groups"><option value="生活记录"></option><option value="阅读计划"></option></datalist></label>
         <label class="shared-field">训练日期<input type="date" value="2026-09-19" aria-label="训练日期"></label>
         <label class="shared-field">训练日<select aria-label="训练日"><option>胸</option><option>腿</option><option>背</option></select></label>
         <label class="shared-field" style="grid-column:1/-1">备注<textarea rows="2" aria-label="备注">今天状态稳定，最后一组保留余力。</textarea></label>
         <div class="shared-field"><span>重量 stepper</span><div class="stepper-demo"><button class="shared-btn" type="button" data-step="-2.5" aria-label="减少重量">−</button><output id="weight-output">60 kg</output><button class="shared-btn" type="button" data-step="2.5" aria-label="增加重量">+</button></div></div>
       </article>
+    </section>
+
+    <section class="demo-section" aria-label="共享输入契约">
+      <h2>搜索与选择控件</h2>
+      <div class="form-grid shared-card">
+        <label class="shared-field">搜索<input type="search" placeholder="搜索记录…"></label>
+        <label><input type="checkbox"> 显示样板记录</label>
+        <div class="editor-modal"><div class="seg" role="group" aria-label="收支类型"><button type="button" class="opt on" aria-pressed="true" onclick="this.parentNode.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-pressed',String(b===this));b.classList.toggle('on',b===this)})">支出</button><button type="button" class="opt" aria-pressed="false" onclick="this.parentNode.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-pressed',String(b===this));b.classList.toggle('on',b===this)})">收入</button></div></div>
+      </div>
     </section>
 
     <section class="demo-section" aria-labelledby="records-title">

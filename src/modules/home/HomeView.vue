@@ -3,7 +3,7 @@
 import { ref, computed, onMounted, onUpdated, onBeforeUnmount } from "vue";
 import { CONFIG } from "../../lib/config.js";
 import { icon, esc } from "../../lib/icons.js";
-import { dateStr, weekDates, pad2, today } from "../../lib/utils.js";
+import { weekDates, pad2, today } from "../../lib/utils.js";
 import { getData, save, subscribe, bump } from "../../lib/store.js";
 import { openEditor } from "../../lib/editor.js";
 import { pomo, ensurePomodoroController, pomoUpdate } from "../../lib/pomodoro.js";
@@ -15,20 +15,28 @@ import { pendingTasks, completedThisWeek } from "../../lib/life-feed.js";
 import Workout from "../../lib/workout.js";
 import WorkoutPlan from "../../lib/workout-plan.js";
 import WorkoutUI from "../../lib/workout-ui.js";
-import { sleepingCat } from "../../lib/critters.js";
 import QuickCapture from "../../components/QuickCapture.vue";
-import AssistantCrew from "../../components/AssistantCrew.vue";
+import WeatherMasthead from "../../components/WeatherMasthead.vue";
 import CharacterWorld from '../../components/CharacterWorld.vue';
 import Toast from "../../lib/toast.js";
 
 const emit = defineEmits(["navigate"]);
 const root = ref(null), revision = ref(0), currentDay = ref(today());
-const order = computed(() => { revision.value; return visibleHomeOrder(getData().__homeOrder, DEFAULT_HOME_ORDER); });
+const wideHome = ref(false);
+const order = computed(() => {
+  revision.value;
+  const saved = getData().__homeOrder;
+  const keys = visibleHomeOrder(getData().__homeOrder, DEFAULT_HOME_ORDER);
+  if (wideHome.value && (!Array.isArray(saved) || !saved.length)) return ['clock', 'daily', ...keys.filter(key => !['clock', 'daily'].includes(key))];
+  return keys;
+});
+const pairWeather = computed(() => wideHome.value && Math.abs(order.value.indexOf('clock') - order.value.indexOf('daily')) === 1 && order.value.includes('clock') && order.value.includes('daily'));
+let homeMedia;
+function updateHomeWidth() { wideHome.value = homeMedia.matches; }
 const tasks = computed(() => { revision.value; return pendingTasks(getData().todo); });
 const pendingCount = computed(() => { revision.value; return (getData().todo || []).filter(x => !x.done && !x.deleted_at).length; });
 const trainingCount = computed(() => { revision.value; currentDay.value; return completedThisWeek(getData().sport).length; });
 const mood = computed(() => { revision.value; currentDay.value; return readTrend()[(new Date().getDay() + 6) % 7]; });
-const greeting = computed(() => { currentDay.value; const hour = new Date().getHours(); return hour < 5 ? '夜深了' : hour < 11 ? '早上好' : hour < 13 ? '中午好' : hour < 18 ? '下午好' : '晚上好'; });
 const hasDraft = computed(() => { revision.value; return WorkoutUI.hasDraft(); });
 function go(key) { emit('navigate', key); }
 function data() { return getData(); }
@@ -98,6 +106,7 @@ async function loadHomeOrder() {
   } catch { /* 离线仍使用本地排序。 */ }
 }
 onMounted(() => {
+  homeMedia = matchMedia('(min-width: 1180px)'); updateHomeWidth(); homeMedia.addEventListener('change', updateHomeWidth);
   mounted = true; ensurePomodoroController(); initWidgets();
   unsubscribe = subscribe(refresh);
   window.addEventListener('home-order-changed', refresh);
@@ -105,16 +114,15 @@ onMounted(() => {
   loadHomeOrder();
 });
 onUpdated(initWidgets);
-onBeforeUnmount(() => { mounted = false; unsubscribe?.(); clearInterval(timer); window.removeEventListener('home-order-changed', refresh); });
+onBeforeUnmount(() => { homeMedia?.removeEventListener('change', updateHomeWidth); mounted = false; unsubscribe?.(); clearInterval(timer); window.removeEventListener('home-order-changed', refresh); });
 </script>
 
 <template>
   <div ref="root" class="home-edition">
-    <div class="home-grid">
+    <div class="home-grid" :class="{ 'home-weather-pair': pairWeather }">
       <template v-for="key in order" :key="key">
         <template v-if="key === 'clock'">
-          <header class="home-masthead home-wide"><div><p class="life-caption">{{ dateStr() }}</p><h2>{{ greeting }}，{{ CONFIG.owner }}</h2><p>把今天过得轻一点。</p></div><div class="home-cat" aria-hidden="true" v-html="sleepingCat"></div></header>
-          <AssistantCrew class="home-wide" @navigate="go" />
+          <WeatherMasthead :compact-desktop="pairWeather" />
         </template>
         <QuickCapture v-else-if="key === 'quick'" class="home-wide" @navigate="go" />
         <section v-else-if="key === 'todo'" class="life-panel home-wide">
@@ -142,3 +150,11 @@ onBeforeUnmount(() => { mounted = false; unsubscribe?.(); clearInterval(timer); 
     <div v-if="getData().__homeVersionVisible !== false" class="home-ver">猫咪生活报 · v{{ CONFIG.APP_VERSION }}</div>
   </div>
 </template>
+
+<style scoped>
+@media (min-width: 1180px) {
+  .home-weather-pair { grid-template-columns: minmax(0, 540px) minmax(0, 1fr); }
+  .home-weather-pair > :deep(.weather-masthead), .home-weather-pair > .home-daily { grid-column: auto; }
+  .home-weather-pair > .home-daily { margin: 0; min-width: 0; min-height: 234px; height: auto; overflow: visible; }
+}
+</style>

@@ -1,0 +1,20 @@
+{
+  "hanako-cloudy": {"source":"weather-B-pilot-hanako-cloudy-bookshop-2bfb3fa0.jpg","status":"已采用","review":"书店读书；头手完整"},
+  "yuan-cloudy": {"source":"weather-B-pilot-yuan-cloudy-riverside-a9008d65.jpg","status":"已采用","review":"河边扶栏；头手完整"},
+  "yuu-cloudy": {"source":"weather-B-pilot-yuu-cloudy-greenhouse-776a1384.jpg","status":"已采用","review":"温室执笔读书；头手完整"},
+  "hanako-sunny": {"source":"weather-B-hanako-sunny-flare-v1-437faa85.jpg","status":"候选","review":"眯眼遮阳、另一手抱书；双臂清楚"},
+  "hanako-rainy": {"source":"weather-B-hanako-rainy-flare-v1-b39a2c41.jpg","status":"待修","review":"可见持伞手与摸猫手，猫胸前白色为猫爪；但下方横向承托的粉袖形成疑似额外手臂，承重结构不清"},
+  "hanako-windy": {"source":"weather-B-hanako-windy-flare-v1-0ca3860c.jpg","status":"候选","review":"一手拢发一手持书，头发书页随风"},
+  "hanako-fog": {"source":"weather-B-hanako-fog-flare-v1-4c90b906.jpg","status":"候选","review":"竹林薄雾，手触耳机、另一手抱书"},
+  "hanako-snow": {"source":"weather-B-hanako-snow-flare-v1-104c315a.jpg","status":"候选","review":"闭眼笑、抱猫摸头，冬装雪景明确"},
+  "yuan-sunny": {"source":"weather-B-yuan-sunny-flare-v1-7e89084e.jpg","status":"候选","review":"运动场拧水瓶，短袖、双手明确"},
+  "yuan-rainy": {"source":"weather-B-yuan-rainy-flare-v1-f1ed22a8.jpg","status":"候选","review":"持伞并把平板放进胸前包，雨棚环境"},
+  "yuan-windy": {"source":"weather-B-yuan-windy-flare-v1-54016b31.jpg","status":"候选","review":"海边抓背包带与衣领，头发随风"},
+  "yuan-fog": {"source":"weather-B-yuan-fog-flare-v1-0972298d.jpg","status":"待确认","review":"路标旁持平板思考；天空较亮、远景清楚，雾感不足"},
+  "yuan-snow": {"source":"weather-B-yuan-snow-flare-v1-1-d1af3234.jpg","status":"候选","review":"指定第一张：闭眼笑、双手捧热杯，雪景；未采用误返多云和兽耳版本"},
+  "yuu-sunny": {"source":"weather-B-yuu-sunny-flare-v1-9d6d47a2.jpg","status":"候选","review":"花园伸指看蝴蝶，另一手握背包带"},
+  "yuu-rainy": {"source":"weather-B-yuu-rainy-flare-v1-9407d47b.jpg","status":"候选","review":"一手持透明伞、一手接雨，动作明确"},
+  "yuu-windy": {"source":"weather-B-yuu-windy-flare-v1-3d608628.jpg","status":"候选","review":"咖啡桌前压住翻动书页，头发飘动"},
+  "yuu-fog": {"source":"weather-B-yuu-fog-flare-v1-fd433970.jpg","status":"候选","review":"在凝雾玻璃上画猫，一手指画、一手扶窗"},
+  "yuu-snow": {"source":"weather-B-yuu-snow-flare-v1-aa1429c2.jpg","status":"待确认","review":"闭眼笑、双手托白猫造型物；轮廓过于规整，较像玩偶，雪雕质感不明确"}
+}

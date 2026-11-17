@@ -139,8 +139,8 @@ function render() {
 
   const body = recordListBody(m, it, q);
 
-  root.value.innerHTML = `<div class="header"><div><h2>${m.name}</h2><p>${m.desc}</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
-    <div class="toolbar">
+  root.value.innerHTML = `<div class="page-header"><div><p class="page-eyebrow">${props.moduleKey === 'hot' ? 'Daily collection' : 'Life journal'}</p><h2>${m.name}</h2><p>${m.desc}</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
+    <div class="toolbar page-toolbar">
       <div class="search-box">${icon("search", 15, 2.2)}<input id="search" type="search" aria-label="搜索记录" placeholder="搜索…" value="${attr(searchQ)}"/></div>
       <div class="spacer"></div><button class="btn" id="btn-new">${icon("plus", 16, 2.2)}新建</button></div>
     ${head}
@@ -180,5 +180,5 @@ onBeforeUnmount(() => { if (unsub) unsub(); });
 </script>
 
 <template>
-  <div ref="root" class="module-view"></div>
+  <div ref="root" class="module-view page-shell"></div>
 </template>

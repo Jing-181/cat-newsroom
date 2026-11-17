@@ -16,10 +16,10 @@ onMounted(() => { unsubscribe = subscribe(() => revision.value++); });
 onBeforeUnmount(() => unsubscribe?.());
 </script>
 <template>
-  <section class="notes-view">
-    <header class="header"><div><h2>随记</h2><p>几张照片，或几句话。</p></div></header>
+  <section class="notes-view page-shell">
+    <header class="page-header"><div><p class="page-eyebrow">Daily notes</p><h2>随记</h2><p>几张照片，或几句话。</p></div></header>
     <!-- 手机搜索与新建同行，桌面保留宽幅书写入口。 -->
-    <div class="note-tools">
+    <div class="note-tools page-toolbar">
       <input v-model="query" class="shared-field note-search" type="search" placeholder="搜索随记…" aria-label="搜索随记" @input="limit = 30">
       <button class="note-capture" aria-label="新建随记，可添加文字或照片" @click="openEditor('note', null)"><span class="note-capture-prompt">记点什么……</span><span class="note-capture-desktop">＋ 文字 / 照片</span><span class="note-capture-mobile">＋ 新建</span></button>
     </div>
@@ -37,19 +37,21 @@ onBeforeUnmount(() => unsubscribe?.());
   </section>
 </template>
 <style scoped>
-.notes-view { max-width: 760px; margin: 0 auto; }
+.notes-view { min-width: 0; }
 .note-capture { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); color: var(--text-secondary); text-align: left; font: 14px var(--font-sans); cursor: pointer; }
 .note-capture-desktop, .note-capture-mobile { color: var(--accent); white-space: nowrap; }
 .note-capture:hover { border-color: var(--accent); }
-.note-tools { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.note-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.note-tools .note-capture { width: auto; min-height: 44px; padding: 10px 16px; }
+.note-capture-prompt { display: none; }
 .note-search { width: 100%; min-width: 0; }
 .note-capture-mobile { display: none; }
 .note-capture:active { background: var(--surface-nested); }
 .note-capture:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.notes-list { display: grid; gap: 16px; }
+.notes-list { display: grid; gap: var(--page-item-gap); }
 .note-entry { padding: 16px; background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--radius-card); }
 .note-entry > header { display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); font: 12px var(--font-sans); margin-bottom: 8px; }
-.note-text { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px 0 0; background: none; border: 0; text-align: left; color: var(--text); font: 14px/1.8 var(--font-sans); white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; }
+.note-text { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 70ch; padding: 12px 0 0; background: none; border: 0; text-align: left; color: var(--text); font: 14px/1.8 var(--font-sans); white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; }
 .note-text strong { font-weight: 700; }
 .note-text small { color: var(--text-secondary); }
 .note-menu { position: relative; }

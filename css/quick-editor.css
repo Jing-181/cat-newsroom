@@ -4,7 +4,8 @@
 .quick-editor-note .note-image-editor-tile { min-width: 0; display: grid; gap: 4px; align-content: start; }
 .quick-editor-note .note-image-editor-tile > button:first-child { padding: 0; border: 0; background: var(--surface-nested); border-radius: var(--radius-control); overflow: hidden; cursor: zoom-in; }
 .quick-editor-note .note-image-editor-tile img { display: block; width: 100%; height: 72px; object-fit: cover; }
-.quick-editor-note .note-image-editor-tile > span { min-height: 72px; box-sizing: border-box; padding: 8px; overflow-wrap: anywhere; background: var(--surface-nested); border-radius: var(--radius-control); font: 12px/1.4 var(--font-sans); }
+.quick-editor-note .note-image-placeholder { min-height: 72px; box-sizing: border-box; padding: 8px; overflow-wrap: anywhere; background: var(--surface-nested); border-radius: var(--radius-control); font: 12px/1.4 var(--font-sans); }
+.quick-editor-note .note-image-status { min-height: 0; overflow-wrap: anywhere; font: 12px/1.5 var(--font-sans); color: var(--text-secondary); }
 .quick-editor-note .note-image-editor-tile .btn { min-height: 32px; padding: 4px 8px; font-size: 12px; }
 .quick-editor .field { min-width: 0; margin-bottom: 0; }
 .quick-editor .field > label { display: block; margin-bottom: 8px; }

@@ -4,6 +4,8 @@
 // 其余领域库都在 src/lib/ 下，是标准 ESM；与经典脚本之间只剩几个明确契约：
 // window.CONFIG / window.data / window.store / window.updateAuthUI / window.DemoData。
 import "./styles.css";
+import { ensureFormControls } from './lib/form-controls.js';
+ensureFormControls();
 
 // 经典脚本（与主站相同的加载顺序与全局契约，顺序不要动）
 import "../js/sync-core.js";       // window.SyncCore

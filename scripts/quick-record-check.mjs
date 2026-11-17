@@ -165,7 +165,32 @@ try {
   await run('事项编辑器移动分组', async () => {
     await evaluate(`[...document.querySelectorAll('.task-body')].find(e=>e.textContent.includes('连续事项二')).click()`);
     await wait(`document.querySelector('#q-group')`);
-    await fill('#q-group', 'v2.18'); await click('#q-save');
+    await fill('#q-group', 'v2.18');
+    await check(`document.querySelector('#q-group').getAttribute('aria-expanded')==='true' && !document.querySelector('#q-group').hasAttribute('list')`, 'Custom combobox not open');
+    await shot('shared-combobox-mobile');
+    await send('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 }); await tick();
+    await check(`!!document.querySelector('.quick-editor') && !document.querySelector('.shared-options')`, 'Escape closed editor instead of options');
+    await click('.modal-fold > summary');
+    await mouseClick('#q-priority');
+    await check(`document.querySelector('.shared-options [role=option]')`, 'Shared select not open');
+    await send('Input.dispatchKeyEvent', { type:'keyDown', key:'ArrowDown', code:'ArrowDown', windowsVirtualKeyCode:40 });
+    await enter();
+    await check(`!document.querySelector('.shared-options') && document.activeElement.id==='q-priority'`, 'Selection did not close/retain focus');
+    await mouseClick('#q-priority');
+    await shot('shared-select-mobile');
+    await check(`(()=>{const r=document.querySelector('.shared-options').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight;})()`, 'Options outside viewport');
+    await send('Input.dispatchKeyEvent', { type:'keyDown', key:'Tab', code:'Tab', windowsVirtualKeyCode:9 }); await tick();
+    await check(`!document.querySelector('.shared-options')`, 'Tab did not close options');
+    await mouseClick('#q-priority');
+    await evaluate(`document.querySelector('.modal-body').scrollTop=0`); await tick();
+    await check(`(()=>{const r=document.querySelector('.shared-options').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth;})()`, 'Scrolled options overflow');
+    await mouseClick('#q-title');
+    await check(`!document.querySelector('.shared-options')`, 'Outside click did not close options');
+    await evaluate(`(()=>{document.querySelector('#q-priority').scrollIntoView({block:'nearest'});document.querySelector('#q-priority').focus();})()`); await tick();
+    await shot('shared-form-mobile');
+    await viewport(1280); await shot('shared-form-desktop'); await viewport(390);
+    await check(`document.querySelector('.modal-body').scrollWidth <= document.querySelector('.modal-body').clientWidth`, 'Form overflow');
+    await click('#q-save');
     await wait(`!document.querySelector('.quick-editor')`);
     await check(`fixture.store.getData().todo.find(x=>x.title==='连续事项二').group==='v2.18'`, 'Editor move failed');
   });
@@ -376,6 +401,6 @@ try {
   ws?.close();
   if (chrome && chrome.exitCode === null) { const exited = once(chrome, 'exit'); chrome.kill(); await exited; }
   await server?.close();
-  await rm(profile, { recursive: true, force: true });
+  await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   if (results.fatal || results.summary.failed || results.summary.runtimeErrors || results.sourcesChangedDuringRun.length) process.exitCode = 1;
 }

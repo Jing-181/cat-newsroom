@@ -1,0 +1,8 @@
+/* Explicit actionable elements only: ordinary cards/text are not clickable. */
+:is(button, a[href], summary, [role="button"], [role="link"], [role="option"], select, input[type="button"], input[type="submit"], input[type="reset"], input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"], label[for], .js-open, [data-open], [data-done-toggle], .brand .ava) { cursor: pointer; }
+:is(input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="password"], input[type="number"], input[type="url"], input[type="tel"], textarea, [contenteditable="true"]) { cursor: text; }
+:is(button, input, textarea, select):disabled, [aria-disabled="true"] { cursor: not-allowed !important; }
+:is(button, a[href], summary, [role="button"], [role="link"]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (hover: hover) {
+  :is(button, a[href], summary, [role="button"], [role="link"], .js-open, [data-open], [data-done-toggle], .brand .ava):not(:disabled):not([aria-disabled="true"]):hover { filter: brightness(.97); }
+}

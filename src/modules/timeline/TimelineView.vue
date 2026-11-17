@@ -23,9 +23,9 @@ onBeforeUnmount(() => unsubscribe?.());
 </script>
 
 <template>
-  <section class="life-timeline">
-    <header class="header"><div><h2>生活时间线</h2><p>把记下的小事、收藏和完成的训练，串成日子。</p></div></header>
-    <div class="timeline-tools"><div class="life-switch" aria-label="时间线类型"><button v-for="tab in tabs" :key="tab.key" :aria-pressed="filter === tab.key" @click="filter = tab.key">{{ tab.label }}</button></div><label><input v-model="includeDemo" type="checkbox"> 显示样板记录</label></div>
+  <section class="life-timeline page-shell">
+    <header class="page-header"><div><p class="page-eyebrow">Life timeline</p><h2>生活时间线</h2><p>把记下的小事、收藏和完成的训练，串成日子。</p></div></header>
+    <div class="timeline-tools page-toolbar"><div class="life-switch" aria-label="时间线类型"><button v-for="tab in tabs" :key="tab.key" :aria-pressed="filter === tab.key" @click="filter = tab.key">{{ tab.label }}</button></div><label><input v-model="includeDemo" type="checkbox"> 显示样板记录</label></div>
     <p class="life-caption">按记录日期排列 · {{ entries.length }} 条。没有日期的旧记录列在末尾。</p>
     <div v-if="!entries.length" class="life-panel timeline-empty"><h3>日子，慢慢记就好。</h3><p>{{ filter === 'all' ? '从一段日记、一条收藏，或一次完成的训练开始。' : '这个分类还没有记录。' }}</p><button class="btn" @click="emit('navigate', 'home')">去随手记一笔</button></div>
     <section v-for="group in groups" :key="group.date || 'undated'" class="timeline-day">

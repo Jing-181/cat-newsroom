@@ -2,6 +2,7 @@
 // 生成方是 Hana 的每周一 07:30 定时任务；前端这里只做「取一期、画一张卡、导出一份 md」。
 import { esc } from "./icons.js";
 import Trace from "./trace.js";
+import { reviewReadingModel } from './training-review-reading.js';
 import {
   normalizeReports, resolveReport, formatPeriod, formatGeneratedAt,
   resolveViewState, hasPayloadContent,
@@ -84,7 +85,7 @@ function headHTML(report) {
 function metricsHTML(metrics, limit = 0) {
   if (!metrics.length) return "";
   const cell = value => esc(value || "—");
-  const rows = (limit > 0 ? metrics.slice(0, limit) : metrics).map(row => `<tr><th scope="row">${esc(row.label || "—")}</th><td>${cell(row.week)}</td><td>${cell(row.prev)}</td><td class="delta">${cell(row.delta)}</td></tr>`).join("");
+  const rows = (limit > 0 ? metrics.slice(0, limit) : metrics).map(row => `<tr><th scope="row">${esc(row.label || "—")}</th><td${/次数|时长|组数|容量|重量/.test(row.label) ? ' class="review-key-number"' : ''}>${cell(row.week)}</td><td>${cell(row.prev)}</td><td class="delta">${cell(row.delta)}</td></tr>`).join("");
   return `<table class="review-table"><thead><tr><th scope="col">指标</th><th scope="col">本周</th><th scope="col">上周</th><th scope="col">变化</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
@@ -98,7 +99,7 @@ function sectionsHTML(sections) {
 
 function suggestionsHTML(suggestions) {
   if (!suggestions.length) return "";
-  return `<div class="report-day"><div class="report-text"><b>下周提示</b></div><ul class="report-text">${suggestions.map(item => `<li>${esc(item)}</li>`).join("")}</ul></div>`;
+  return `<div class="report-day report-next"><div class="report-text"><b>下周提示</b></div><ul class="report-text">${suggestions.map(item => `<li>${esc(item)}</li>`).join("")}</ul></div>`;
 }
 
 // 往期选择：按 week_start 倒序（数据层已排好），选中值由 selectedWeek 决定
@@ -124,23 +125,20 @@ function moreHTML() {
 
 // compact：首页摘要态（结论 + 前三行指标 + 看全文）；不传即洞察页完整态。
 // 两种形态由这一个参数决定，不落模块级状态：同一份数据、两处槽位各自独立
-function readyHTML(report, list, compact) {
+export function readyHTML(report, list, compact) {
   const payload = report.payload;
+  const reading = reviewReadingModel(payload);
+  const conclusion = payload.conclusion ? `<div class="report-text review-conclusion">${esc(payload.conclusion)}</div>` : '';
   if (compact) {
     // 没有结论也没有指标：不拼半张卡，走空态壳
     if (!payload.conclusion && !payload.metrics.length) {
       return `${headHTML(report)}<div class="shared-empty">${COMPACT_EMPTY_HINT}</div>`;
     }
-    const lead = payload.conclusion
-      ? `<div class="report-text review-conclusion">${esc(payload.conclusion)}</div>`
-      : "";
+    const lead = conclusion;
     return `${headHTML(report)}${lead}${metricsHTML(payload.metrics, COMPACT_METRIC_ROWS)}${moreHTML()}`;
   }
-  const conclusion = payload.conclusion
-    ? `<div class="report-text review-conclusion">${esc(payload.conclusion)}</div>`
-    : "";
   const body = hasPayloadContent(payload)
-    ? conclusion + metricsHTML(payload.metrics) + sectionsHTML(payload.sections) + suggestionsHTML(payload.suggestions)
+    ? conclusion + metricsHTML(reading.metrics) + sectionsHTML(reading.sections) + suggestionsHTML(reading.suggestions)
     : `<div class="report-text">这一期只有归档原文，点下方导出 Markdown 查看完整复盘。</div>`;
   return `${headHTML(report)}${body}${actionsHTML(report)}${historyHTML(list)}`;
 }

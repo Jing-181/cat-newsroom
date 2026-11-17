@@ -72,6 +72,14 @@
 .timeline-excerpt { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.8; margin: 0 0 12px; }
 .timeline-more { display: block; margin: 24px auto; }
 .timeline-empty { margin-top: 24px; }
+/* Desktop rows stretch only their life cards, not weather/daily widgets.
+   Content stays at natural height; extra room is whitespace, never a stretched control. */
+@media (min-width: 821px) {
+  .home-grid > section.life-panel { align-self: stretch; display: flex; flex-direction: column; padding: 24px; }
+  .home-grid > section.life-panel > * { flex-shrink: 0; }
+  .home-grid > section.life-panel > .life-heading { min-height: 44px; margin-bottom: 16px; }
+  .home-grid > .home-capture > .capture-more { margin-top: auto; padding-top: 8px; }
+}
 /* 宽屏把记录与执行并排，仍按 DOM 顺序阅读，保留用户自定义排序。 */
 @media (min-width: 1180px) {
   .home-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; }

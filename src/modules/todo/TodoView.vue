@@ -142,9 +142,9 @@ function toggle(item) {
 </script>
 
 <template>
-  <section ref="root" class="tasks-view">
-    <header class="header"><div><h2>事项</h2><p>按版本安排，随手记下要做的事。</p></div></header>
-    <div class="tasks-tools">
+  <section ref="root" class="tasks-view page-shell">
+    <header class="page-header"><div><p class="page-eyebrow">Things to do</p><h2>事项</h2><p>按版本安排，随手记下要做的事。</p></div></header>
+    <div class="tasks-tools page-toolbar">
       <input v-model="query" class="shared-field" type="search" placeholder="搜索事项或版本…" aria-label="搜索事项或版本">
       <button ref="groupToggle" type="button" class="btn ghost task-group-create" :aria-expanded="groupFormOpen" aria-controls="task-group-create-form" @click="toggleGroupForm">{{ groupFormOpen ? '收起' : '＋ 分组' }}</button>
       <form id="task-group-create-form" class="task-add task-group-form" :class="{ 'is-open': groupFormOpen }" @submit.prevent="addGroup" @keydown.esc="groupFormOpen = false; groupToggle?.focus()">
@@ -190,7 +190,7 @@ function toggle(item) {
 </template>
 
 <style scoped>
-.tasks-view { max-width: 960px; margin: 0 auto; }
+.tasks-view { min-width: 0; }
 .task-group-create { display: none; }
 .task-sort-guide { margin: -8px 0 12px; color: var(--text-secondary); font: 12px/1.5 var(--font-sans); }
 .task-sort-guide summary { cursor: pointer; width: fit-content; padding: 10px 4px; border-radius: var(--radius-control); }
@@ -205,12 +205,12 @@ function toggle(item) {
 .task-group.is-dragging { opacity: .65; }
 .task-group.is-dragging .task-drag-handle { cursor: grabbing; }
 .task-group.is-drop-target { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tasks-tools { display: flex; gap: 16px; margin-bottom: 24px; align-items: center; }
+.tasks-tools { align-items: center; }
 .tasks-tools > input { flex: 1; min-width: 0; }
 .task-add { display: flex; gap: 8px; }
 .task-add input { flex: 1; min-width: 0; }
 .task-add button { flex-shrink: 0; }
-.task-group { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); margin-bottom: 16px; }
+.task-group { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-card); margin-bottom: var(--page-item-gap); }
 .task-group-head { padding: 16px; display: flex; align-items: center; gap: 8px; }
 .task-group-toggle { display: flex; align-items: center; gap: 8px; border: 0; background: none; color: var(--text); font: 700 14px var(--font-sans); cursor: pointer; width: 100%; min-width: 0; text-align: left; overflow-wrap: anywhere; }
 .task-group-toggle small { margin-left: auto; color: var(--text-secondary); font: 12px var(--font-sans); white-space: nowrap; }

@@ -31,7 +31,7 @@ onBeforeUnmount(close);
         </button>
       </div>
     </template>
-    <button v-else type="button" class="assistant-badge" :aria-label="`认识${current.name}，打开助手编辑部`" @click="open(current)"><AssistantPortrait :key="current.id" :person="current.id" /><span v-if="!toolbar">{{ current.name }}<small>{{ current.short }}</small></span><span v-if="!toolbar" aria-hidden="true">↗</span></button>
+    <button v-else type="button" class="assistant-badge" :aria-label="`认识${current.name}，打开助手编辑部`" @click="open(current)"><AssistantPortrait :key="current.id" :person="current.id" /><span v-if="!toolbar">{{ current.name }}</span><span v-if="!toolbar" aria-hidden="true">↗</span></button>
     <dialog ref="dialog" class="assistant-dialog" :aria-labelledby="titleId" @click="backdrop" @close="opened = false">
       <template v-if="opened">
         <header><span class="life-caption">猫咪生活报 · 助手编辑部</span><button type="button" class="assistant-close" aria-label="关闭角色介绍" autofocus @click="close">×</button></header>

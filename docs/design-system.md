@@ -57,6 +57,21 @@
 
 模块页目前仍沿用遗留的 `.btn` / 原生 `input` / `.rec` 等类，`.shared-*` 是目标形态；两者的视觉由同一套 token 保证一致，迁移进度见 `docs/design-review-2026-10.md`。
 
+## 共享表单控件与间距
+
+`src/lib/form-controls.js` 为 Vue 和字符串 HTML 共用的委托控件层：保留原 input/select 节点、value、input/change 与 v-model 契约，单选 select 和 datalist 输入共用暖色 listbox 浮层。多选/size select、日期、文件选择保留系统行为。不增加 UI 依赖，不改变数据保存逻辑。
+
+方向键浏览，Enter 确认，Escape 只先关闭选项，Tab 关闭并自然移焦；输入支持自定义值、过滤与中文输入法组合期。浮层使用 Popover 顶层并按可见视口定位，随滚动重定位；不支持 Popover 的环境在所属弹窗内降级。aria-expanded/controls/activedescendant 关联选项与输入。焦点保留单层 accent outline，去掉输入的叠加 box-shadow，不全局删除 outline。
+
+`css/form-controls.css` 收口表单间距：标签到控件 8px、帮助文字 4px、字段之间 16px、折叠组内部 16px。折叠内容必须放一个 `.form-fold-body` 内，不能对每个字段重复加容器 padding。弹窗边缘桌面 24px、手机 16px；操作栏独立 flex 区域，正文单独滚动，不固定盖在正文上。手机输入字号 16px、交互高度至少 44px，颜色圆角沿用已有 token，不新增近似 token。
+
+### 控件语义与尺寸契约
+
+- `.shared-field` 是字段容器；搜索框统一按 `input[type=search]` 定义：桌面14px、移动16px，两端44px高，单层accent焦点。checkbox/radio不继承文本输入的全宽与padding，标签同行并提供44px高点击区。
+- 编辑器分段选择使用原生 `button[type=button]` 和 `aria-pressed`，Tab逐项到达、Enter/Space选择；保留 `.on` / `data-v` 保存契约，并触发change标记未保存修改。
+- 排序按钮、开关外框、训练弹窗关闭与休息调整至少44px；开关轨道仍可保持26px。图片区placeholder为72px，上传状态行按文本自然高度。
+- 逐组计划提示使用独立 `focus-plan-hint`，上距16px、已有 `--ink-text`，休息操作另占一行；不复用浅色弹窗负margin。今日A/B的卡片随dialog单层滚动，不再嵌套限高滚动列表。
+
 ## 双端规则
 
 - 桌面：固定侧栏，内容区保持可扫描的多列布局；`--sidebar-w`、`--drawer-hover` 和 `--drawer-active` 属于桌面布局覆盖。
@@ -96,6 +111,16 @@
 ≤820px 时，收藏、阅读、打卡、记账、随记统一搜索和新建同行，输入字号16px、主要按钮至少44px高；通用记录页省去重复日期，摘要卡适度收紧。事项搜索和「＋ 分组」同行，分组表单默认收起，主动展开后聚焦输入；收起保留草稿，创建后清空搜索并聚焦新组的事项输入。排序说明按需展开。桌面分组表单仍直接可用。
 
 手机记录卡把工具按钮留在顶部，不再为整段正文预留右侧工具列；收藏摘要按正文最多两行截断，避免长文横向裁切。全部沿用现有主题token。
+
+## 共享页面框架
+
+`css/page-shell.css` 以运动首屏刊头为基准，供事项、随记、收藏、时间线、洞察与配置使用；通用记录模块同步继承。首页保留天气刊头，训练页不覆盖。
+
+- `.page-shell` 取消模块独立居中窄版；主区左对齐，最大内容宽 `--page-content-max: 1180px`，左右 `--page-gutter: 34px`，≤820px 为14px。
+- `.page-header`：10px eyebrow、29px标题（手机27px）、11.5px简介；标题与简介前间距7px，底部12px加2px规则线。字体、字重沿用运动刊头，不新增颜色。
+- `.page-toolbar`：控件间距12px（手机8px）；区块间距 `--page-section-gap: 24px`，记录间距 `--page-item-gap: 12px`。
+- 随记卡片与页头同宽，正文限制70ch；手机操作至少44px高。配置标题在账号、同步与备份卡之前，账号节点常驻以保持既有绑定。
+- `node --experimental-websocket scripts/page-shell-check.mjs` 使用临时Chrome配置，在1440/390/320检查页面起点、溢出和长URL并截图；仅允许本地Vite请求，不登录或写入真实数据。
 
 ## 回归入口
 

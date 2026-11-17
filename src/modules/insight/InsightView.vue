@@ -43,7 +43,7 @@ function render() {
       ${["progress", "todo", "checkin"].includes(m.type) ? `<div class="hero-bar" style="margin-top:9px"><i style="width:${pct}%;background:${m.color}"></i></div>` : ""}</div>
       <span class="arw" style="color:var(--text-tertiary)">${icon("chevron", 16, 2)}</span></div>`;
   }).join("");
-  root.value.innerHTML = `<div class="header"><div><h2>洞察</h2><p>各模块进展一览 · 记录—执行—统计—反馈</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
+  root.value.innerHTML = `<div class="page-header"><div><p class="page-eyebrow">Weekly review</p><h2>洞察复盘</h2><p>各模块进展一览 · 记录—执行—统计—反馈</p></div><div class="spacer"></div><span class="date-chip">${icon("calendar", 14)} ${dateStr()}</span></div>
     <div class="sec-title">模块概况</div><div class="pin-list pin-list-3">${cards}</div>
     ${trendBlockHTML()}`;
   renderedNonTrend = nonTrendSnapshot();
@@ -59,5 +59,5 @@ onBeforeUnmount(() => { if (unsub) unsub(); });
 </script>
 
 <template>
-  <div ref="root"></div>
+  <div ref="root" class="page-shell"></div>
 </template>

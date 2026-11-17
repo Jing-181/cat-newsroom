@@ -1,0 +1,20 @@
+{
+  "hanako-fog": { "crop": [0, 0, 1, 1], "head": [0.23, 0.09, 0.72, 0.47], "pose": "seated knee crop", "position": "right bottom" },
+  "hanako-snow": { "crop": [0, 0, 1, 1], "head": [0.24, 0.09, 0.73, 0.45], "pose": "seated knee crop", "position": "right bottom" },
+  "yuan-fog": { "crop": [0, 0, 1, 1], "head": [0.27, 0.07, 0.76, 0.46], "pose": "seated knee crop", "position": "right bottom" },
+  "yuan-snow": { "crop": [0, 0, 1, 1], "head": [0.22, 0.12, 0.75, 0.54], "pose": "seated knee crop", "position": "right bottom" },
+  "yuu-fog": { "crop": [0, 0, 1, 1], "head": [0.23, 0.07, 0.74, 0.49], "pose": "seated, raised hand retained", "position": "right bottom" },
+  "yuu-snow": { "crop": [0, 0, 1, 1], "head": [0.21, 0.05, 0.73, 0.49], "pose": "seated, raised hand retained", "position": "right bottom" },
+  "hanako-cloudy": { "crop": [0, 0.18, 1, 0.97], "head": [0.27, 0.27, 0.65, 0.55], "pose": "seated", "position": "right bottom" },
+  "hanako-rainy": { "crop": [0, 0.17, 1, 0.98], "head": [0.28, 0.32, 0.67, 0.63], "pose": "crouched", "position": "right bottom" },
+  "hanako-sunny": { "crop": [0, 0.08, 1, 0.98], "head": [0.26, 0.24, 0.65, 0.57], "pose": "seated", "position": "right bottom" },
+  "hanako-windy": { "crop": [0, 0.12, 1, 0.98], "head": [0.28, 0.23, 0.67, 0.55], "pose": "seated", "position": "right bottom" },
+  "yuan-cloudy": { "crop": [0, 0.30, 1, 0.89], "head": [0.28, 0.36, 0.67, 0.60], "pose": "standing knee crop; hands retained", "position": "right bottom" },
+  "yuan-rainy": { "crop": [0, 0.30, 1, 0.94], "head": [0.35, 0.42, 0.64, 0.63], "pose": "standing; umbrella and hands retained", "position": "right bottom" },
+  "yuan-sunny": { "crop": [0, 0.19, 1, 0.98], "head": [0.27, 0.28, 0.67, 0.59], "pose": "seated", "position": "right bottom" },
+  "yuan-windy": { "crop": [0, 0.28, 1, 0.98], "head": [0.25, 0.34, 0.74, 0.64], "pose": "waist-up; hands retained", "position": "right bottom" },
+  "yuu-cloudy": { "crop": [0, 0, 1, 1], "head": [0.23, 0.25, 0.70, 0.64], "pose": "seated reference", "position": "right bottom" },
+  "yuu-rainy": { "crop": [0, 0.22, 1, 0.94], "head": [0.32, 0.35, 0.65, 0.61], "pose": "standing; umbrella and hands retained", "position": "right bottom" },
+  "yuu-sunny": { "crop": [0, 0, 1, 1], "head": [0.23, 0.27, 0.66, 0.65], "pose": "waist-up reference", "position": "right bottom" },
+  "yuu-windy": { "crop": [0, 0, 1, 1], "head": [0.26, 0.26, 0.70, 0.65], "pose": "waist-up reference", "position": "right bottom" }
+}

@@ -187,7 +187,7 @@ function mount(container, options) {
     const target = currentFocusTarget();
     const exercise = session?.exercises?.[target?.exercise];
     const set = exercise?.sets?.[target?.set];
-    if (!set || Workout.setHasRecord(set) || !("weight_kg" in set)) return false;
+    if (!set || exercise._plan || Workout.setHasRecord(set) || !("weight_kg" in set)) return false;
     if (!isUnfilled(set.weight_kg)) return false;
     for (let index = target.set - 1; index >= 0; index -= 1) {
       const previous = exercise.sets[index];
@@ -204,7 +204,7 @@ function mount(container, options) {
   function applySuggestion(scope) {
     if (!scope?.set) return false;
     const previous = Workout.previousPerformance(records, scope.exercise.exercise_id)?.sets?.[scope.setIndex];
-    if (!previous) return false;
+    if (!previous || scope.exercise._plan) return false;
     fillPrevious(scope.set, previous);
     return true;
   }
@@ -250,7 +250,7 @@ function mount(container, options) {
 
     const set = exercise.sets[target.set] || {};
     refreshMetricSummary(exercise, set);
-    const previousSet = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[target.set];
+    const previousSet = exercise._plan ? null : Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[target.set];
     const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
 
     fields.dataset.focusEx = exercise.id;
@@ -265,6 +265,10 @@ function mount(container, options) {
       input.classList.toggle("is-suggest", typed === "" && suggest !== "");
     });
 
+    const planHint = root.querySelector('[data-plan-hint]');
+    if (planHint) planHint.textContent = WorkoutView.planHintText(exercise);
+    const restControls = root.querySelector('[data-plan-rest-controls]');
+    if (restControls) restControls.hidden = !exercise._plan;
     const name = root.querySelector(".focus-name");
     if (name) { name.textContent = exercise.name; name.title = exercise.name; }
     const meta = root.querySelector(".focus-head p");
@@ -873,6 +877,16 @@ function mount(container, options) {
         input.classList.toggle("is-empty", !Number(set[field]));
       }
     }));
+    container.querySelectorAll('[data-plan-rest]').forEach(button => button.addEventListener('click', () => {
+      const scope = focusScope();
+      if (!scope?.exercise?._plan) return;
+      const plan = scope.exercise._plan;
+      plan.rest_seconds = Math.max(30, Math.min(600, plan.rest_seconds + Number(button.dataset.planRest)));
+      plan.rest_hint = '已按体感调整，仅作参考；不自动完成组';
+      const hint = container.querySelector('[data-plan-hint]');
+      if (hint) hint.textContent = WorkoutView.planHintText(scope.exercise);
+      persistDraft();
+    }));
     container.querySelectorAll("[data-focus-field]").forEach(input => input.addEventListener("input", () => {
       input.classList.toggle("is-empty", input.value === "");
       input.classList.remove("is-suggest");
@@ -1110,15 +1124,25 @@ function mount(container, options) {
 
   // 保存一次训练：完整页底部的「结束训练」和逐组模式的结束弹窗共用这一条路径，
   // 差别只在字段从哪个 DOM 里读（scope）。
+  let savingSession = false;
   async function saveSession(scope = container) {
+    if (!session || savingSession) return;
+    savingSession = true;
+    try { await saveSessionOnce(scope); }
+    finally { savingSession = false; }
+  }
+
+  async function saveSessionOnce(scope = container) {
     if (!session) return;
     const invalid = container.querySelector('input:invalid');
     if (invalid) { invalid.reportValidity(); return; }
     if (!session.date) return AppDialog.alert("请选择训练日期。", { title:"还差一步" });
-    // 没有任何一组留下数值时不构成训练记录，提示后仍允许保存（可能是纯备注）。
+    // 空训练保留草稿，不写完成记录或计划进度。
     const stats = Workout.calculateStats(session);
     const hasRecord = stats.setCount > 0;
-    if (!hasRecord && !(await AppDialog.confirm("还没有记录任何一组，仍要保存吗？", { title:"训练尚未开始", okText:"仍然保存" }))) return;
+    if (!hasRecord) return AppDialog.alert('还没有记录任何一组，草稿已保留。', { title: '训练尚未开始' });
+    const completion = WorkoutPlan.completionStatus(session);
+    if (completion === 'partial' && !(await AppDialog.confirm('尚有计划组未记录，保存本次已练部分？计划将标为部分完成。', { title: '部分训练', okText: '保存已练部分' }))) return;
     // 同一天已有记录时先问一句：补记与重复保存都走这里，不硬拦，由用户决定。
     const sameDay = Workout.sessionsOnDate(records, session.date)
       .filter(record => String(record.id) !== String(session._editing_record_id || ""));
@@ -1129,8 +1153,15 @@ function mount(container, options) {
     if (dateValue) session.date = dateValue;
     session.duration_min = durationValue > 0 ? Math.round(durationValue) : 0;
     session.note = scope.querySelector("#workout-note")?.value.trim() || "";
-    const saved = Workout.upsertSession(records, session);
-    options.onSave(saved);
+    const before = records.slice();
+    let saved;
+    try {
+      saved = Workout.upsertSession(records, session);
+      if (await options.onSave(saved) === false) throw new Error('保存未成功');
+    } catch (_) {
+      records.splice(0, records.length, ...before);
+      return AppDialog.alert('保存失败，训练输入已保留，请重试。', { title: '未保存' });
+    }
     Trace.track("workout_finish_saved", {
       set_count: stats.setCount,
       ex_count: stats.exerciseCount,
@@ -1140,12 +1171,14 @@ function mount(container, options) {
       same_day_extra: sameDay.length > 0,
     });
     if (session._plan_generated_at && session._plan_day_index != null) {
-      WorkoutPlan?.saveProgress?.({
+      const progressSaved = WorkoutPlan.saveProgress({
         plan_generated_at: session._plan_generated_at,
         day_index: session._plan_day_index,
         session_id: saved.id,
         date: saved.date,
+        status: completion,
       });
+      if (!progressSaved) await AppDialog.alert('训练记录已保存，但计划进度保存失败；请勿重复保存训练。', { title: '进度未更新' });
     }
     const finishedMood = session.mood;
     session = null;
@@ -1193,9 +1226,12 @@ function mount(container, options) {
     });
   }
 
-  function startFromPlanDay(day, plan) {
+  function startFromPlanDay(day, plan, { independent = false } = {}) {
+    if (!WorkoutPlan.isValid(plan)) return AppDialog.alert('计划内容无效，请重新生成。');
+    day = WorkoutPlan.refreshDay(day, records);
     session = Workout.createSession(day.training_day, new Date());
     session.title = day.title;
+    selectedDay = day.training_day;
     resetEditorState();
     focusMode = true;
     Trace.track("workout_session_begin", { source: "plan", day: day.training_day });
@@ -1208,14 +1244,34 @@ function mount(container, options) {
       const target = item.sets || entry.sets.length;
       const entryIndex = session.exercises.indexOf(entry);
       while (entry.sets.length < target) Workout.addSet(session, entryIndex);
-      entry.sets.forEach(set => { if (item.weight_kg) set.weight_kg = item.weight_kg; });
+      entry._plan = { ...item };
+      entry.sets.forEach(set => { set.weight_kg = ''; set.reps = ''; });
     }
-    session._plan_day_index = day.day_index;
-    session._plan_generated_at = plan.generated_at;
+    session._plan_targets = day.exercises.map(item => ({ exercise_id: item.exercise_id, sets: item.sets }));
+    if (!independent) {
+      session._plan_day_index = day.day_index;
+      session._plan_generated_at = plan.generated_at;
+    }
     container.querySelector("#workout-dialog")?.close();
     persistDraft();
     render();
     window.scrollTo({ top: 0, behavior: shouldAnimate() ? "smooth" : "auto" });
+  }
+
+  function openDailyChoice(split = WorkoutPlan.recommendSplit(records).split) {
+    const recommendation = WorkoutPlan.recommendSplit(records);
+    const choices = WorkoutPlan.dailyOptions(split, records);
+    const cycle = loadPlan();
+    const dialog = openDialog(WorkoutView.dailyChoiceHtml(recommendation, split, choices, cycle));
+    dialog.querySelector('[data-daily-split]')?.addEventListener('change', event => openDailyChoice(event.target.value));
+    dialog.querySelector('[data-daily-cycle]')?.addEventListener('click', () => {
+      const raw = WorkoutPlan.loadProgress();
+      openDialog(WorkoutView.planViewHtml(cycle, WorkoutPlan.isProgressValid(raw, cycle.generated_at) ? raw : null));
+    });
+    dialog.querySelectorAll('[data-daily-confirm]').forEach(button => button.addEventListener('click', () => {
+      const day = choices.find(item => item.variant === button.dataset.dailyConfirm);
+      if (day) startFromPlanDay(day, { days: [day] }, { independent: true });
+    }));
   }
 
   function wire() {
@@ -1252,7 +1308,7 @@ function mount(container, options) {
       if (existing && !(await AppDialog.confirm("已有一份训练计划。重新生成会覆盖它，是否继续？", { title:"覆盖训练计划", danger:true, okText:"重新生成" }))) return;
       const preferences = readJson("cat-newsroom-workout-preferences-v1") || {};
       const plan = WorkoutPlan.generatePlan({ preferences, records });
-      WorkoutPlan.save(plan);
+      if (!WorkoutPlan.save(plan)) return AppDialog.alert('计划保存失败，旧计划与进度未清理，请重试。', { title: '未保存' });
       WorkoutPlan.clearProgress();
       openDialog(WorkoutView.planViewHtml(plan));
     });
@@ -1266,25 +1322,7 @@ function mount(container, options) {
       } else render();
     }));
     // 空白训练只从一个地方开：开始卡的按钮、底部队列里的「开始」都走这里，避免两套入口分叉
-    const beginBlankSession = origin => {
-      const dayIndex = WorkoutCatalog.trainingDays.findIndex(day => day.id === selectedDay);
-      const dayLabel = WorkoutCatalog.trainingDays[dayIndex]?.name || "训练";
-      playInkSweep({
-        from: origin,
-        kicker: `今天 · ${dayLabel}`,
-        title: `开始${dayLabel}`,
-        note: encourageFor(dayIndex),
-        onCover: () => {
-          session = Workout.createSession(selectedDay);
-          resetEditorState();
-          // 空白训练开场也先走逐组：加完第一个动作就自动落到第一组
-          focusMode = true;
-          persistDraft();
-          Trace.track("workout_session_begin", { source: "blank", day: selectedDay });
-          render();
-        },
-      });
-    };
+    const beginBlankSession = () => openDailyChoice();
     container.querySelector("#workout-start")?.addEventListener("click", event => beginBlankSession(event.currentTarget));
     // 首屏右下角那颗圆按钮：不用回顶部挑训练日，直接开练
     container.querySelector("[data-quick-start]")?.addEventListener("click", event => beginBlankSession(event.currentTarget));

@@ -192,8 +192,8 @@ function openQuickEditor(key, item) {
     ? `<div class="field"><label for="q-content">内容</label><textarea id="q-content" placeholder="此刻想记下什么？">${esc(d.content || "")}</textarea></div>${media}`
     : `<div class="field"><label for="q-title">任务</label><input id="q-title" value="${attr(d.title || "")}" placeholder="要做什么？"></div>
        <div class="field"><label for="q-group">版本 / 分组（可选）</label><input id="q-group" list="q-groups" value="${attr(d.group || "")}" placeholder="输入或选择已有分组"><datalist id="q-groups">${groups.map(g => `<option value="${attr(g)}"></option>`).join("")}</datalist></div>
-       <details class="modal-fold"><summary>备注、照片与更多选项</summary><div class="field"><label for="q-note">备注（可选）</label><textarea id="q-note">${esc(d.note || "")}</textarea></div>${media}
-       <div class="field"><label for="q-priority">优先级</label><select id="q-priority">${(m.priorities || []).map(p => `<option value="${attr(p.key)}" ${p.key === d.priority ? "selected" : ""}>${esc(p.label)}</option>`).join("")}</select></div></details>`;
+       <details class="modal-fold"><summary>备注、照片与更多选项</summary><div class="form-fold-body"><div class="field"><label for="q-note">备注（可选）</label><textarea id="q-note">${esc(d.note || "")}</textarea></div>${media}
+       <div class="field"><label for="q-priority">优先级</label><select id="q-priority">${(m.priorities || []).map(p => `<option value="${attr(p.key)}" ${p.key === d.priority ? "selected" : ""}>${esc(p.label)}</option>`).join("")}</select></div></div></details>`;
   const overlay = document.createElement("div");
   overlay.className = `overlay editor-overlay quick-editor quick-editor-${key}`;
   overlay.innerHTML = `<div class="modal editor-modal"><div class="modal-head"><h3>${editing ? "编辑" : "新建"} · ${key === "note" ? "随记" : "事项"}</h3></div>
@@ -224,7 +224,7 @@ function openQuickEditor(key, item) {
   const preview = () => {
     if (photos) {
       el("images").innerHTML = photos.entries.map((entry, index) => `<div class="note-image-editor-tile">
-        ${entry.url || entry.preview ? `<button type="button" data-photo-view="${index}" aria-label="查看第 ${index + 1} 张原图"><img src="${attr(entry.url || entry.preview)}" alt="照片 ${index + 1}"></button>${entry.file ? `<span>${entry.error ? "上传失败，保存重试" : "待保存上传"}</span>` : ""}` : `<span>${esc(entry.file?.name || "照片")}<br>${entry.error ? "上传失败" : "等待上传"}</span>`}
+        ${entry.url || entry.preview ? `<button type="button" data-photo-view="${index}" aria-label="查看第 ${index + 1} 张原图"><img src="${attr(entry.url || entry.preview)}" alt="照片 ${index + 1}"></button>${entry.file ? `<span class="note-image-status" role="status">${entry.error ? "上传失败，保存重试" : "待保存上传"}</span>` : ""}` : `<span class="note-image-placeholder">${esc(entry.file?.name || "照片")}<br>${entry.error ? "上传失败" : "等待上传"}</span>`}
         <button type="button" class="btn ghost" data-photo-remove="${index}" ${uploading ? "disabled" : ""} aria-label="移除第 ${index + 1} 张照片">移除</button></div>`).join("");
       el("upload").textContent = `添加照片（${photos.entries.length}/9）`;
       el("upload").disabled = uploading || photos.entries.length >= 9;
@@ -389,7 +389,7 @@ export function openEditor(key, item) {
   let fields = "";
   if (m.type === "todo") {
     fields = `<div class="field"><label>任务</label><input id="f-title" value="${attr(d.title)}" placeholder="要做什么？"/></div>
-      <div class="field"><label>优先级</label><div class="seg" id="f-prio">${(m.priorities || []).map(p => `<div class="opt ${p.key === d.priority ? "on" : ""}" data-v="${p.key}">${p.label}</div>`).join("")}</div></div>
+      <div class="field"><label>优先级</label><div class="seg" id="f-prio">${(m.priorities || []).map(p => `<button type="button" class="opt ${p.key === d.priority ? "on" : ""}" data-v="${p.key}" aria-pressed="${p.key === d.priority}">${p.label}</button>`).join("")}</div></div>
       <div class="field"><label>备注</label><textarea id="f-note" placeholder="补充说明">${esc(d.note || "")}</textarea></div>`;
   } else if (m.type === "checkin") {
     fields = `<div class="field"><label>打卡项</label><input id="f-title" value="${attr(d.title)}" placeholder="例如：喝够 8 杯水"/></div>
@@ -402,31 +402,31 @@ export function openEditor(key, item) {
       <div class="field"><label>摘录 / 想法</label><textarea id="f-note" placeholder="随手记">${esc(d.note || "")}</textarea></div>`;
   } else if (m.type === "finance") {
     fields = `<div class="field"><label>类型</label><div class="seg" id="f-ftype">
-        <div class="opt ${d.type !== "income" ? "on" : ""}" data-v="expense">支出</div><div class="opt ${d.type === "income" ? "on" : ""}" data-v="income">收入</div></div></div>
+        <button type="button" class="opt ${d.type !== "income" ? "on" : ""}" data-v="expense" aria-pressed="${d.type !== "income"}">支出</button><button type="button" class="opt ${d.type === "income" ? "on" : ""}" data-v="income" aria-pressed="${d.type === "income"}">收入</button></div></div>
       <div class="frow"><div class="field"><label>项目</label><input id="f-title" value="${attr(d.title)}" placeholder="午餐 / 稿费"/></div>
       <div class="field"><label>金额 ¥</label><input id="f-amt" type="number" value="${d.amount ?? ""}" placeholder="0"/></div></div>
-      <div class="field"><label>分类</label><div class="seg" id="f-cat">${(m.categories || []).map(c => `<div class="opt ${c === d.category ? "on" : ""}" data-v="${attr(c)}" style="flex:0 0 auto;min-width:auto">${esc(c)}</div>`).join("")}</div></div>
+      <div class="field"><label>分类</label><div class="seg" id="f-cat">${(m.categories || []).map(c => `<button type="button" class="opt ${c === d.category ? "on" : ""}" data-v="${attr(c)}" aria-pressed="${c === d.category}" style="flex:0 0 auto;min-width:auto">${esc(c)}</button>`).join("")}</div></div>
       <div class="field"><label>日期</label><input id="f-date" type="date" value="${d.date || isoToday()}"/></div>`;
   } else {
     fields = `<div class="field"><label>标题</label><input id="f-title" value="${attr(d.title)}" placeholder="给这条起个名"/></div>
-      ${(m.moods && m.moods.length) ? `<div class="field"><label>标签 / 心情</label><div class="seg" id="f-mood">${m.moods.map(md => `<div class="opt ${md === d.mood ? "on" : ""}" data-v="${attr(md)}" style="flex:0 0 auto;min-width:auto">${md}</div>`).join("")}</div></div>` : ""}
+      ${(m.moods && m.moods.length) ? `<div class="field"><label>标签 / 心情</label><div class="seg" id="f-mood">${m.moods.map(md => `<button type="button" class="opt ${md === d.mood ? "on" : ""}" data-v="${attr(md)}" aria-pressed="${md === d.mood}" style="flex:0 0 auto;min-width:auto">${md}</button>`).join("")}</div></div>` : ""}
       <div class="field"><label>内容</label><textarea id="f-content" placeholder="写点什么…">${esc(d.content || "")}</textarea></div>
       <div class="field"><label>日期</label><input id="f-date" type="date" value="${d.date || isoToday()}"/></div>`;
   }
   // layout variant selector（默认折叠进「外观与图片」，新建/编辑时不再占首屏）
   const layoutOpts = [{ v: "default", l: "标准" }, { v: "feature", l: "大图" }, { v: "quote", l: "引文" }];
-  const layoutField = `<div class="field"><label>卡片样式</label><div class="seg" id="f-layout">${layoutOpts.map(o => `<div class="opt ${o.v === (d.layout || "default") ? "on" : ""}" data-v="${o.v}">${o.l}</div>`).join("")}</div></div>`;
+  const layoutField = `<div class="field"><label>卡片样式</label><div class="seg" id="f-layout">${layoutOpts.map(o => `<button type="button" class="opt ${o.v === (d.layout || "default") ? "on" : ""}" data-v="${o.v}" aria-pressed="${o.v === (d.layout || "default")}">${o.l}</button>`).join("")}</div></div>`;
   // custom fields (from m.fields config) — rendered after type-specific fields
   (m.fields || []).forEach(f => {
     const v = d[f.key] || "";
-    if (f.type === "select") fields += `<div class="field"><label>${esc(f.label)}</label><div class="seg" id="f-cf-${f.key}">${(f.options || []).map(o => `<div class="opt ${o === v ? "on" : ""}" data-v="${attr(o)}" style="flex:0 0 auto;min-width:auto">${esc(o)}</div>`).join("")}</div></div>`;
+    if (f.type === "select") fields += `<div class="field"><label>${esc(f.label)}</label><div class="seg" id="f-cf-${f.key}">${(f.options || []).map(o => `<button type="button" class="opt ${o === v ? "on" : ""}" data-v="${attr(o)}" aria-pressed="${o === v}" style="flex:0 0 auto;min-width:auto">${esc(o)}</button>`).join("")}</div></div>`;
     else if (f.type === "textarea") fields += `<div class="field"><label>${esc(f.label)}</label><textarea id="f-cf-${f.key}" placeholder="${attr(f.placeholder || "")}">${esc(v)}</textarea></div>`;
     else if (f.type === "number") fields += `<div class="field"><label>${esc(f.label)}</label><input id="f-cf-${f.key}" type="number" value="${attr(v)}" placeholder="${attr(f.placeholder || "")}"/></div>`;
     else fields += `<div class="field"><label>${esc(f.label)}</label><input id="f-cf-${f.key}" value="${attr(v)}" placeholder="${attr(f.placeholder || "")}"/></div>`;
   });
   // 外观与图片统一折叠：需要时才展开，减轻弹窗首屏重量
   fields = `<div class="form-essential">${fields}</div>`;
-  fields += `<details class="modal-fold form-advanced"><summary>外观与图片</summary><div>${layoutField}${mediaFieldHTML(key, d)}</div></details>`;
+  fields += `<details class="modal-fold form-advanced"><summary>外观与图片</summary><div class="form-fold-body">${layoutField}${mediaFieldHTML(key, d)}</div></details>`;
   const overlay = document.createElement("div"); overlay.className = "overlay editor-overlay";
   overlay.innerHTML = `<div class="modal editor-modal"><div class="modal-head"><h3>${editing ? "编辑" : "新建"} · ${m.name}</h3><div class="sub">${m.desc}</div></div>
     <div class="modal-body">${fields}</div>
@@ -447,11 +447,19 @@ export function openEditor(key, item) {
   // 保存成功后的关闭不该再问「放弃未保存的修改」：捕获阶段先清标记
   overlay.querySelector("#m-save")?.addEventListener("click", () => { dirty = false; }, true);
   overlay.querySelector("#m-cancel").onclick = close;
-  overlay.querySelectorAll(".seg").forEach(seg => seg.querySelectorAll(".opt").forEach(o => o.onclick = () => {
-    seg.querySelectorAll(".opt").forEach(x => x.classList.remove("on")); o.classList.add("on");
-    // 卡片样式变化时同步刷新默认配图候选。
-    if (seg.id === "f-layout") refreshMediaPresets(overlay, key);
-  }));
+  overlay.querySelectorAll(".seg").forEach(seg => {
+    seg.setAttribute("role", "group");
+    seg.setAttribute("aria-label", seg.previousElementSibling?.textContent || "选项");
+    seg.querySelectorAll(".opt").forEach(o => o.onclick = () => {
+      seg.querySelectorAll(".opt").forEach(x => {
+        x.classList.toggle("on", x === o);
+        x.setAttribute("aria-pressed", String(x === o));
+      });
+      o.dispatchEvent(new Event("change", { bubbles: true }));
+      // 卡片样式变化时同步刷新默认配图候选。
+      if (seg.id === "f-layout") refreshMediaPresets(overlay, key);
+    });
+  });
   if (editing) overlay.querySelector("#m-del").onclick = () => { close(); confirmDelete(key, d.id); };
   wireMediaEditor(overlay, key, d);
   overlay.querySelector("#m-save").onclick = async () => {

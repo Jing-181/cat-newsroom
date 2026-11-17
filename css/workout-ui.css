@@ -375,6 +375,9 @@ button.set-hint:hover { color:var(--module-4); }
 
 /* 训练计划日卡视图 */
 .plan-day-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; max-height:min(62vh,560px); overflow-y:auto; padding:2px; }
+/* Daily A/B uses the dialog as its only scroll owner, including both confirmations. */
+.plan-day-grid.plan-day-grid-flow { max-height:none; overflow:visible; }
+.workout-dialog .icon-action[data-dialog-close] { width:44px; height:44px; min-width:44px; min-height:44px; }
 .plan-day-card { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-input); border-radius:var(--radius-card); background:var(--surface-card); cursor:pointer; transition:border-color var(--dur-fast); }
 .plan-day-card:hover { border-color:var(--module-4); }
 .plan-day-card.is-done { border-color:color-mix(in srgb,var(--module-3) 55%,var(--border-input)); background:color-mix(in srgb,var(--module-3) 6%,var(--surface-card)); }
@@ -790,6 +793,12 @@ button.set-hint:hover { color:var(--module-4); }
 .focus-overview { flex:0 0 auto; min-height:32px; padding:0 13px; border:1px solid rgba(240,232,213,.22); border-radius:999px; background:none; color:rgba(240,232,213,.74); font:inherit; font-size:11px; letter-spacing:.06em; cursor:pointer; }
 .focus-overview:active { background:rgba(240,232,213,.1); }
 .focus-heading { display:contents; }
+/* Plan guidance owns its spacing; never inherit light-dialog negative margins. */
+.workout-focus .focus-plan-hint { flex:0 0 auto; margin:16px 0 0; color:var(--ink-text); font:14px/1.5 var(--font-sans); overflow-wrap:anywhere; }
+.workout-focus .focus-plan-hint:empty { display:none; }
+.workout-focus .focus-rest-controls { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; }
+.workout-focus .focus-rest-controls .workout-btn { min-height:44px; color:var(--ink-text); background:var(--ink-hover); border-color:var(--ink-text-mute); border-radius:var(--radius-control); }
+.workout-focus .focus-rest-controls .workout-btn:focus-visible { outline:2px solid var(--ink-text); outline-offset:2px; }
  .focus-head { margin-top:22px; }
 .focus-head h2 { margin:0; font-family:var(--font); font-size:24px; font-weight:400; letter-spacing:.03em; overflow-wrap:anywhere; }
 .focus-head p { margin:7px 0 0; font-size:10.5px; letter-spacing:.04em; color:rgba(240,232,213,.5); }

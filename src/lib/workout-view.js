@@ -99,12 +99,7 @@ function stepperField(label, field, set, { exerciseIndex, setIndex, down, up, mi
 }
 
 function morePanel(set, exercise, { exerciseIndex, setIndex }) {
-  const fields = [
-    `<label><span>RPE</span><input type="number" min="1" max="10" step="0.5" value="${escapeHtml(set.rpe)}" placeholder="1-10" inputmode="decimal" data-set-field="rpe" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="RPE"></label>`,
-  ];
-  if (!isCardio(exercise)) {
-    fields.push(`<label><span>RIR</span><input type="number" min="0" max="10" step="1" value="${escapeHtml(set.rir)}" placeholder="剩余次数" inputmode="numeric" data-set-field="rir" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="RIR"></label>`);
-  }
+  const fields = []; // 旧 RPE / RIR 保留在数据与历史展示中，不再要求填写。
   fields.push(`<label class="note"><span>本组备注</span><input value="${escapeHtml(set.note)}" placeholder="动作感受、器械调整" data-set-field="note" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-label="本组备注"></label>`);
   return `<div class="set-more-panel" data-set-more-panel="${exerciseIndex}-${setIndex}" hidden>${fields.join("")}</div>`;
 }
@@ -134,7 +129,7 @@ export function setRowActive(exercise, set, exerciseIndex, setIndex, previousSet
       <div class="set-row-head"><strong>第 ${setIndex + 1} ${recordUnit(exercise)}</strong>${lastHint}<button type="button" class="icon-action" data-set-delete="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" title="删除本组" aria-label="删除第 ${setIndex + 1} ${recordUnit(exercise)}">×</button></div>
       <div class="set-fields${cardio ? " cardio-fields" : ""}">${fields}</div>
       ${cardio ? metricSummaryHtml(exercise, set, `data-exercise="${exerciseIndex}" data-set="${setIndex}"`) : ""}
-      <div class="set-more"><button type="button" class="set-more-toggle" data-set-more="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false">RPE · RIR · 备注</button>${morePanel(set, exercise, { exerciseIndex, setIndex })}</div>
+      <div class="set-more"><button type="button" class="set-more-toggle" data-set-more="1" data-exercise="${exerciseIndex}" data-set="${setIndex}" aria-expanded="false">本组备注</button>${morePanel(set, exercise, { exerciseIndex, setIndex })}</div>
     </div>`;
 }
 
@@ -210,7 +205,7 @@ function focusHtml(session, selectedDay, target, history = []) {
   const pending = session.exercises.reduce((sum, item) => sum + item.sets.filter(next => !Workout.setHasRecord(next)).length, 0);
   const remainingExercises = session.exercises.length - 1 - target.exercise;
   const previous = Workout.previousPerformance(history, exercise.exercise_id);
-  const previousSet = previous?.sets?.[target.set];
+  const previousSet = exercise._plan ? null : previous?.sets?.[target.set];
   const previousText = previousSet ? Workout.formatSetCompact(previousSet, exercise) : "";
   // 空白组已经把上次的数字填进去了（淡色）：这一行不再重复数字，只交代它从哪来。
   const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
@@ -264,6 +259,8 @@ function focusHtml(session, selectedDay, target, history = []) {
       ${nav}
       ${setBar}
       </div>
+      <p class="focus-plan-hint" data-plan-hint>${escapeHtml(planHintText(exercise))}</p>
+      <div class="focus-rest-controls" data-plan-rest-controls${exercise._plan ? '' : ' hidden'}><button type="button" class="workout-btn" data-plan-rest="-30">休息参考 −30秒</button><button type="button" class="workout-btn" data-plan-rest="30">＋30秒</button></div>
       <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
       ${previousText ? (suggestionOn
         ? `<p class="focus-last is-filled"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`
@@ -376,6 +373,7 @@ function editorHtml(session, selectedDay, history = [], uiState = {}) {
           // 序号已撤掉：它只是数出来的次序，不带数据，给它独立层级就会和动作名争第一眼。
           const headHtml = `<div class="session-exercise-head"${headFold}><div class="exercise-head-copy"><strong>${escapeHtml(exercise.name)}</strong><span class="exercise-meta">${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)}</span></div><em class="set-progress ${done ? "all-done" : ""}">${progress.label}</em>${foldMark}${compact ? "" : `<button type="button" class="icon-action" data-exercise-delete="${exerciseIndex}" title="移除动作" aria-label="移除${escapeHtml(exercise.name)}">×</button>`}</div>`;
           return `<article class="${cardClass}" data-exercise-card="${exerciseIndex}" data-done-id="${escapeHtml(exercise.id)}"${cardFold}>${headHtml}
+          ${exercise._plan ? `<p class="dialog-sub">${escapeHtml(planHintText(exercise))}</p>` : ''}
           ${compact ? "" : lastPerformanceHtml(previous, exercise)}
           <div class="set-list">${setRows(exercise, exerciseIndex, openIndex, previous?.sets, compact)}</div>
           <div class="session-exercise-foot"><button type="button" data-set-add="${exerciseIndex}">+ 加一${recordUnit(exercise)}</button>${compact ? "" : `<span class="rest-advice" title="${escapeHtml(advice.reason)}">组间歇建议 <b>${escapeHtml(advice.minutes)}</b>（${escapeHtml(advice.label)}）</span>`}<button type="button" data-exercise-info="${exerciseIndex}">动作说明</button></div></article>`;
@@ -538,7 +536,7 @@ function historyHtml(records) {
 function idleHtml(selectedDay, records) {
   // 运动偏好入口暂时下线：偏好与计划的组合方式要重新设计。实现仍留在 workout-ui.js，挂回来只需把那个按钮放回这个菜单。
   return `<section class="workout-app workout-idle"><header class="workout-mast"><div class="workout-mast-copy"><p class="workout-kicker">Cat Life Daily · 运动</p><h2>运动健身</h2><p class="workout-mast-sub">按训练日安排今天，逐组记下重量。</p></div>
-      <div class="workout-mast-actions"><button type="button" class="workout-btn compact" data-open-atlas>运动图鉴</button><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划" aria-expanded="false">☰</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn primary" id="workout-plan">生成六天计划</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
+      <div class="workout-mast-actions"><button type="button" class="workout-btn compact" data-open-atlas>运动图鉴</button><button type="button" class="workout-btn plan-menu-icon" id="workout-plan-menu" aria-label="训练计划" title="训练计划" aria-expanded="false">☰</button><div class="workout-plan-actions" hidden><button type="button" class="workout-btn primary" id="workout-plan">生成六次循环</button><button type="button" class="workout-btn" id="workout-plan-view">查看计划</button></div></div>
       </header>
       <div class="workout-days" role="group" aria-label="训练日">${dayButtons(selectedDay)}</div>
       ${startCardHtml(selectedDay, records)}
@@ -654,27 +652,43 @@ function legacyEditHtml(record) {
 
 function planDayCard(day, progress) {
   const done = progress?.days?.[String(day.day_index)];
+  const partial = done?.status === 'partial';
   const exercises = (day.exercises || []).map(item => {
-    const weight = item.weight_kg ? `${escapeHtml(item.weight_kg)} kg` : "重量待填";
-    // 组间歇只给按肌群给出的建议，不再显示倒计时秒数（与训练区口径一致）。
-    const target = WorkoutCatalog?.exercises?.find(entry => entry.id === item.exercise_id) || item;
-    const advice = Workout?.restAdvice?.(target);
-    const rest = advice ? ` · 组间歇 ${escapeHtml(advice.minutes)}` : "";
+    const weight = item.weight_kg == null ? '重量待现场选择' : item.weight_kg < 0 ? `助力 ${escapeHtml(-item.weight_kg)} kg` : item.weight_kg === 0 ? '自重' : `参考 ${escapeHtml(item.weight_kg)} kg`;
+    const rest = item.rest_seconds ? ` · 组间歇 ${escapeHtml(item.rest_seconds)} 秒` : '';
     return `<li>${escapeHtml(item.name)} · ${escapeHtml(item.sets)} 组 × ${escapeHtml(item.reps)} · ${weight}${rest}${item.intensity_hint ? ` · ${escapeHtml(item.intensity_hint)}` : ""}</li>`;
   }).join("");
-  return `<article class="plan-day-card ${done ? "is-done" : ""}" data-plan-day="${day.day_index}">
-      <header><h4>${escapeHtml(day.title)}</h4><span>${escapeHtml(day.focus)}</span>${done ? `<em>已完成 ${escapeHtml(done.date)}</em>` : ""}</header>
+  return `<article class="plan-day-card ${done && !partial ? "is-done" : ""}" data-plan-day="${day.day_index}">
+      <header><h4>${escapeHtml(day.title)}</h4><span>${escapeHtml(day.focus)}</span>${done ? `<em>${partial ? '部分完成' : '已完成'} ${escapeHtml(done.date)}</em>` : ""}</header>
       <ul>${exercises}</ul>
     </article>`;
 }
 
 function planViewHtml(plan, progress = null) {
-  return `<div class="dialog-head"><div><span class="dialog-kicker">训练计划</span><h3>力训三分化 · ${(plan.days || []).length} 天</h3><p class="dialog-sub">点击某一天开始训练，保存后自动标记完成</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+  return `<div class="dialog-head"><div><span class="dialog-kicker">训练计划</span><h3>力训三分化 · ${(plan.days || []).length} 次循环</h3><p class="dialog-sub">按恢复情况安排间隔，不要求一周六练。开练时刷新建议；完整或部分训练分别标记</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <div class="plan-day-grid">${(plan.days || []).map(day => planDayCard(day, progress)).join("")}</div>`;
 }
 
+function dailyChoiceHtml(recommendation, split, options, cycle) {
+  const labels = { push: '推 · 胸 / 肩 / 三头', pull: '拉 · 背 / 后束 / 二头', legs: '腿 · 股四头 / 腘绳 / 臀 / 小腿' };
+  return `<div class="dialog-head"><div><span class="dialog-kicker">今天怎么练</span><h3>先选当天安排</h3></div><button type="button" class="icon-action" data-dialog-close aria-label="取消选择">×</button></div>
+    <p class="dialog-sub">${escapeHtml(recommendation.rationale)}</p>
+    <p class="dialog-sub">疲劳、疼痛或不适时优先休息或减量。可以自由换部位，不必完成推荐量。</p>
+    <label class="workout-field">训练部位<select data-daily-split>${Object.entries(labels).map(([key, text]) => `<option value="${key}"${key === split ? ' selected' : ''}>${text}</option>`).join('')}</select></label>
+    <div class="plan-day-grid plan-day-grid-flow">${options.map(day => `<section class="plan-day-card"><h4>${day.variant} · ${escapeHtml(day.label)}</h4><p>${day.exercises.reduce((sum, ex) => sum + ex.sets, 0)} 工作组 · 预计约 ${day.estimated_minutes} 分钟（含热身、休息估算）</p><ul>${day.exercises.map(ex => `<li>${escapeHtml(ex.name)} · ${ex.sets} × ${ex.reps} · 参考休息 ${ex.rest_seconds} 秒</li>`).join('')}</ul><button type="button" class="workout-btn primary" data-daily-confirm="${day.variant}">选 ${day.variant} 并开练</button></section>`).join('')}</div>
+    <p class="dialog-sub">当天自由计划不覆盖六次循环，也不推进循环进度。休息是起点参考，体感优先，可在训练中调整。</p>
+    <div class="dialog-actions"><button type="button" class="workout-btn" data-dialog-close>取消</button>${cycle ? '<button type="button" class="workout-btn" data-daily-cycle>按已保存六次计划开练</button>' : '<span>尚无已保存的六次计划</span>'}</div>`;
+}
+
+function planHintText(exercise) {
+  const plan = exercise?._plan;
+  if (!plan) return '';
+  const weight = plan.weight_kg == null ? '现场选重' : plan.weight_kg < 0 ? `参考助力 ${-plan.weight_kg} kg` : plan.weight_kg === 0 ? '参考自重' : `参考 ${plan.weight_kg} kg`;
+  return `目标 ${plan.sets} 组 × ${plan.reps} 次 · 休息 ${plan.rest_seconds || 90} 秒 · ${weight}。${plan.rest_hint || ''}。${plan.intensity_hint || ''}。${plan.rationale || ''}`;
+}
+
 const WorkoutView = {
-  editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, exerciseProgressHtml, legacyEditHtml, planDayCard, planViewHtml, buildCopyText, statsHtml,
+  dailyChoiceHtml, planHintText, editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, exerciseProgressHtml, legacyEditHtml, planDayCard, planViewHtml, buildCopyText, statsHtml,
   overviewDialogHtml, finishDialogHtml, backfillDialogHtml
 };
 export default WorkoutView;

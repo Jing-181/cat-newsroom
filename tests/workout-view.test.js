@@ -105,7 +105,7 @@ test("动作脚部给出组间歇推荐文案，大肌群比小肌群长", () =>
   assert.match(html, /2-3 分钟/);
 });
 
-test("训练计划卡按肌群给组间歇建议，不再显示倒计时秒数", () => {
+test("训练计划卡使用计划的统一休息提示",  () => {
   const view = loadView();
   const day = {
     day_index: 1, title: "力量训练·推 · 第 1 轮", focus: "胸/肩/三头",
@@ -115,8 +115,8 @@ test("训练计划卡按肌群给组间歇建议，不再显示倒计时秒数",
     ],
   };
   const html = view.planDayCard(day, null);
-  assert.match(html, /组间歇 2-3 分钟/);   // 杠铃卧推：胸，大肌群
-  assert.match(html, /组间歇 1 分钟/);     // 绳索下压：三头，小肌群
+  assert.match(html, /组间歇 120 秒/);
+  assert.match(html, /组间歇 90 秒/);
   assert.doesNotMatch(html, /休息 \d+s/);
 });
 

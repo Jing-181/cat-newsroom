@@ -22,7 +22,7 @@ const REST_ADVICE = {
 };
 const LARGE_MUSCLE_KEYWORDS = ["胸", "背", "腿", "臀", "后链", "股四头", "腘绳肌", "肩", "全身"];
 // 只在草稿/编辑期存在、不写入历史的界面态字段。
-const TRANSIENT_KEYS = ["_editing_record_id", "_open_set", "started_at"];
+const TRANSIENT_KEYS = ["_editing_record_id", "_open_set", "started_at", "_plan_targets", "_plan_day_index", "_plan_generated_at"];
 
 const id = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const dateKey = date => {
@@ -329,6 +329,10 @@ function summary(record) {
 
 // 大肌群（胸/背/腿等）恢复慢，组间歇建议长一些；小肌群恢复快，建议短一些。
 function restAdvice(exercise) {
+  if (exercise?._plan?.rest_seconds) {
+    const seconds = exercise._plan.rest_seconds;
+    return { seconds, minutes: `${seconds} 秒`, label: '计划建议', reason: '按恢复情况延长休息，动作质量优先' };
+  }
   const text = `${exercise?.body_part || ""} ${exercise?.name || ""} ${exercise?.muscles || ""}`;
   const large = LARGE_MUSCLE_KEYWORDS.some(keyword => text.includes(keyword));
   return large ? REST_ADVICE.large : REST_ADVICE.small;
@@ -592,6 +596,7 @@ function upsertSession(records, session, now = new Date()) {
   // 时长直接采用用户填写值，不做自动计时推算。
   saved.duration_min = Math.max(0, Math.round(Number(session?.duration_min || 0)));
   TRANSIENT_KEYS.forEach(key => delete saved[key]);
+  saved.exercises.forEach(exercise => delete exercise._plan);
   const editingId = session._editing_record_id;
   const index = records.findIndex(record => String(record.id) === String(editingId || saved.id));
   if (index >= 0) records[index] = saved;

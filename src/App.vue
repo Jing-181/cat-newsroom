@@ -4,7 +4,6 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { CONFIG } from "./lib/config.js";
 import { icon } from "./lib/icons.js";
 import { COLLAPSED_MODULE_KEYS, isPrimaryModule } from "./lib/home-layout.js";
-import { dateStr } from "./lib/utils.js";
 import { getData, save, bump, renderAfterWorkoutDialog } from "./lib/store.js";
 import { ensurePomodoroController } from "./lib/pomodoro.js";
 import { openAuthModal } from "./lib/auth-modal.js";
@@ -63,7 +62,6 @@ const backupImportRef = ref(null);
 const backupInputRef = ref(null);
 const drawerOpen = ref(false);
 const avatarSrc = ref("/assets/avatar.jpg");
-const todayText = dateStr();
 
 function toggleDrawer(open) { drawerOpen.value = open ?? !drawerOpen.value; }
 
@@ -223,44 +221,42 @@ async function onAvatarChange(e) {
     <!-- 移动顶栏（≤820px 显示） -->
     <header class="m-topbar">
       <button class="m-menu-btn" type="button" aria-label="打开菜单" @click="toggleDrawer(true)"><span v-html="icon('menu', 20)"></span></button>
-      <div class="m-brand"><img class="js-avatar" :src="avatarSrc" alt="头像"/><div class="m-brand-tx"><h1>{{ CONFIG.owner }}</h1><p>{{ todayText }}</p></div></div>
-      <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
-      <AssistantCrew compact toolbar :module="view" @navigate="onNavigate" />
+      <div class="m-brand"><img class="js-avatar" :src="avatarSrc" alt=""/><div class="m-brand-tx"><h1>{{ CONFIG.owner }}</h1></div></div>
     </header>
     <!-- sidebar（PC 常驻；窄屏收起为抽屉） -->
     <aside class="sidebar" :class="{ 'm-open': drawerOpen }">
       <div class="brand">
         <div class="ava" title="点击更换头像" @click="onAvatarClick"><img class="js-avatar" :src="avatarSrc" alt="头像"/><span class="cam" v-html="icon('camera', 18)"></span></div>
         <input type="file" accept="image/*" hidden ref="avatarInputRef" @change="onAvatarChange"/>
-        <div><h1 id="brandName">{{ CONFIG.owner }}</h1><p id="brandSlogan">{{ CONFIG.slogan }}</p></div>
+        <div><h1 id="brandName">{{ CONFIG.owner }}</h1></div>
       </div>
       <nav class="nav">
         <a :href="router.resolve({name:'home'}).href" class="navi" :class="{ active: view === 'home' }" @click="navClick('home', $event)"><span v-html="icon('home', 19)"></span>首页</a>
-        <div class="nav-sep">功能模块</div>
         <a v-for="m in primaryModules" :key="m.key" :href="router.resolve({name:m.key}).href" class="navi" :class="{ active: view === m.key }" @click="navClick(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
         <a :href="router.resolve({name:'timeline'}).href" class="navi" :class="{ active: view === 'timeline' }" @click="navClick('timeline', $event)"><span v-html="icon('calendar', 19)"></span>生活时间线</a>
         <details>
           <summary class="navi">更多模块</summary>
           <a v-for="m in collapsedModules" :key="m.key" :href="router.resolve({name:m.key}).href" class="navi" :class="{ active: view === m.key }" @click="navClick(m.key, $event)"><span v-html="icon(m.icon, 19)"></span>{{ m.name }}</a>
         </details>
-        <div class="nav-sep">统计</div>
         <a :href="router.resolve({name:'insight'}).href" class="navi" :class="{ active: view === 'insight' }" @click="navClick('insight', $event)"><span v-html="icon('chart', 19)"></span>洞察复盘</a>
-        <div class="nav-sep">配置</div>
         <a :href="router.resolve({name:'settings'}).href" class="navi" :class="{ active: view === 'settings' }" @click="navClick('settings', $event)"><span v-html="icon('settings', 19)"></span>个人配置</a>
       </nav>
       <!-- 助手归入导航，让各模块直接从内容标题开始。 -->
       <AssistantCrew class="sidebar-assistant" compact :module="view" @navigate="onNavigate" />
-      <div class="sync-area" id="syncArea">
-        <span class="sync-indicator sync-off" id="sync-indicator" @click="onSyncIndicatorClick">本地模式</span>
-        <span class="sync-user-email" id="syncEmail"></span>
-        <button class="sync-now" id="sync-now" type="button" @click="syncNow">立即同步</button>
-        <div class="backup-actions"><button class="sync-now" id="backup-export" ref="backupExportRef" type="button">导出备份</button><button class="sync-now" id="backup-import" ref="backupImportRef" type="button">导入备份</button></div>
-        <input id="backup-input" ref="backupInputRef" type="file" accept="application/json,.json" hidden>
-      </div>
-      <div class="foot" id="foot">猫咪编辑部 · 云端同步版</div>
     </aside>
     <!-- 主视区：切换模块时整块重建，靠 .view-swap 的入场动画把切换变成一次淡入，而不是硬闪 -->
     <main class="main">
+      <header v-show="view === 'settings'" class="page-header"><div><p class="page-eyebrow">Personal settings</p><h2>个人配置</h2><p>账号与备份、每日一卡与首页布局</p></div></header>
+      <!-- 保持节点挂载，沿用同步层 DOM 契约与已绑定的备份处理器。 -->
+      <section v-show="view === 'settings'" class="settings-account setting-card" aria-labelledby="account-settings-title">
+        <h2 id="account-settings-title">账号、同步与备份</h2>
+        <div class="settings-account-status" id="syncArea">
+          <button class="sync-indicator sync-off" id="sync-indicator" type="button" @click="onSyncIndicatorClick">本地模式</button>
+          <button class="settings-account-login" type="button" @click="openAuthModal('login')"><span id="syncEmail"></span><span>账号登录</span></button>
+        </div>
+        <div class="set-actions"><button class="btn" id="sync-now" type="button" @click="syncNow">立即同步</button><button class="btn ghost" id="backup-export" ref="backupExportRef" type="button">导出备份</button><button class="btn ghost" id="backup-import" ref="backupImportRef" type="button">导入备份</button></div>
+        <input id="backup-input" ref="backupInputRef" type="file" accept="application/json,.json" hidden>
+      </section>
       <div class="view-swap" :key="view">
         <RouterView v-slot="{ Component }"><component :is="Component" :key="view" @navigate="onNavigate" /></RouterView>
       </div>
@@ -276,3 +272,13 @@ async function onAvatarChange(e) {
     <div class="m-scrim" :class="{ open: drawerOpen }" @click="toggleDrawer(false)"></div>
   </div>
 </template>
+
+<style scoped>
+.settings-account { margin-bottom: var(--page-section-gap); padding: 24px; }
+.settings-account h2 { margin: 0 0 16px; font-size: 20px; }
+.settings-account-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.settings-account .sync-indicator { background: var(--surface-nested); color: var(--text); border: 1px solid var(--border); padding: 10px 12px; min-height: 44px; cursor: pointer; }
+.settings-account-login { display: flex; gap: 12px; flex-wrap: wrap; border: 0; background: transparent; color: var(--accent); min-height: 44px; align-items: center; cursor: pointer; }
+.settings-account .set-actions { flex-wrap: wrap; }
+@media (max-width: 820px) { .settings-account { padding: 18px; } }
+</style>

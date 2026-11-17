@@ -1,0 +1,58 @@
+/* Shared form rhythm: label 8, help 4, fields 16, group 16, dialog edge 24/16. */
+:is(.editor-modal, .auth-modal, .shared-field, .workout-field) :is(input:not([type=file]):not([type=checkbox]):not([type=radio]), textarea, select),
+select {
+  box-sizing: border-box; min-width: 0; max-width: 100%; width: 100%; min-height: 44px;
+  border: 1px solid var(--border-input); border-radius: var(--radius-control);
+  background: var(--surface-card); color: var(--text); padding: 10px 12px;
+  font: 14px/1.5 var(--font-sans); box-shadow: none;
+}
+select { cursor: pointer; }
+:is(.editor-modal, .auth-modal, .shared-field, .workout-field) :is(input, textarea, select):focus,
+select:focus { border-color: var(--accent); box-shadow: none; outline: 2px solid var(--accent); outline-offset: 2px; }
+:is(.editor-modal, .auth-modal, .shared-field, .workout-field) :is(input, textarea, select):disabled { opacity: .55; cursor: not-allowed; }
+.shared-options {
+  position: fixed; inset: auto; margin: 0; box-sizing: border-box; z-index: 2000;
+  padding: 4px; border: 1px solid var(--border-input); border-radius: var(--radius-control);
+  background: var(--surface-card); color: var(--text); box-shadow: var(--shadow-overlay);
+  overflow: auto; overscroll-behavior: contain; font: 14px/1.5 var(--font-sans);
+}
+.shared-options [role=option] { padding: 10px 12px; min-height: 44px; box-sizing: border-box; cursor: pointer; overflow-wrap: anywhere; border-radius: var(--radius-control); }
+.shared-options [role=option]:is(:hover, [aria-selected=true]) { background: var(--accent-muted); color: var(--text); }
+.shared-options p { margin: 0; padding: 12px; color: var(--text-secondary); }
+.editor-modal .modal-body { display: grid; align-content: start; gap: 16px; padding: 16px 24px; overflow-x: hidden; }
+.editor-modal .modal-head { padding: 24px 24px 0; }
+.editor-modal .modal-actions { padding: 16px 24px; gap: 8px; flex-shrink: 0; }
+.editor-modal :is(.field, .form-essential, .form-fold-body) { min-width: 0; margin: 0; }
+.editor-modal :is(.form-essential, .form-fold-body) { display: grid; gap: 16px; }
+.editor-modal .form-essential > :is(.field, .frow) { margin: 0; }
+.editor-modal .field { display: flex; flex-direction: column; gap: 8px; }
+.editor-modal .field > label { margin: 0; font: 700 13px/1.5 var(--font-sans); }
+.editor-modal .field > :is(.sub, .upload-note, [role=status]) { margin: -4px 0 0; font: 12px/1.5 var(--font-sans); }
+.editor-modal .field > :is([hidden], :empty):not(input):not(textarea):not(select) { display: none; }
+.editor-modal .modal-fold { margin: 0; border-radius: var(--radius-card); }
+.editor-modal .modal-fold > summary { padding: 12px 16px; min-height: 44px; box-sizing: border-box; }
+.editor-modal .modal-fold > .form-fold-body { padding: 0 16px 16px; }
+.editor-modal .modal-fold .field { padding: 0; margin: 0; }
+.editor-modal .quick-photo { gap: 8px; }
+.editor-modal details > input { margin: 8px 0 0; }
+.editor-modal details:not(.modal-fold) > summary { padding: 8px 0; }
+.editor-modal summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-control); }
+.editor-modal .frow { gap: 16px; }
+/* Native toggle buttons keep Enter/Space, data-v and .on selection contracts. */
+.editor-modal .seg .opt { min-height:44px; color:var(--text); background:var(--surface-card); font:14px/1.5 var(--font-sans); }
+.editor-modal .seg .opt[aria-pressed=true] { color:var(--accent); background:var(--accent-muted); }
+.editor-modal .seg .opt:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+/* shared-field can wrap an input; search inputs themselves have one common contract. */
+input[type=search] { box-sizing:border-box; height:44px; min-height:44px; font:14px/1.5 var(--font-sans); border-radius:var(--radius-control); }
+input[type=search]:focus { border-color:var(--accent); box-shadow:none; outline:2px solid var(--accent); outline-offset:2px; }
+input:is([type=checkbox], [type=radio]) { width:auto; padding:0; accent-color:var(--accent); }
+label:has(> input:is([type=checkbox], [type=radio])) { display:inline-flex; align-items:center; gap:8px; min-height:44px; }
+@media (max-width: 820px) {
+  :is(.editor-modal, .auth-modal, .shared-field, .workout-field) :is(input, textarea, select), select { font-size: 16px; }
+  input[type=search] { font-size:16px; }
+  .editor-modal .modal-head { padding: 16px 16px 0; }
+  .editor-modal .modal-body { padding: 16px; }
+  .editor-modal .modal-actions { padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+  .editor-modal .frow { flex-wrap: wrap; }
+  .editor-modal .frow > .field { flex-basis: 160px; }
+}

@@ -104,6 +104,12 @@ supabase functions deploy generate-workout-plan
 
 训练周复盘不再由前端 Edge Function 生成：写入方是 Hana 的定时任务（每周一 07:30），结果 upsert 到 `training_reports`，前端通过只读视图 `training_reports_feed` 读取。旧的 `generate-weekly-report` 已下线。
 
+## 本地天气审图
+
+`npm run dev:local` 后，首页右下角「调试天气」打开悬浮面板，可收起重开；手机避开底部导航。角色、天气、素材集按钮即时切换，更多设置支持温度、地点和复制复现链接。`?mock=weather` 仅开发服务有效，模拟不调用天气/定位服务、不写正式角色偏好。生产构建忽略 mock、weatherPreview、weatherSet 等调试参数，不展示入口或面板。
+
+天气正式素材保留现有六种场景，多云采用已确认 B 半身图；其余 B 图仅供候选审图，状态见 `src/assets/weather-pilot/candidates.json`。统一派生脚本为 `scripts/build-weather-art.py`、`scripts/build-weather-pilot.py`，原始资料库文件不修改。`.artifacts/` 的截图和临时验证日志不提交。
+
 ## 部署
 
 将仓库完整部署到 GitHub Pages，并让站点默认打开根目录的 `index.html`。仓库已内置 `.github/workflows/deploy.yml`：推送 `main` 后自动 `npm run build` 并把 `dist/` 发布到 Pages 根路径，因此直接访问 `https://jing-181.github.io/cat-newsroom/` 即可看到完整页面（无需 `/dist/` 后缀）。需在仓库 Settings → Pages 把构建来源设为「GitHub Actions」一次。`workbench-desktop.html` 和 `workbench-mobile.html` 为旧版退役入口，访问会自动跳转到 `index.html` 最新版。
