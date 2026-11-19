@@ -345,6 +345,9 @@ test("空闲页给出上次这一练与补记入口", () => {
   // 上次这一练并进了开始卡：日期与动作/组数在事实行，末组落在账本行上
   assert.match(html, /class="workout-start-card"/);
   assert.match(html, /今天 · 胸日/);
+  assert.match(html, /id="workout-plan-view"/);
+  assert.match(html, /aria-label="训练日"/);
+  assert.match(html, /data-repeat-last/);
   assert.match(html, /2026-10-13/);
   assert.match(html, /哑铃卧推<\/b> 20×10/);
   // 补记入口不单独提供：想补哪一天，开始训练后在结束区改日期

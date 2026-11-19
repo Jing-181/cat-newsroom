@@ -88,6 +88,13 @@ const ALTERNATIVES = {
   barbell_squat: 'leg_press', romanian_deadlift: 'hip_thrust',
   calf_raise: 'seated_calf_raise', seated_hip_adduction: 'seated_hip_abduction',
 };
+// Free training uses slot coverage and rep targets without creating a plan.
+function freeExerciseSlot(id) {
+  for (const [split, slots] of Object.entries(SLOTS)) for (const [slot, ids, , reps] of slots) {
+    if (ids.includes(id) || ids.some(source => source !== 'romanian_deadlift' && ALTERNATIVES[source] === id)) return { split, slot, reps };
+  }
+  return null;
+}
 const COMPOUNDS = new Set(['barbell_bench_press', 'machine_chest_press', 'dumbbell_shoulder_press', 'machine_shoulder_press', 'lat_pulldown_wide', 'lat_pulldown_close', 'seated_cable_row', 'machine_row', 'barbell_squat', 'leg_press', 'romanian_deadlift', 'hip_thrust', 'pull_up']);
 function restGuidance(exercise) {
   const target = catalog.exercises.find(e => e.id === exercise.exercise_id);
@@ -223,6 +230,6 @@ function isProgressValid(progress, stamp) { return Boolean(progress?.plan_genera
 function clearProgress(storage) {
   try { storageOrDefault(storage)?.removeItem(PROGRESS_KEY); return true; } catch (_) { return false; }
 }
-const WorkoutPlan = { SPLIT_LABELS, recommendSplit, dailyOptions, restGuidance, STORAGE_KEY, PROGRESS_KEY, normalize, isValid, load, save, formatMeta, generatePlan, refreshDay, suggestWeight, completionStatus, saveProgress, loadProgress, isProgressValid, clearProgress };
+const WorkoutPlan = { SPLIT_LABELS, recommendSplit, dailyOptions, freeExerciseSlot, restGuidance, STORAGE_KEY, PROGRESS_KEY, normalize, isValid, load, save, formatMeta, generatePlan, refreshDay, suggestWeight, completionStatus, saveProgress, loadProgress, isProgressValid, clearProgress };
 export default WorkoutPlan;
 export { STORAGE_KEY, PROGRESS_KEY, normalize, isValid, load, save, formatMeta, generatePlan, refreshDay, suggestWeight, completionStatus, saveProgress, loadProgress, isProgressValid, clearProgress };

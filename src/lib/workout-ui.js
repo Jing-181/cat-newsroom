@@ -7,6 +7,7 @@ import { bindFocusGestures } from "./workout-gestures.js";
 import WorkoutCatalog from "./workout-catalog.js";
 import WorkoutPlan from "./workout-plan.js";
 import WorkoutView from "./workout-view.js";
+import { confirmsWorkoutSet, freeReference, recommendationPlanDay } from './workout-free.js';
 import AppDialog from "./app-dialog.js";
 import { lockPageScroll, focusWithoutScroll } from "./mobile-viewport.js";
 import Toast from "./toast.js";
@@ -162,7 +163,7 @@ function mount(container, options) {
     if (!to) return;
     const targetExercise = session.exercises[to.exercise];
     const targetSet = targetExercise?.sets?.[to.set];
-    if (!targetSet || !("weight_kg" in targetSet)) return;
+    if (confirmsWorkoutSet(session, targetExercise) || confirmsWorkoutSet(session, from.exercise) || !targetSet || !("weight_kg" in targetSet)) return;
     if (to.exercise !== from.exerciseIndex && targetExercise.equipment !== from.exercise.equipment) return;
     if (!isUnfilled(targetSet.weight_kg)) return;
     if (!isUnfilled(from.set.weight_kg)) targetSet.weight_kg = from.set.weight_kg;
@@ -187,7 +188,7 @@ function mount(container, options) {
     const target = currentFocusTarget();
     const exercise = session?.exercises?.[target?.exercise];
     const set = exercise?.sets?.[target?.set];
-    if (!set || exercise._plan || Workout.setHasRecord(set) || !("weight_kg" in set)) return false;
+    if (confirmsWorkoutSet(session, exercise) || !set || exercise._plan || Workout.setHasRecord(set) || !("weight_kg" in set)) return false;
     if (!isUnfilled(set.weight_kg)) return false;
     for (let index = target.set - 1; index >= 0; index -= 1) {
       const previous = exercise.sets[index];
@@ -249,16 +250,18 @@ function mount(container, options) {
     if (totalExercises > 1 && nav?.dataset.count !== String(totalExercises)) { render(); return; }
 
     const set = exercise.sets[target.set] || {};
-    refreshMetricSummary(exercise, set);
-    const previousSet = exercise._plan ? null : Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[target.set];
+    refreshMetricSummary(exercise, { ...set, ...set._pending });
+    const confirm = confirmsWorkoutSet(session, exercise);
+    const previousSet = confirm ? freeReference(records, exercise, target.set) : exercise._plan ? null : Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[target.set];
     const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
 
     fields.dataset.focusEx = exercise.id;
     fields.dataset.focusSet = String(target.set);
     fields.querySelectorAll("[data-focus-field]").forEach(input => {
       const field = input.dataset.focusField;
-      const typed = isUnfilled(set[field]) ? '' : set[field];
-      const suggest = typed === '' && previousSet && !isUnfilled(previousSet[field]) ? previousSet[field] : '';
+      const source = set._pending?.[field] ?? set[field];
+      const typed = isUnfilled(source) ? '' : source;
+      const suggest = typed === '' && !Object.hasOwn(set._pending || {}, field) && previousSet && !isUnfilled(previousSet[field]) ? previousSet[field] : '';
       const shown = typed === "" ? suggest : typed;
       input.value = inputMetricValue(field, shown, exercise);
       input.classList.toggle("is-empty", shown === "");
@@ -293,10 +296,10 @@ function mount(container, options) {
     if (last) {
       last.className = `focus-last${!previousSet ? " is-first" : (suggestionOn ? " is-filled" : "")}`;
       const lastText = last.querySelector(".focus-last-text");
-      if (lastText) lastText.textContent = !previousSet ? "这个动作首次记录" : (suggestionOn ? `上次这${recordUnit(exercise)}的数字已填入，直接完成或改数字` : `上次这${recordUnit(exercise)}`);
+      if (lastText) lastText.textContent = confirm ? (suggestionOn ? '参考值' : '') : !previousSet ? "这个动作首次记录" : (suggestionOn ? `上次这${recordUnit(exercise)}的数字已填入，直接完成或改数字` : `上次这${recordUnit(exercise)}`);
       const lastButton = last.querySelector("[data-focus-last]");
       if (lastButton) {
-        lastButton.hidden = !previousSet || suggestionOn;
+        lastButton.hidden = confirm || !previousSet || suggestionOn;
         lastButton.textContent = previousSet ? Workout.formatSetCompact(previousSet, exercise) : "";
       }
     }
@@ -621,6 +624,7 @@ function mount(container, options) {
   function openOverviewDialog() {
     if (!session) return;
     const dialog = openDialog(WorkoutView.overviewDialogHtml(session, selectedDay), { ink: true });
+    const renderOnClose = () => { if (session) render(); };
     const bind = () => {
       dialog.querySelectorAll("[data-dialog-close]").forEach(button => button.addEventListener("click", () => dialog.close()));
       dialog.querySelectorAll("[data-focus-jump]").forEach(button => button.addEventListener("click", () => {
@@ -646,7 +650,8 @@ function mount(container, options) {
         paint();
       }));
       dialog.querySelector("[data-focus-finish-dialog]")?.addEventListener("click", () => {
-        dialog.close();
+        // Keep the shared shell: a queued close event would otherwise rerender away the finish form.
+        dialog.removeEventListener('close', renderOnClose);
         openFinishDialog();
       });
     };
@@ -658,7 +663,7 @@ function mount(container, options) {
       bind();
     };
     bind();
-    dialog.addEventListener("close", () => { if (session) render(); }, { once: true });
+    dialog.addEventListener("close", renderOnClose, { once: true });
   }
 
   // 结束弹窗：训练中不打扰，要收尾了才一次性问时长、日期、状态词、备注
@@ -701,7 +706,9 @@ function mount(container, options) {
   }
 
   function openExerciseLibrary() {
-    const html = () => WorkoutView.exerciseLibraryHtml(selectedDay, session.exercises, Workout.customExercises(records), records);
+    const training = focusMode && !session._editing_record_id;
+    const planDay = training ? recommendationPlanDay(session, loadPlan(), WorkoutPlan.loadProgress()) : null;
+    const html = () => WorkoutView.exerciseLibraryHtml(selectedDay, session.exercises, Workout.customExercises(records), records, training, planDay);
     const dialog = openDialog(html(), { ink: true, list: true });
     // 本地搜索：只开关列表项的 hidden，不重建 DOM，也不发请求。
     let keyword = "";
@@ -734,8 +741,9 @@ function mount(container, options) {
         const name = (dialog.querySelector("#workout-exercise-search")?.value || "").trim();
         if (!name) return;
         const before = session.exercises.length;
-        Workout.addCustomExercise(session, name, records, currentTemplate());
+        Workout.addCustomExercise(session, name, records, training ? null : currentTemplate());
         if (session.exercises.length === before) return;
+        if (training) session.exercises.at(-1)._confirm_sets = true;
         updateSession({ rerender: false });
         keyword = "";
         refresh();
@@ -743,7 +751,10 @@ function mount(container, options) {
         focusLastExercise();
       });
       dialog.querySelectorAll("[data-add-exercise]").forEach(button => button.addEventListener("click", () => {
-        Workout.addExercise(session, button.dataset.addExercise, records, currentTemplate());
+        const before = session.exercises.length;
+        Workout.addExercise(session, button.dataset.addExercise, records, training ? null : currentTemplate());
+        if (session.exercises.length === before) return;
+        if (training) session.exercises.at(-1)._confirm_sets = true;
         Trace.track("workout_exercise_add", { source: "library", index: session.exercises.length - 1 });
         focusLastExercise();
         updateSession({ rerender: false });
@@ -846,8 +857,13 @@ function mount(container, options) {
       const input = container.querySelector(`[data-focus-field="${field}"]`);
       input?.setCustomValidity(parsed.valid ? '' : '请输入有限数；除坡度和助力重量外不得为负，计数须为整数');
       if (!parsed.valid) { input?.reportValidity(); return; }
-      scope.set[field] = parsed.value;
-      refreshMetricSummary(scope.exercise, scope.set);
+      if (confirmsWorkoutSet(session, scope.exercise) && !Workout.setHasRecord(scope.set)) {
+        (scope.set._pending ||= {})[field] = parsed.value;
+        refreshMetricSummary(scope.exercise, { ...scope.set, ...scope.set._pending });
+      } else {
+        scope.set[field] = parsed.value;
+        refreshMetricSummary(scope.exercise, scope.set);
+      }
       updateSession({ rerender: false });
     };
     container.querySelectorAll("[data-focus-step]").forEach(button => button.addEventListener("click", () => {
@@ -855,6 +871,14 @@ function mount(container, options) {
       if (!scope) return;
       const { set, exercise } = scope;
       const field = button.dataset.focusStep;
+      const input = container.querySelector(`[data-focus-field="${field}"]`);
+      if (confirmsWorkoutSet(session, exercise) && input) {
+        const minimum = Number(input.min || -Infinity);
+        input.value = Math.max(minimum, Math.round((Number(input.value || 0) + Number(button.dataset.delta)) * 10) / 10);
+        input.classList.remove('is-suggest', 'is-empty');
+        writeFocusField(field, input.value);
+        return;
+      }
       // 和总览里的步进器同一套下限：自重可负（助力），次数至少 1
       const assistable = Workout.allowsAssist(exercise);
       // 这一格还没填：先从上次的数字起步，不用从 0 一下一下加到上次的量。
@@ -866,7 +890,6 @@ function mount(container, options) {
       set[field] = parsed.value;
       refreshMetricSummary(exercise, set);
       updateSession({ rerender: false });
-      const input = container.querySelector(`[data-focus-field="${field}"]`);
       if (input) {
         input.value = inputMetricValue(field, set[field], exercise);
         input.setCustomValidity('');
@@ -883,6 +906,7 @@ function mount(container, options) {
       const scope = focusScope();
       if (!scope) return;
       const { set, exercise, setIndex } = scope;
+      if (confirmsWorkoutSet(session, exercise)) return;
       const previousSet = Workout.previousPerformance(records, exercise.exercise_id)?.sets?.[setIndex];
       if (!previousSet) return;
       fillPrevious(set, previousSet);
@@ -902,8 +926,18 @@ function mount(container, options) {
       const scope = focusScope();
       if (!scope) return;
       const { set, exercise, exerciseIndex, setIndex } = scope;
-      if (!Workout.setHasRecord(set)) {
-        // 屏幕上是淡色的建议值，点完成就等于确认：先落成这次的数字再判一次。
+      if (confirmsWorkoutSet(session, exercise)) {
+        const confirmed = { ...set };
+        for (const input of container.querySelectorAll('[data-focus-field]')) {
+          const field = input.dataset.focusField;
+          const parsed = parseSetInput(field, input.value, exercise);
+          if (!parsed.valid) return;
+          confirmed[field] = parsed.value;
+        }
+        if (!Workout.setHasRecord(confirmed)) { flashFocus(`这一${recordUnit(exercise)}还没填有效记录数字`); return; }
+        Object.assign(set, confirmed);
+        delete set._pending;
+      } else if (!Workout.setHasRecord(set)) {
         applySuggestion(scope);
       }
       if (!Workout.setHasRecord(set)) {
@@ -954,7 +988,7 @@ function mount(container, options) {
       const scope = focusScope();
       if (!scope) return;
       const hadRecord = Workout.setHasRecord(scope.set);
-      const added = Workout.addSet(session, scope.exerciseIndex);
+      const added = Workout.addSet(session, scope.exerciseIndex, { inherit: !confirmsWorkoutSet(session, scope.exercise) });
       // addSet 会继承上一组的数值，但那组还没练：把「有没有记录」的判定字段清掉，
       // 否则新加的一组一出生就算已录，主按钮会直接跳成「结束训练」。
       if (added) clearRecordFields(added);
@@ -1128,7 +1162,7 @@ function mount(container, options) {
     const hasRecord = stats.setCount > 0;
     if (!hasRecord) return AppDialog.alert('还没有记录任何一组，草稿已保留。', { title: '训练尚未开始' });
     const completion = WorkoutPlan.completionStatus(session);
-    if (completion === 'partial' && !(await AppDialog.confirm('尚有计划组未记录，保存本次已练部分？计划将标为部分完成。', { title: '部分训练', okText: '保存已练部分' }))) return;
+    if (completion === 'partial' && (session._plan_targets || !session.exercises.some(exercise => confirmsWorkoutSet(session, exercise))) && !(await AppDialog.confirm('尚有计划组未记录，保存本次已练部分？计划将标为部分完成。', { title: '部分训练', okText: '保存已练部分' }))) return;
     // 同一天已有记录时先问一句：补记与重复保存都走这里，不硬拦，由用户决定。
     const sameDay = Workout.sessionsOnDate(records, session.date)
       .filter(record => String(record.id) !== String(session._editing_record_id || ""));
@@ -1212,7 +1246,7 @@ function mount(container, options) {
     });
   }
 
-  function startFromPlanDay(day, plan, { independent = false } = {}) {
+  function startFromPlanDay(day, plan) {
     if (!WorkoutPlan.isValid(plan)) return AppDialog.alert('计划内容无效，请重新生成。');
     day = WorkoutPlan.refreshDay(day, records);
     session = Workout.createSession(day.training_day, new Date());
@@ -1234,50 +1268,12 @@ function mount(container, options) {
       entry.sets.forEach(set => { set.weight_kg = ''; set.reps = ''; });
     }
     session._plan_targets = day.exercises.map(item => ({ exercise_id: item.exercise_id, sets: item.sets }));
-    if (!independent) {
-      session._plan_day_index = day.day_index;
-      session._plan_generated_at = plan.generated_at;
-    }
+    session._plan_day_index = day.day_index;
+    session._plan_generated_at = plan.generated_at;
     container.querySelector("#workout-dialog")?.close();
     persistDraft();
     render();
     window.scrollTo({ top: 0, behavior: shouldAnimate() ? "smooth" : "auto" });
-  }
-
-  function openDailyChoice(split = WorkoutPlan.recommendSplit(records).split) {
-    const recommendation = WorkoutPlan.recommendSplit(records);
-    const choices = WorkoutPlan.dailyOptions(split, records);
-    const cycle = loadPlan();
-    const dialog = openDialog(WorkoutView.dailyChoiceHtml(recommendation, split, choices, cycle));
-    dialog.querySelector('[data-daily-split]')?.addEventListener('change', event => {
-      openDailyChoice(event.target.value);
-      container.querySelector('[data-daily-split]')?.focus();
-    });
-    const tabs = [...dialog.querySelectorAll('[data-daily-tab]')];
-    const selectTab = tab => {
-      tabs.forEach(item => {
-        const selected = item === tab;
-        item.setAttribute('aria-selected', String(selected));
-        item.tabIndex = selected ? 0 : -1;
-        dialog.querySelector('#' + item.getAttribute('aria-controls')).hidden = !selected;
-      });
-    };
-    tabs.forEach((tab, index) => {
-      tab.addEventListener('click', () => selectTab(tab));
-      tab.addEventListener('keydown', event => {
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : -1;
-        if (next < 0) return;
-        event.preventDefault(); selectTab(tabs[next]); tabs[next].focus();
-      });
-    });
-    dialog.querySelector('[data-daily-cycle]')?.addEventListener('click', () => {
-      const raw = WorkoutPlan.loadProgress();
-      openDialog(WorkoutView.planViewHtml(cycle, WorkoutPlan.isProgressValid(raw, cycle.generated_at) ? raw : null));
-    });
-    dialog.querySelectorAll('[data-daily-confirm]').forEach(button => button.addEventListener('click', () => {
-      const day = choices.find(item => item.variant === button.dataset.dailyConfirm);
-      if (day) startFromPlanDay(day, { days: [day] }, { independent: true });
-    }));
   }
 
   function wire() {
@@ -1328,7 +1324,18 @@ function mount(container, options) {
       } else render();
     }));
     // 空白训练只从一个地方开：开始卡的按钮、底部队列里的「开始」都走这里，避免两套入口分叉
-    const beginBlankSession = () => openDailyChoice();
+    const beginBlankSession = () => {
+      if (!session) {
+        if (pendingDraft) return;
+        session = Workout.createSession(selectedDay);
+        resetEditorState();
+        Trace.track('workout_session_begin', { source: 'blank', day: selectedDay });
+      }
+      focusMode = true;
+      persistDraft();
+      render();
+      window.scrollTo(0, 0);
+    };
     container.querySelector("#workout-start")?.addEventListener("click", event => beginBlankSession(event.currentTarget));
     // 首屏右下角那颗圆按钮：不用回顶部挑训练日，直接开练
     container.querySelector("[data-quick-start]")?.addEventListener("click", event => beginBlankSession(event.currentTarget));
@@ -1356,7 +1363,7 @@ function mount(container, options) {
     if (destroyed) return;
     gestureCleanup?.();
     gestureCleanup = null;
-    if (session) selectedDay = session.training_day;
+    if (session && !session._free_training) selectedDay = session.training_day;
     // 指针落到的那一组若还空着，先按同动作上一组的重量预填（只改内存，立刻落草稿）。
     if (session && focusMode) {
       const target = currentFocusTarget();
@@ -1502,10 +1509,13 @@ function mount(container, options) {
     }).then(keep => {
       if (keep) {
         session = pendingDraft;
-        selectedDay = session.training_day || selectedDay;
+        pendingDraft = null;
+        focusMode = !session._editing_record_id;
+        if (!session._free_training) selectedDay = session.training_day || selectedDay;
         Trace.track("workout_session_begin", { source: "draft_resume", day: selectedDay, draft_resume: true });
         render();
       } else {
+        pendingDraft = null;
         localStorage.removeItem(DRAFT_KEY);
         Trace.track("workout_draft_discarded", {});
         render();

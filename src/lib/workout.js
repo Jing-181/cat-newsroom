@@ -22,7 +22,7 @@ const REST_ADVICE = {
 };
 const LARGE_MUSCLE_KEYWORDS = ["胸", "背", "腿", "臀", "后链", "股四头", "腘绳肌", "肩", "全身"];
 // 只在草稿/编辑期存在、不写入历史的界面态字段。
-const TRANSIENT_KEYS = ["_editing_record_id", "_open_set", "started_at", "_plan_targets", "_plan_day_index", "_plan_generated_at"];
+const TRANSIENT_KEYS = ["_editing_record_id", "_open_set", "started_at", "_plan_targets", "_plan_day_index", "_plan_generated_at", "_free_training"];
 
 const id = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const dateKey = date => {
@@ -586,7 +586,7 @@ function cloneRecord(record) {
 function pruneSession(session) {
   const cleaned = cloneRecord(session);
   cleaned.exercises = (cleaned.exercises || [])
-    .map(exercise => ({ ...exercise, sets: (exercise.sets || []).filter(setHasRecord) }))
+    .map(exercise => ({ ...exercise, sets: (exercise.sets || []).filter(setHasRecord).map(({ _pending, ...set }) => set) }))
     .filter(exercise => exercise.sets.length > 0);
   return cleaned;
 }
@@ -596,7 +596,7 @@ function upsertSession(records, session, now = new Date()) {
   // 时长直接采用用户填写值，不做自动计时推算。
   saved.duration_min = Math.max(0, Math.round(Number(session?.duration_min || 0)));
   TRANSIENT_KEYS.forEach(key => delete saved[key]);
-  saved.exercises.forEach(exercise => delete exercise._plan);
+  saved.exercises.forEach(exercise => { delete exercise._plan; delete exercise._confirm_sets; });
   const editingId = session._editing_record_id;
   const index = records.findIndex(record => String(record.id) === String(editingId || saved.id));
   if (index >= 0) records[index] = saved;

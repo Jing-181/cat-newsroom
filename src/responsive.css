@@ -26,9 +26,10 @@
   .m-topbar .sync-indicator::before { width: 6px; height: 6px; }
 
   /* 侧栏 → 抽屉 */
-  .sidebar { width: min(300px, 84vw); transform: translateX(-100%); transition: transform var(--dur-base) var(--ease-out); z-index: 45; box-shadow: var(--shadow-overlay); }
+  .sidebar { width: min(300px, 84vw); height: 100dvh; padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; overflow-y: auto; transform: translateX(-100%); transition: transform var(--dur-base) var(--ease-out); z-index: 55; box-shadow: var(--shadow-overlay); }
   .sidebar.m-open { transform: translateX(0); }
-  .sidebar .nav { flex: 1; }
+  .sidebar .nav { flex: 1; min-height: 0; }
+  .sidebar > :not(.nav) { flex-shrink: 0; }
 
   /* 底部导航 */
   .m-tabs { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
@@ -44,7 +45,7 @@
   .m-topbar .m-menu-btn:active { background: var(--drawer-hover); }
 
   /* 抽屉遮罩 */
-  .m-scrim { display: block; position: fixed; inset: 0; z-index: 39; background: rgba(58,46,32,.45);
+  .m-scrim { display: block; position: fixed; inset: 0; z-index: 54; background: rgba(58,46,32,.45);
     opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
   .m-scrim.open { opacity: 1; pointer-events: auto; }
 

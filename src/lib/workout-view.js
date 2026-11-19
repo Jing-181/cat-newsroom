@@ -3,6 +3,7 @@
 // ESM 模块：import WorkoutView from "./workout-view.js"。
 
 import Workout from "./workout.js";
+import { confirmsWorkoutSet, freeReference, recommendedExercises } from './workout-free.js';
 import { metricFields, derivedPace, inputMetricValue, recordUnit, treadmillGuidance } from "./workout-metrics.js";
 import WorkoutCatalog from "./workout-catalog.js";
 import { pawTrail } from "./critters.js";
@@ -188,7 +189,7 @@ function focusHtml(session, selectedDay, target, history = []) {
   // 还没动作：也停在逐组屏里加，不再退回整页。训练的第一个决定就是「练什么」。
   if (!target) {
     return `<section class="workout-app workout-focus" data-focus-root>
-      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><div class="focus-top-actions"><button type="button" class="focus-overview" data-open-atlas>图鉴</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
+      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(session._free_training ? '自由训练' : dayName(selectedDay))}</span><div class="focus-top-actions"><button type="button" class="focus-overview" data-open-atlas>图鉴</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
       <div class="focus-empty"><p class="focus-empty-kicker">今天还没有动作</p><h2>先挑一个练的</h2><p class="focus-empty-sub">加完就从第一组开始记，其他都不用管。</p></div>
       <div class="focus-actions"><button type="button" class="focus-primary" data-focus-add-exercise>+ 加动作</button></div>
       <p class="focus-extras"><button type="button" data-focus-cancel>放弃这次训练</button></p>
@@ -205,19 +206,22 @@ function focusHtml(session, selectedDay, target, history = []) {
   const pending = session.exercises.reduce((sum, item) => sum + item.sets.filter(next => !Workout.setHasRecord(next)).length, 0);
   const remainingExercises = session.exercises.length - 1 - target.exercise;
   const previous = Workout.previousPerformance(history, exercise.exercise_id);
-  const previousSet = exercise._plan ? null : previous?.sets?.[target.set];
+  const confirm = confirmsWorkoutSet(session, exercise);
+  const previousSet = confirm ? freeReference(history, exercise, target.set) : exercise._plan ? null : previous?.sets?.[target.set];
+  const inputSet = { ...set, ...set._pending };
+  const suggestion = field => Object.hasOwn(set._pending || {}, field) ? undefined : previousSet?.[field];
   const previousText = previousSet ? Workout.formatSetCompact(previousSet, exercise) : "";
   // 空白组已经把上次的数字填进去了（淡色）：这一行不再重复数字，只交代它从哪来。
   const suggestionOn = Boolean(previousSet) && !Workout.setHasRecord(set);
 
   const fields = cardio
-    ? metricFields(exercise, set).map(spec => focusField({ ...spec, value: inputMetricValue(spec.field, set[spec.field], exercise), suggest: inputMetricValue(spec.field, previousSet?.[spec.field], exercise) })).join("")
+    ? metricFields(exercise, set).map(spec => focusField({ ...spec, value: inputMetricValue(spec.field, inputSet[spec.field], exercise), suggest: inputMetricValue(spec.field, suggestion(spec.field), exercise) })).join("")
     : focusField({
-      label: "重量", field: "weight_kg", unit: "kg", value: set.weight_kg ?? '', step: 2.5,
+      label: "重量", field: "weight_kg", unit: "kg", value: inputSet.weight_kg ?? '', step: 2.5,
       min: assistable ? -200 : 0, assistable,
       title: assistable ? "0 = 纯自重，负数 = 助力" : "",
-      suggest: previousSet?.weight_kg,
-    }) + focusField({ label: "次数", field: "reps", unit: "次", value: set.reps ?? '', step: 1, min: 1, suggest: previousSet?.reps });
+      suggest: suggestion('weight_kg'),
+    }) + focusField({ label: "次数", field: "reps", unit: "次", value: inputSet.reps ?? '', step: 1, min: 1, suggest: suggestion('reps') });
 
   const dots = exercise.sets.map((item, index) => {
     const done = Workout.setHasRecord(item);
@@ -253,17 +257,17 @@ function focusHtml(session, selectedDay, target, history = []) {
   const lastText = !previousText ? "这个动作首次记录" : (suggestionOn ? `上次这${recordUnit(exercise)}的数字已填入，直接完成或改数字` : `上次这${recordUnit(exercise)}`);
 
   return `<section class="workout-app workout-focus" data-focus-root>
-      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(dayName(selectedDay))}</span><span class="focus-clock"><i>整场</i><b class="focus-timer" data-focus-timer>00:00</b></span><div class="focus-top-actions"><button type="button" class="focus-overview" data-open-atlas>图鉴</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
+      <div class="focus-top"><span class="focus-kicker">训练中 · ${escapeHtml(session._free_training ? '自由训练' : dayName(selectedDay))}</span><span class="focus-clock"><i>整场</i><b class="focus-timer" data-focus-timer>00:00</b></span><div class="focus-top-actions"><button type="button" class="focus-overview" data-open-atlas>图鉴</button><button type="button" class="focus-overview" data-focus-overview-open>总览</button></div></div>
       <div class="focus-heading">
       <div class="focus-head"><h2><button type="button" class="focus-name" data-focus-info>${escapeHtml(exercise.name)}</button></h2><p>${escapeHtml(exercise.body_part)} · ${escapeHtml(exercise.equipment)}</p></div>
       ${nav}
       ${setBar}
       </div>
       <div class="focus-fields" data-focus-scope data-focus-ex="${escapeHtml(exercise.id)}" data-focus-set="${target.set}">${fields}</div>
-      ${previousText ? (suggestionOn
+      ${confirm ? `<p class="focus-last"><span class="focus-last-text">${suggestionOn ? '参考值' : ''}</span><button type="button" data-focus-last hidden></button></p>` : previousText ? (suggestionOn
         ? `<p class="focus-last is-filled"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`
         : `<p class="focus-last"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last>${escapeHtml(previousText)}</button></p>`) : `<p class="focus-last is-first"><span class="focus-last-text">${lastText}</span><button type="button" data-focus-last hidden></button></p>`}
-      ${metricSummaryHtml(exercise, set)}
+      ${metricSummaryHtml(exercise, inputSet)}
       <div class="focus-coach"><svg class="move-figure" data-move-figure></svg></div>
       <p class="focus-hint">${hint}</p>
       <div class="focus-actions">${primary}</div>
@@ -618,18 +622,21 @@ function frequencyMap(records) {
   return counts;
 }
 
-function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [], records = []) {
+function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [], records = [], recommend = false, planDay = null) {
   const selectedIds = new Set((selectedExercises || []).map(item => item.exercise_id));
   const counts = frequencyMap(records);
+  const recommended = recommend ? recommendedExercises(records, selectedExercises || [], WorkoutCatalog.exercises, selectedDay, planDay) : new Set();
+  const planOrder = new Map(planDay ? [...recommended].map((id, index) => [id, index]) : []);
   // 搜索已经能跨日找动作，列表就不再限制在当天训练日：当天动作排前面，其余跟在后面。
   const isToday = item => item.availableOnAllDays || item.trainingDays.includes(selectedDay);
   const library = WorkoutCatalog.exercises
     .map((item, index) => ({ item, index, count: counts.get(item.id) || 0, today: isToday(item) ? 1 : 0 }))
-    .sort((left, right) => right.today - left.today || right.count - left.count || left.index - right.index)
+    .sort((left, right) => (planOrder.get(left.item.id) ?? Infinity) - (planOrder.get(right.item.id) ?? Infinity)
+      || Number(recommended.has(right.item.id)) - Number(recommended.has(left.item.id)) || right.today - left.today || right.count - left.count || left.index - right.index)
     .map(entry => entry.item);
   // 自定义动作：动作库基本能盖住，不再常驻一个输入区。
   // 只在搜不到的时候给一个「用这个关键词新建」，日常看不见。
-  return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3><p class="dialog-sub">当天动作在前，其余按练过的次数排</p></div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
+  return `<div class="dialog-head"><div><span class="dialog-kicker">${escapeHtml(dayName(selectedDay))}</span><h3>添加训练动作</h3>${recommend ? '' : '<p class="dialog-sub">当天动作在前，其余按练过的次数排</p>'}</div><button type="button" class="icon-action" data-dialog-close aria-label="关闭">×</button></div>
       <div class="exercise-search"><input id="workout-exercise-search" type="search" placeholder="搜动作名、部位或器械" aria-label="搜索动作" autocomplete="off"></div>
       <div class="lib-scroll"><div class="exercise-library dialog-library">${library.map(item => {
         const added = selectedIds.has(item.id);
@@ -637,7 +644,7 @@ function exerciseLibraryHtml(selectedDay, selectedExercises, customExercises = [
         const haystack = `${item.name} ${item.bodyPart} ${item.equipment}`.toLowerCase();
         // 不属于当天训练日的动作标出它属于哪天，跨日直接选的时候心里有数。
         const otherDays = isToday(item) ? "" : item.trainingDays.map(dayId => WorkoutCatalog.trainingDays.find(day => day.id === dayId)?.name || "").filter(Boolean).join("/");
-        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}" data-search="${escapeHtml(haystack)}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}${count ? ` · 练过 ${count} 次` : ""}${otherDays ? ` · ${escapeHtml(otherDays)}` : ""}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
+        return `<button type="button" class="exercise-option ${added ? "is-added" : ""}" data-add-exercise="${item.id}"${recommended.has(item.id) ? ' data-recommended' : ''} data-search="${escapeHtml(haystack)}" ${added ? "disabled" : ""}><span class="info"><span class="name">${escapeHtml(item.name)}${recommended.has(item.id) ? '<small class="exercise-recommendation">推荐</small>' : ''}</span><span class="meta">${escapeHtml(item.bodyPart)} · ${escapeHtml(item.equipment)}${count ? ` · 练过 ${count} 次` : ""}${otherDays ? ` · ${escapeHtml(otherDays)}` : ""}</span></span><span class="exercise-state">${added ? "已添加" : "+ 添加"}</span></button>`;
       }).join("")}</div>
       <p class="exercise-empty" hidden>动作库没有这个。<button type="button" id="workout-exercise-create" class="workout-btn compact">新建动作</button></p></div>`;
 }
@@ -667,15 +674,6 @@ function planViewHtml(plan, progress = null) {
       <div class="plan-day-grid">${(plan.days || []).map(day => planDayCard(day, progress)).join("")}</div>`;
 }
 
-function dailyChoiceHtml(recommendation, split, options, cycle) {
-  const labels = { push: '推', pull: '拉', legs: '腿' };
-  return `<div class="daily-choice"><div class="dialog-head"><h3>今天怎么练</h3><button type="button" class="icon-action" data-dialog-close aria-label="取消选择">×</button></div>
-    <label class="daily-split">部位<select data-daily-split>${Object.entries(labels).map(([key, text]) => `<option value="${key}"${key === split ? ' selected' : ''}>${text}</option>`).join('')}</select></label>
-    <div class="daily-tabs" role="tablist" aria-label="训练方案">${options.map((day, i) => `<button type="button" role="tab" id="daily-tab-${day.variant}" aria-controls="daily-panel-${day.variant}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-daily-tab="${day.variant}">${day.variant} · ${day.variant === 'A' ? '基础' : '器械'}</button>`).join('')}</div>
-    ${options.map((day, i) => `<section class="daily-preview" role="tabpanel" id="daily-panel-${day.variant}" aria-labelledby="daily-tab-${day.variant}"${i ? ' hidden' : ''}><p class="daily-summary">${day.exercises.reduce((sum, ex) => sum + ex.sets, 0)}组 · 约${day.estimated_minutes}分</p><ul>${day.exercises.map(ex => `<li><span>${escapeHtml(ex.name)}</span><b>${ex.sets}×${escapeHtml(String(ex.reps).replaceAll('-', '–'))}</b></li>`).join('')}</ul><button type="button" class="workout-btn primary daily-start" data-daily-confirm="${day.variant}">开始 ${day.variant}</button></section>`).join('')}
-    ${cycle ? '<button type="button" class="workout-btn daily-cycle" data-daily-cycle>原六次计划 →</button>' : ''}</div>`;
-}
-
 function planHintText(exercise) {
   const plan = exercise?._plan;
   if (!plan) return '';
@@ -684,7 +682,7 @@ function planHintText(exercise) {
 }
 
 const WorkoutView = {
-  dailyChoiceHtml, planHintText, editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, exerciseProgressHtml, legacyEditHtml, planDayCard, planViewHtml, buildCopyText, statsHtml,
+  planHintText, editorHtml, idleHtml, detailHtml, exerciseLibraryHtml, exerciseProgressHtml, legacyEditHtml, planDayCard, planViewHtml, buildCopyText, statsHtml,
   overviewDialogHtml, finishDialogHtml, backfillDialogHtml
 };
 export default WorkoutView;

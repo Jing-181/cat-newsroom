@@ -60,20 +60,6 @@ test('休息分级依据动作及目标次数，不推断实际强度', () => {
   assert.equal(plan.restGuidance({ exercise_id: 'push_up', reps: '10-15' }).seconds, 120);
   assert.match(plan.restGuidance(target).text, /实际强度未知/);
 });
-test('选择弹窗保留取消、切换与六次计划入口；独立计划不写循环身份（静态契约）', () => {
-  const options = plan.dailyOptions('push', [], now);
-  const html = view.dailyChoiceHtml(plan.recommendSplit([], now), 'push', options, plan.generatePlan({ now }));
-  assert.match(html, /data-dialog-close/); assert.match(html, /data-daily-split/);
-  assert.match(html, /data-daily-cycle/); assert.match(html, /开始 A/);
-  assert.match(html, /A · 基础/); assert.match(html, /B · 器械/);
-  assert.doesNotMatch(html, /参考休息|不推进循环进度|疲劳、疼痛/);
-  const ui = readFileSync(new URL('../src/lib/workout-ui.js', import.meta.url), 'utf8');
-  const chooser = ui.slice(ui.indexOf('function openDailyChoice('), ui.indexOf('function wire()'));
-  assert.doesNotMatch(chooser, /createSession|persistDraft|saveProgress/);
-  assert.match(chooser, /independent: true/);
-  assert.match(ui, /if \(!independent\) \{\s+session\._plan_day_index/);
-});
-
 test('六次 PPL 槽位覆盖与组数预算，主项稳定且保留腿部偏好', () => {
   const result = plan.generatePlan({ now });
   assert.equal(plan.isValid(result), true);
